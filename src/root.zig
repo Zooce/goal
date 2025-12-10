@@ -1,23 +1,59 @@
-//! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
+const print = std.debug.print;
 
-pub fn bufferedPrint() !void {
-    // Stdout is for the actual output of your application, for example if you
-    // are implementing gzip, then only the compressed bytes should be sent to
-    // stdout, not any debugging messages.
-    var stdout_buffer: [1024]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buffer);
-    const stdout = &stdout_writer.interface;
+pub const Command = enum {
+    help,
+    init,
+    new,
+    list,
+    start,
+    show,
+    complete,
+    edit,
+    delete,
+};
 
-    try stdout.print("Run `zig build test` to run the tests.\n", .{});
-
-    try stdout.flush(); // Don't forget to flush!
+pub fn stringToCommand(arg: []const u8) ?Command {
+    if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
+        return .help;
+    }
+    return std.meta.stringToEnum(Command, arg);
 }
 
-pub fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
-
-test "basic add functionality" {
-    try std.testing.expect(add(3, 7) == 10);
+pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
+    // the next argument must be either a command or nothing
+    if (argIter.next()) |arg| {
+        const command = stringToCommand(arg) orelse return error.ExpectedCommand;
+        switch (command) {
+            .init => return print("show init help\n", .{}),
+            .new => return print("show new help\n", .{}),
+            .list => return print("show list help\n", .{}),
+            .start => return print("show start help\n", .{}),
+            .show => return print("show show help\n", .{}),
+            .complete => return print("show complete help\n", .{}),
+            .edit => return print("show edit help\n", .{}),
+            .delete => return print("show delete help\n", .{}),
+            else => {}, // help help lol
+        }
+    }
+    std.debug.print(
+        \\`goal` is a simple CLI to help you keep track of your goals, while focusing on one at a time.
+        \\
+        \\Commands:
+        \\
+        \\    help [command]              Show this help message or the message for a command.
+        \\    init                        Initialze `goal` in a project.
+        \\    new [title]                 Create a new goal.
+        \\    list                        List all goals.
+        \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
+        \\    show                        Show the currently active goal.
+        \\    complete                    Complete the currently active goal.
+        \\    edit [id]                   Edit a goal.
+        \\    delete [id]                 Delete a goal.
+        \\
+        \\Arguments:
+        \\
+        \\    -h, --help                  Show this help message.
+        \\
+    , .{});
 }

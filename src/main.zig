@@ -2,26 +2,35 @@ const std = @import("std");
 const goal = @import("goal");
 
 pub fn main() !void {
-    // Prints to stderr, ignoring potential errors.
-    std.debug.print("All your {s} are belong to us.\n", .{"codebase"});
-    try goal.bufferedPrint();
-}
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
 
-test "simple test" {
-    const gpa = std.testing.allocator;
-    var list: std.ArrayList(i32) = .empty;
-    defer list.deinit(gpa); // Try commenting this out and see if zig detects the memory leak!
-    try list.append(gpa, 42);
-    try std.testing.expectEqual(@as(i32, 42), list.pop());
-}
+    const allocator = arena.allocator();
 
-test "fuzz example" {
-    const Context = struct {
-        fn testOne(context: @This(), input: []const u8) anyerror!void {
-            _ = context;
-            // Try passing `--fuzz` to `zig build test` and see if it manages to fail this test case!
-            try std.testing.expect(!std.mem.eql(u8, "canyoufindme", input));
+    var argIter = try std.process.ArgIterator.initWithAllocator(allocator);
+    defer argIter.deinit();
+
+    _ = argIter.next();
+
+    var count: u8 = 0;
+    while (argIter.next()) |arg| : (count += 1) {
+        const command = goal.stringToCommand(arg) orelse {
+            std.debug.print("{s} is not a valid command! Run `goal help` for the list of commands.\n", .{arg});
+            std.process.exit(1);
+        };
+        switch (command) {
+            .help => {
+                goal.helpCmd(&argIter) catch |err| {
+                    std.debug.print("{any}\n", .{err});
+                    std.process.exit(1);
+                };
+                return;
+            },
+            else => return,
         }
-    };
-    try std.testing.fuzz(Context{}, Context.testOne, .{});
+    }
+
+    if (count == 0) {
+        try goal.helpCmd(&argIter);
+    }
 }
