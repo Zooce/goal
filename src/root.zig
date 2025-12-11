@@ -21,23 +21,12 @@ pub fn stringToCommand(arg: []const u8) ?Command {
 }
 
 pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
-    // the next argument must be either a command or nothing
-    if (argIter.next()) |arg| {
-        const command = stringToCommand(arg) orelse return error.ExpectedCommand;
-        switch (command) {
-            .init => return print("show init help\n", .{}),
-            .new => return print("show new help\n", .{}),
-            .list => return print("show list help\n", .{}),
-            .start => return print("show start help\n", .{}),
-            .show => return print("show show help\n", .{}),
-            .complete => return print("show complete help\n", .{}),
-            .edit => return print("show edit help\n", .{}),
-            .delete => return print("show delete help\n", .{}),
-            else => {}, // help help lol
-        }
-    }
-    std.debug.print(
+    const mainHelpText =
         \\`goal` is a simple CLI to help you keep track of your goals, while focusing on one at a time.
+        \\
+        \\Usage:
+        \\
+        \\    goal <command> <options>
         \\
         \\Commands:
         \\
@@ -51,9 +40,96 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
         \\    edit [id]                   Edit a goal.
         \\    delete [id]                 Delete a goal.
         \\
-        \\Arguments:
+        \\Options:
         \\
         \\    -h, --help                  Show this help message.
         \\
-    , .{});
+    ;
+    var helpMsg: []const u8 = mainHelpText;
+
+    // the next argument must be either a command or nothing
+    if (argIter.next()) |arg| {
+        const command = stringToCommand(arg) orelse return error.ExpectedCommand;
+        helpMsg = switch (command) {
+            .init =>
+            \\Initialize the `goal` by creating the .goals/ directory and the m file which stores `goal`'s metadata.
+            \\
+            ,
+            .new =>
+            \\Create a new goal. If no title is given the goal file will open in your editor.
+            \\
+            \\Usage:
+            \\
+            \\    goal new [title]
+            \\
+            \\Arguments:
+            \\
+            \\    [title]                 The title of the goal (optional).
+            \\
+            ,
+            .list =>
+            \\List all goals.
+            \\
+            \\Usage:
+            \\
+            \\    goal list
+            \\
+            ,
+            .start =>
+            \\Start working on a goal. If no goal ID is given you'll select from the list of goals.
+            \\
+            \\Usage:
+            \\
+            \\    goal start [id | new [title]]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]                    The goal ID (optional).
+            \\    [new [title]]           Start a new goal. See `goal help new`.
+            \\
+            ,
+            .show =>
+            \\Show the currently active goal.
+            \\
+            \\Usage:
+            \\
+            \\    goal show
+            \\
+            ,
+            .complete =>
+            \\Complete the currently active goal. This deletes the goal.
+            \\
+            \\Usage:
+            \\
+            \\    goal complete
+            \\
+            ,
+            .edit =>
+            \\Edit a goal. If no goal ID is given you'll select one from the list of goals.
+            \\
+            \\Usage:
+            \\
+            \\    goal edit [id]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]                    The goal ID (optional).
+            \\
+            ,
+            .delete =>
+            \\Delete a goal. If no goal ID is given you'll select one from the list of goals.
+            \\
+            \\Usage:
+            \\
+            \\    goal delete [id]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]                    The goal ID (optional).
+            \\
+            ,
+            .help => mainHelpText,
+        };
+    }
+    std.debug.print("{s}", .{helpMsg});
 }
