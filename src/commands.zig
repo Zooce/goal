@@ -1,5 +1,5 @@
 const std = @import("std");
-const print = std.debug.print;
+const paths = @import("paths");
 
 pub const Command = enum {
     help,
@@ -132,4 +132,44 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
         };
     }
     std.debug.print("{s}", .{helpMsg});
+}
+
+/// Initializes `goal` by creating the `.goals/` directory at the root of a
+/// git project (or in the current directory if not a git project), and the
+/// metadata file `.goals/m`. This also adds (or appends to) a commit hook
+/// in `.git/hooks/prepare-commit-hook` for appending the currently active
+/// goal details to commit messages.
+///
+/// Returns error.GoalAlreadyInitialized if `goal` is already initialized.
+pub fn initCmd(allocator: std.mem.Allocator) !void {
+    const goalsPath = try paths.getGoalsPath(allocator);
+    defer allocator.free(goalsPath);
+
+    std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
+
+    // create .goals/m files (zon format)
+    var goalsDir = try std.fs.openDirAbsolute(goalsPath, .{});
+    defer goalsDir.close();
+
+    // don't overwrite the file - only create a new one or fail
+    const mFile = goalsDir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
+        error.PathAlreadyExists => return error.GoalAlreadyInitialized,
+        else => return err,
+    };
+    defer mFile.close();
+
+    _ = try mFile.write(
+        \\.{
+        \\    .nextId = 1,
+        \\    .activeId = null,
+        \\}
+        \\
+    );
+
+    // TODO: set up commit hook to append current goal details to commit
+
+    std.debug.print("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n", .{});
 }
