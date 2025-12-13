@@ -12,26 +12,47 @@ pub fn main() !void {
 
     _ = argIter.next();
 
-    var count: u8 = 0;
-    while (argIter.next()) |arg| : (count += 1) {
-        const command = commands.stringToCommand(arg) orelse {
-            std.debug.print("\n{s} is not a valid command! Run `goal help` for the list of commands.\n", .{arg});
-            std.process.exit(1);
-        };
-        switch (command) {
-            .help => return commands.helpCmd(&argIter) catch |err| {
-                std.debug.print("{t}\n", .{err});
-                std.process.exit(1);
+    var command = nextCommand(&argIter);
+    if (command) |cmd| {
+        switch (cmd) {
+            .help => {
+                // goal -h init
+                // goal help init
+                command = nextCommand(&argIter);
+                try commands.help(command);
             },
-            .init => return commands.initCmd(allocator) catch |err| switch (err) {
-                error.GoalAlreadyInitialized => std.debug.print("\n`goal` is already initialized in this project. Happy coding!\n", .{}),
-                else => std.debug.print("\nEncountered an error: {t}\n", .{err}),
+            .init => {
+                // goal init -h
+                // goal init help
+                command = nextCommand(&argIter);
+                if (command) |c| switch (c) {
+                    .help => return try commands.help(.init),
+                    else => return error.UnexpectedArgument,
+                };
+                try commands.initCmd(allocator);
             },
-            else => return,
+            else => return error.NotImplementedYet,
         }
+    } else {
+        try commands.help(null);
     }
+}
 
-    if (count == 0) {
-        try commands.helpCmd(&argIter);
+fn nextCommand(iter: *std.process.ArgIterator) ?commands.Command {
+    const arg = iter.next();
+    if (arg) |a| {
+        return stringToCommand(a);
     }
+    return null;
+}
+
+fn stringToCommand(arg: []const u8) ?commands.Command {
+    if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
+        return .help;
+    }
+    return std.meta.stringToEnum(commands.Command, arg);
+}
+
+fn isArgHelpOption(arg: ?[]const u8) bool {
+    return std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help");
 }

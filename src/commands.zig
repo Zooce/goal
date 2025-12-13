@@ -13,15 +13,9 @@ pub const Command = enum {
     delete,
 };
 
-pub fn stringToCommand(arg: []const u8) ?Command {
-    if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
-        return .help;
-    }
-    return std.meta.stringToEnum(Command, arg);
-}
-
-pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
+pub fn help(command: ?Command) !void {
     const mainHelpText =
+        \\
         \\`goal` is a simple CLI to help you keep track of your goals, while focusing on one at a time.
         \\
         \\Usage:
@@ -48,15 +42,28 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
     var helpMsg: []const u8 = mainHelpText;
 
     // the next argument must be either a command or nothing
-    if (argIter.next()) |arg| {
-        const command = stringToCommand(arg) orelse return error.ExpectedCommand;
-        helpMsg = switch (command) {
+    if (command) |cmd| {
+        helpMsg = switch (cmd) {
             .init =>
-            \\Initialize the `goal` by creating the .goals/ directory and the m file which stores `goal`'s metadata.
+            \\
+            \\The `init` Command
+            \\
+            \\Initializes `goal` in your project.
+            \\
+            \\All `goal` files can be found in your project root under the .goals/ directory.
+            \\
+            \\Usage:
+            \\
+            \\    goal init
             \\
             ,
             .new =>
-            \\Create a new goal. If no title is given the goal file will open in your editor.
+            \\
+            \\The `new` Command
+            \\
+            \\Creates a new goal.
+            \\
+            \\If no title is given the goal file will opened in your configured editor.
             \\
             \\Usage:
             \\
@@ -68,7 +75,10 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
             \\
             ,
             .list =>
-            \\List all goals.
+            \\
+            \\The `list` Command
+            \\
+            \\Lists all goals.
             \\
             \\Usage:
             \\
@@ -76,7 +86,15 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
             \\
             ,
             .start =>
-            \\Start working on a goal. If no goal ID is given you'll select from the list of goals.
+            \\
+            \\The `start` Command
+            \\
+            \\Activates a goal.
+            \\
+            \\If no goal ID is given you'll select from the list of goals.
+            \\
+            \\If you're in a Git project, the ID and details of a this activated goal will be
+            \\appended to commit messages as long as this goal is activated.
             \\
             \\Usage:
             \\
@@ -89,7 +107,13 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
             \\
             ,
             .show =>
-            \\Show the currently active goal.
+            \\
+            \\The `show` Command
+            \\
+            \\Shows the currently active goal.
+            \\
+            \\If you're in a Git project, this will also list the set of commits that contain
+            \\the currently active goal's details.
             \\
             \\Usage:
             \\
@@ -97,7 +121,12 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
             \\
             ,
             .complete =>
-            \\Complete the currently active goal. This deletes the goal.
+            \\
+            \\The `complete` Command
+            \\
+            \\Completes the currently active goal.
+            \\
+            \\This also deletes the goal.
             \\
             \\Usage:
             \\
@@ -105,7 +134,12 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
             \\
             ,
             .edit =>
-            \\Edit a goal. If no goal ID is given you'll select one from the list of goals.
+            \\
+            \\The `edit` Command
+            \\
+            \\Opens your editor to edit the details of a goal.
+            \\
+            \\If no goal ID is given you'll select one from the list of goals.
             \\
             \\Usage:
             \\
@@ -117,7 +151,12 @@ pub fn helpCmd(argIter: *std.process.ArgIterator) !void {
             \\
             ,
             .delete =>
-            \\Delete a goal. If no goal ID is given you'll select one from the list of goals.
+            \\
+            \\The `delete` Command
+            \\
+            \\Deletes a goal.
+            \\
+            \\If no goal ID is given you'll select one from the list of goals.
             \\
             \\Usage:
             \\
@@ -156,7 +195,7 @@ pub fn initCmd(allocator: std.mem.Allocator) !void {
 
     // don't overwrite the file - only create a new one or fail
     const mFile = goalsDir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
-        error.PathAlreadyExists => return error.GoalAlreadyInitialized,
+        error.PathAlreadyExists => return std.debug.print("\n`goal` is already initialized in this project. Happy coding!\n", .{}),
         else => return err,
     };
     defer mFile.close();
