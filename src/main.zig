@@ -29,7 +29,13 @@ pub fn main() !void {
                     .help => return try commands.help(.init),
                     else => return error.UnexpectedArgument,
                 };
-                try commands.initCmd(allocator);
+                try commands.init(allocator);
+            },
+            .new => {
+                // goal new
+                // goal new "fix the bug"
+                const title = argIter.next();
+                try commands.new(allocator, title);
             },
             else => return error.NotImplementedYet,
         }

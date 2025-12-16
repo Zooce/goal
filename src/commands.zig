@@ -180,21 +180,12 @@ pub fn help(command: ?Command) !void {
 /// goal details to commit messages.
 ///
 /// Returns error.GoalAlreadyInitialized if `goal` is already initialized.
-pub fn initCmd(allocator: std.mem.Allocator) !void {
-    const goalsPath = try paths.getGoalsPath(allocator);
-    defer allocator.free(goalsPath);
-
-    std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
-    };
-
-    // create .goals/m files (zon format)
-    var goalsDir = try std.fs.openDirAbsolute(goalsPath, .{});
-    defer goalsDir.close();
+pub fn init(allocator: std.mem.Allocator) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .create = true });
+    defer goalsDir.deinit(allocator);
 
     // don't overwrite the file - only create a new one or fail
-    const mFile = goalsDir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
+    const mFile = goalsDir.dir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
         error.PathAlreadyExists => return std.debug.print("\n`goal` is already initialized in this project. Happy coding!\n", .{}),
         else => return err,
     };
@@ -211,4 +202,44 @@ pub fn initCmd(allocator: std.mem.Allocator) !void {
     // TODO: set up commit hook to append current goal details to commit
 
     std.debug.print("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n", .{});
+}
+
+/// Creates a new goal file. If a title is included then that title is written
+/// to the file otherwise an editor is opened to edit the file.
+pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{});
+    defer goalsDir.deinit(allocator);
+
+    var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
+    defer std.zon.parse.free(allocator, meta);
+
+    const fileName = fileName: {
+        var fileNameBuffer: [7]u8 = undefined; // 7 digits is overkill
+        break :fileName try std.fmt.bufPrint(&fileNameBuffer, "{d}", .{meta.nextId});
+    };
+
+    const goalFile = try goalsDir.dir.createFile(fileName, .{ .exclusive = false });
+    defer goalFile.close();
+
+    if (title) |t| {
+        _ = try goalFile.write(t);
+    } else {
+        // open the new goal file in an editor
+        const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
+        defer allocator.free(filePath);
+
+        // TODO: editor should be configurable
+        const cmd = [_][]const u8{ "nvim", filePath, "+startinsert" };
+        // const cmd = [_][]const u8{ "code", filePath, "-w" };
+        var editor = std.process.Child.init(&cmd, allocator);
+
+        _ = try editor.spawnAndWait();
+
+        // TODO: if the file is empty, delete it and let the user know
+    }
+
+    // update the meta file
+    meta.nextId += 1;
+    std.debug.print("{d}\n", .{meta.nextId});
+    try paths.storeMetaFile(meta, goalsDir.dir);
 }

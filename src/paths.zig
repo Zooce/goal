@@ -1,5 +1,46 @@
 const std = @import("std");
 
+pub const GoalsDir = struct {
+    dir: std.fs.Dir,
+    path: []const u8,
+
+    pub fn deinit(self: *GoalsDir, allocator: std.mem.Allocator) void {
+        self.dir.close();
+        allocator.free(self.path);
+    }
+};
+
+/// Options for opening the `.goals/` directory.
+pub const OpenGoalsDirOptions = struct {
+    /// Create the `.goals/` directory if it doesn't exist.
+    create: bool = false,
+};
+
+/// Opens a `std.fs.Dir` handle to the `.goals/` directory. The caller is
+/// responsible for calling `close()` on the handle.
+///
+/// You also have the option to create the `.goals/` directory if it doesn't
+/// exist. See `OpenGoalsDirOptions`.
+///
+/// Returns the `std.fs.Dir` handle and the path string which the caller is
+/// responsible for freeing.
+pub fn openGoalsDir(allocator: std.mem.Allocator, options: OpenGoalsDirOptions) !GoalsDir {
+    const goalsPath = try getGoalsPath(allocator);
+    // defer allocator.free(goalsPath);
+
+    if (options.create) {
+        std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
+            error.PathAlreadyExists => {},
+            else => return err,
+        };
+    }
+
+    return .{
+        .dir = try std.fs.openDirAbsolute(goalsPath, .{}),
+        .path = goalsPath,
+    };
+}
+
 /// Generates the `.goals/` path from the project root.
 ///
 /// The project root is either the git root or the current directory.
@@ -71,4 +112,35 @@ test "getGitRoot - returns the parent of the .git/ directory" {
     // child process to find out if the current working directory is
     // inside a git-tracked project.
     try std.testing.expect(gitRoot != null);
+}
+
+/// This the struct in the `.goals/m` ZONE file.
+pub const Meta = struct {
+    nextId: u8,
+    activeId: ?u8,
+};
+
+/// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
+/// struct with `std.zon.parse.free(alloc, meta)`.
+pub fn loadMetaFile(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !Meta {
+    const metaFile = try goalsDir.readFileAllocOptions(allocator, "m", 64, 64, .of(u8), 0);
+    defer allocator.free(metaFile);
+
+    return try std.zon.parse.fromSlice(Meta, allocator, metaFile, null, .{});
+}
+
+/// Store the `Meta` object as the `.goals/m` file.
+pub fn storeMetaFile(meta: Meta, goalsDir: std.fs.Dir) !void {
+    const mFile = try goalsDir.createFile("m", .{});
+    defer mFile.close();
+
+    var buffer: [64]u8 = undefined;
+    const zon = try std.fmt.bufPrint(&buffer,
+        \\.{{
+        \\    .nextId = {d},
+        \\    .activeId = {?d},
+        \\}}
+        \\
+    , .{ meta.nextId, meta.activeId });
+    _ = try mFile.write(zon);
 }
