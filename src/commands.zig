@@ -13,7 +13,7 @@ pub const Command = enum {
     delete,
 };
 
-pub fn help(command: ?Command) !void {
+pub fn help(command: ?Command) void {
     const mainHelpText =
         \\
         \\`goal` is a simple CLI to help you keep track of your goals, while focusing on one at a time.

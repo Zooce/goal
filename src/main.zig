@@ -12,35 +12,12 @@ pub fn main() !void {
 
     _ = argIter.next();
 
-    var command = nextCommand(&argIter);
-    if (command) |cmd| {
-        switch (cmd) {
-            .help => {
-                // goal -h init
-                // goal help init
-                command = nextCommand(&argIter);
-                try commands.help(command);
-            },
-            .init => {
-                // goal init -h
-                // goal init help
-                command = nextCommand(&argIter);
-                if (command) |c| switch (c) {
-                    .help => return try commands.help(.init),
-                    else => return error.UnexpectedArgument,
-                };
-                try commands.init(allocator);
-            },
-            .new => {
-                // goal new
-                // goal new "fix the bug"
-                const title = argIter.next();
-                try commands.new(allocator, title);
-            },
-            else => return error.NotImplementedYet,
-        }
+    if (nextCommand(&argIter)) |cmd| {
+        processCommand(allocator, cmd, &argIter) catch {
+            std.process.exit(1);
+        };
     } else {
-        try commands.help(null);
+        commands.help(null);
     }
 }
 
@@ -61,4 +38,36 @@ fn stringToCommand(arg: []const u8) ?commands.Command {
 
 fn isArgHelpOption(arg: ?[]const u8) bool {
     return std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help");
+}
+
+fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *std.process.ArgIterator) !void {
+    var command: ?commands.Command = null;
+    switch (cmd) {
+        .help => {
+            // goal -h init
+            // goal help init
+            command = nextCommand(iter);
+            commands.help(command);
+        },
+        .init => {
+            // goal init -h
+            // goal init help
+            command = nextCommand(iter);
+            if (command) |c| switch (c) {
+                .help => return commands.help(.init),
+                else => {
+                    std.debug.print("\n`goal init {t}` is invalid. See `goal help init`.\n", .{c});
+                    return error.UnexpectedArgument;
+                },
+            };
+            try commands.init(allocator);
+        },
+        .new => {
+            // goal new
+            // goal new "fix the bug"
+            const title = iter.next();
+            try commands.new(allocator, title);
+        },
+        else => return error.NotImplementedYet,
+    }
 }
