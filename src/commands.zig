@@ -20,7 +20,7 @@ pub fn help(command: ?Command) void {
         \\
         \\Usage:
         \\
-        \\    goal <command> <options>
+        \\    goal <command>
         \\
         \\Commands:
         \\
@@ -34,9 +34,13 @@ pub fn help(command: ?Command) void {
         \\    edit [id]                   Edit a goal.
         \\    delete [id]                 Delete a goal.
         \\
-        \\Options:
+        \\Help:
         \\
-        \\    -h, --help                  Show this help message.
+        \\    To show this message use one of the following:
+        \\
+        \\        goal [help | -h | --help]
+        \\    OR
+        \\        goal help help   # yes this works too :)
         \\
     ;
     var helpMsg: []const u8 = mainHelpText;
@@ -56,6 +60,14 @@ pub fn help(command: ?Command) void {
             \\
             \\    goal init
             \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal init [help | -h | --help]
+            \\    OR
+            \\        goal help init
+            \\
             ,
             .new =>
             \\
@@ -73,6 +85,14 @@ pub fn help(command: ?Command) void {
             \\
             \\    [title]                 The title of the goal (optional).
             \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal new [help | -h | --help]
+            \\    OR
+            \\        goal help new
+            \\
             ,
             .list =>
             \\
@@ -83,6 +103,14 @@ pub fn help(command: ?Command) void {
             \\Usage:
             \\
             \\    goal list
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal list [help | -h | --help]
+            \\    OR
+            \\        goal help list
             \\
             ,
             .start =>
@@ -105,6 +133,14 @@ pub fn help(command: ?Command) void {
             \\    [id]                    The goal ID (optional).
             \\    [new [title]]           Start a new goal. See `goal help new`.
             \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal start [help | -h | --help]
+            \\    OR
+            \\        goal help start
+            \\
             ,
             .show =>
             \\
@@ -119,6 +155,14 @@ pub fn help(command: ?Command) void {
             \\
             \\    goal show
             \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal show [help | -h | --help]
+            \\    OR
+            \\        goal help show
+            \\
             ,
             .complete =>
             \\
@@ -131,6 +175,14 @@ pub fn help(command: ?Command) void {
             \\Usage:
             \\
             \\    goal complete
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal complete [help | -h | --help]
+            \\    OR
+            \\        goal help complete
             \\
             ,
             .edit =>
@@ -149,6 +201,14 @@ pub fn help(command: ?Command) void {
             \\
             \\    [id]                    The goal ID (optional).
             \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal edit [help | -h | --help]
+            \\    OR
+            \\        goal help edit
+            \\
             ,
             .delete =>
             \\
@@ -165,6 +225,14 @@ pub fn help(command: ?Command) void {
             \\Arguments:
             \\
             \\    [id]                    The goal ID (optional).
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal delete [help | -h | --help]
+            \\    OR
+            \\        goal help delete
             \\
             ,
             .help => mainHelpText,
