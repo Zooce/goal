@@ -6,8 +6,9 @@ pub const Command = enum {
     init,
     new,
     list,
-    start,
     show,
+    start,
+    status,
     complete,
     edit,
     delete,
@@ -28,9 +29,10 @@ pub fn help(command: ?Command) void {
         \\    init                        Initialze `goal` in a project.
         \\    new [title]                 Create a new goal.
         \\    list                        List all goals.
+        \\    show [id]                   Show a goal's details.
         \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
-        \\    show                        Show the currently active goal.
-        \\    complete                    Complete the currently active goal.
+        \\    status                      Show your active goal's status.
+        \\    complete                    Complete the active goal.
         \\    edit [id]                   Edit a goal.
         \\    delete [id]                 Delete a goal.
         \\
@@ -113,6 +115,31 @@ pub fn help(command: ?Command) void {
             \\        goal help list
             \\
             ,
+            .show =>
+            \\
+            \\The `show` Command
+            \\
+            \\Shows the details of a goal.
+            \\
+            \\If no goal ID is given you'll select from the list of goals.
+            \\
+            \\Usage:
+            \\
+            \\    goal show [id]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]                    The goal ID (optional).
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal show [help | -h | --help]
+            \\    OR
+            \\        goal help show
+            \\
+            ,
             .start =>
             \\
             \\The `start` Command
@@ -142,33 +169,33 @@ pub fn help(command: ?Command) void {
             \\        goal help start
             \\
             ,
-            .show =>
+            .status =>
             \\
-            \\The `show` Command
+            \\The `status` Command
             \\
-            \\Shows the currently active goal.
+            \\Shows the status of your active goal.
             \\
             \\If you're in a Git project, this will also list the set of commits that contain
-            \\the currently active goal's details.
+            \\the active goal's details.
             \\
             \\Usage:
             \\
-            \\    goal show
+            \\    goal status
             \\
             \\Help:
             \\
             \\    To show this message use one of the following:
             \\
-            \\        goal show [help | -h | --help]
+            \\        goal status [help | -h | --help]
             \\    OR
-            \\        goal help show
+            \\        goal help status
             \\
             ,
             .complete =>
             \\
             \\The `complete` Command
             \\
-            \\Completes the currently active goal.
+            \\Completes the active goal.
             \\
             \\This also deletes the goal.
             \\
@@ -290,7 +317,12 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
     defer goalFile.close();
 
     if (title) |t| {
-        _ = try goalFile.write(t);
+        if (t.len > 0) {
+            _ = try goalFile.write(t);
+        } else {
+            std.debug.print("Goal title cannot be empty!\n", .{});
+            return error.EmptyGoalTitle;
+        }
     } else {
         // open the new goal file in an editor
         const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
