@@ -26,7 +26,6 @@ pub const OpenGoalsDirOptions = struct {
 /// responsible for freeing.
 pub fn openGoalsDir(allocator: std.mem.Allocator, options: OpenGoalsDirOptions) !GoalsDir {
     const goalsPath = try getGoalsPath(allocator);
-    // defer allocator.free(goalsPath);
 
     if (options.create) {
         std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
@@ -123,7 +122,7 @@ pub const Meta = struct {
 /// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
 /// struct with `std.zon.parse.free(alloc, meta)`.
 pub fn loadMetaFile(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !Meta {
-    const metaFile = try goalsDir.readFileAllocOptions(allocator, "m", 64, 64, .of(u8), 0);
+    const metaFile = try goalsDir.readFileAllocOptions(allocator, "m", std.math.maxInt(usize), null, .of(u8), 0);
     defer allocator.free(metaFile);
 
     return try std.zon.parse.fromSlice(Meta, allocator, metaFile, null, .{});
@@ -131,16 +130,16 @@ pub fn loadMetaFile(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !Meta {
 
 /// Store the `Meta` object as the `.goals/m` file.
 pub fn storeMetaFile(meta: Meta, goalsDir: std.fs.Dir) !void {
-    const mFile = try goalsDir.createFile("m", .{});
-    defer mFile.close();
+    const metaFile = try goalsDir.createFile("~m", .{});
+    defer metaFile.close();
 
-    var buffer: [64]u8 = undefined;
-    const zon = try std.fmt.bufPrint(&buffer,
-        \\.{{
-        \\    .nextId = {d},
-        \\    .activeId = {?d},
-        \\}}
-        \\
-    , .{ meta.nextId, meta.activeId });
-    _ = try mFile.write(zon);
+    var write_buffer: [1024]u8 = undefined;
+    var writer = metaFile.writer(&write_buffer);
+
+    try std.zon.stringify.serialize(meta, .{}, &writer.interface);
+
+    try writer.interface.flush();
+    try metaFile.sync();
+
+    try std.fs.rename(goalsDir, "~m", goalsDir, "m");
 }
