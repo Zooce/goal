@@ -313,16 +313,20 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
         break :fileName try std.fmt.bufPrint(&fileNameBuffer, "{d}", .{meta.nextId});
     };
 
-    const goalFile = try goalsDir.dir.createFile(fileName, .{ .exclusive = false });
-    defer goalFile.close();
+    const goal = try goalsDir.dir.createFile(fileName, .{ .read = true, .exclusive = false });
+    defer goal.close();
+
+    // TODO: feels like the rest of this could be cleaned up a bit
 
     if (title) |t| {
         if (t.len > 0) {
-            _ = try goalFile.write(t);
+            _ = try goal.write(t);
         } else {
             std.debug.print("Goal title cannot be empty!\n", .{});
+            try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
+        std.debug.print("Created {d}  {s}\n", .{ meta.nextId, t });
     } else {
         // open the new goal file in an editor
         const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
@@ -336,11 +340,19 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
         _ = try editor.spawnAndWait();
 
         // TODO: if the file is empty, delete it and let the user know
+        var goalFile = try paths.loadGoalFile(allocator, goal, false);
+        defer goalFile.deinit(allocator);
+
+        if (goalFile.title.len == 0) {
+            std.debug.print("Goal title cannot be empty!\n", .{});
+            try goalsDir.dir.deleteFile(fileName);
+            return error.EmptyGoalTitle;
+        }
+        std.debug.print("Created {d}  {s}\n", .{ meta.nextId, goalFile.title });
     }
 
     // update the meta file
     meta.nextId += 1;
-    std.debug.print("{d}\n", .{meta.nextId});
     try paths.storeMetaFile(meta, goalsDir.dir);
 }
 
