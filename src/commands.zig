@@ -79,7 +79,8 @@ pub fn help(command: ?Command) void {
             \\
             \\Creates a new goal.
             \\
-            \\If no title is given the goal file will opened in your configured editor.
+            \\If no title is given the goal file will opened in your configured editor. The
+            \\first line is the title while all subsequent lines form the description.
             \\
             \\Usage:
             \\
@@ -343,7 +344,6 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
 
         _ = try editor.spawnAndWait();
 
-        // TODO: if the file is empty, delete it and let the user know
         var goalFile = try paths.loadGoalFile(allocator, goal, false);
         defer goalFile.deinit(allocator);
 

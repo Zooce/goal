@@ -175,7 +175,7 @@ pub fn loadGoalFile(allocator: std.mem.Allocator, file: std.fs.File, incl_desc: 
 
     if (incl_desc and get_desc) {
         stream_writer.clearRetainingCapacity();
-        _ = file_reader.interface.toss(1); // skip LF
+        _ = file_reader.interface.toss(1); // skip title LF
         _ = try file_reader.interface.streamRemaining(&stream_writer.writer);
 
         description = try allocator.dupe(u8, std.mem.trim(u8, stream_writer.written(), " \t\r\n"));
