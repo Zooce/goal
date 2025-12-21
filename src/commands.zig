@@ -12,6 +12,8 @@ pub const Command = enum {
     complete,
     edit,
     delete,
+
+    batman, // just for development
 };
 
 pub fn help(command: ?Command) void {
@@ -263,6 +265,7 @@ pub fn help(command: ?Command) void {
             \\
             ,
             .help => mainHelpText,
+            else => "...no help message for that command bro!\n",
         };
     }
     std.debug.print("{s}", .{helpMsg});
