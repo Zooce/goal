@@ -14,6 +14,7 @@ pub const GoalsDir = struct {
 pub const OpenGoalsDirOptions = struct {
     /// Create the `.goals/` directory if it doesn't exist.
     create: bool = false,
+    options: std.fs.Dir.OpenOptions = .{},
 };
 
 /// Opens a `std.fs.Dir` handle to the `.goals/` directory. The caller is
@@ -35,7 +36,7 @@ pub fn openGoalsDir(allocator: std.mem.Allocator, options: OpenGoalsDirOptions) 
     }
 
     return .{
-        .dir = try std.fs.openDirAbsolute(goalsPath, .{}),
+        .dir = try std.fs.openDirAbsolute(goalsPath, options.options),
         .path = goalsPath,
     };
 }
@@ -142,4 +143,46 @@ pub fn storeMetaFile(meta: Meta, goalsDir: std.fs.Dir) !void {
     try metaFile.sync();
 
     try std.fs.rename(goalsDir, "~m", goalsDir, "m");
+}
+
+pub const GoalFile = struct {
+    title: []const u8,
+    description: ?[]const u8,
+
+    pub fn deinit(self: *GoalFile, allocator: std.mem.Allocator) void {
+        allocator.free(self.title);
+        if (self.description) |desc| {
+            allocator.free(desc);
+        }
+    }
+};
+
+pub fn loadGoalFile(allocator: std.mem.Allocator, file: std.fs.File, incl_desc: bool) !GoalFile {
+    var read_buffer: [1024]u8 = undefined;
+    var file_reader = file.reader(&read_buffer);
+
+    var stream_writer = std.io.Writer.Allocating.init(allocator);
+    defer stream_writer.deinit();
+
+    var get_desc = true;
+    _ = file_reader.interface.streamDelimiter(&stream_writer.writer, '\n') catch |err| switch (err) {
+        error.EndOfStream => get_desc = false,
+        else => return err,
+    };
+
+    const title = try allocator.dupe(u8, stream_writer.written());
+    var description: ?[]const u8 = null;
+
+    if (incl_desc and get_desc) {
+        stream_writer.clearRetainingCapacity();
+        _ = file_reader.interface.toss(1); // skip LF
+        _ = try file_reader.interface.streamRemaining(&stream_writer.writer);
+
+        description = try allocator.dupe(u8, std.mem.trim(u8, stream_writer.written(), " \t\r\n"));
+    }
+
+    return .{
+        .title = title,
+        .description = description,
+    };
 }

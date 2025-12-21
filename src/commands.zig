@@ -343,3 +343,19 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
     std.debug.print("{d}\n", .{meta.nextId});
     try paths.storeMetaFile(meta, goalsDir.dir);
 }
+
+pub fn list(allocator: std.mem.Allocator) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
+    defer goalsDir.deinit(allocator);
+
+    var iter = goalsDir.dir.iterate();
+    while (try iter.next()) |entry| {
+        if (std.mem.eql(u8, "m", entry.name)) continue;
+        const file = try goalsDir.dir.openFile(entry.name, .{ .mode = .read_only });
+        defer file.close();
+        var goalFile = try paths.loadGoalFile(allocator, file, false);
+        defer goalFile.deinit(allocator);
+        // TODO: make format width for largest digit
+        std.debug.print("{s: >4}  {s}\n", .{ entry.name, goalFile.title });
+    }
+}
