@@ -283,19 +283,20 @@ pub fn init(allocator: std.mem.Allocator) !void {
     defer goalsDir.deinit(allocator);
 
     // don't overwrite the file - only create a new one or fail
-    const mFile = goalsDir.dir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
+    const metaFile = goalsDir.dir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
         error.PathAlreadyExists => return std.debug.print("\n`goal` is already initialized in this project. Happy coding!\n", .{}),
         else => return err,
     };
-    defer mFile.close();
+    defer metaFile.close();
 
-    _ = try mFile.write(
-        \\.{
-        \\    .nextId = 1,
-        \\    .activeId = null,
-        \\}
-        \\
-    );
+    var write_buffer: [64]u8 = undefined;
+    var writer = metaFile.writer(&write_buffer);
+
+    const meta: paths.Meta = .{};
+    try std.zon.stringify.serialize(meta, .{}, &writer.interface);
+
+    try writer.interface.flush();
+    try metaFile.sync();
 
     // TODO: set up commit hook to append current goal details to commit
 

@@ -116,8 +116,8 @@ test "getGitRoot - returns the parent of the .git/ directory" {
 
 /// This the struct in the `.goals/m` ZONE file.
 pub const Meta = struct {
-    nextId: u8,
-    activeId: ?u8,
+    nextId: u8 = 1,
+    activeId: ?u8 = null,
 };
 
 /// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
