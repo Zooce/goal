@@ -393,27 +393,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
 
-    // TODO: this can all be cleaned up a bit
-
-    if (id) |fileName| {
-        const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
-            error.FileNotFound => {
-                std.debug.print("\nSorry, there's no goal #{s}! Run `goal show` to see the list of goals.\n", .{fileName});
-                return err;
-            },
-            else => return err,
-        };
-        defer file.close();
-
-        var goalFile = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
-        defer goalFile.deinit(allocator);
-
-        std.debug.print("\n{s}\n", .{goalFile.title});
-
-        if (goalFile.description) |desc| {
-            std.debug.print("\n{s}\n", .{desc});
-        }
-    } else {
+    const fileName = id orelse fileName: {
         try _list(allocator, goalsDir.dir);
 
         var stdin_buffer: [8]u8 = undefined;
@@ -422,28 +402,28 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
 
         std.debug.print("Choose a goal (type the number): ", .{});
 
-        const fileName = try reader.takeDelimiterExclusive('\n');
+        break :fileName try reader.takeDelimiterExclusive('\n');
+    };
 
-        if (fileName.len == 0) {
-            return std.debug.print("\nYou didn't choose a goal. See you later!\n", .{});
-        }
+    if (fileName.len == 0) {
+        std.debug.print("\nYou didn't choose a goal. Run `goal help show`. See you later!\n", .{});
+        return error.MissingArgument;
+    }
 
-        const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
-            error.FileNotFound => {
-                std.debug.print("\n#{s} is not in the list!\n", .{fileName});
-                return err;
-            },
-            else => return err,
-        };
-        defer file.close();
+    const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
+        error.FileNotFound => {
+            std.debug.print("\nSorry, there is no goal #{s}! Run `goal show` to pick from the list of goals.\n", .{fileName});
+            return err;
+        },
+        else => return err,
+    };
+    defer file.close();
 
-        var goalFile = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
-        defer goalFile.deinit(allocator);
+    var goalFile = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
+    defer goalFile.deinit(allocator);
 
-        std.debug.print("\n{s}\n", .{goalFile.title});
-
-        if (goalFile.description) |desc| {
-            std.debug.print("\n{s}\n", .{desc});
-        }
+    std.debug.print("\n{s}\n", .{goalFile.title});
+    if (goalFile.description) |desc| {
+        std.debug.print("\n{s}\n", .{desc});
     }
 }
