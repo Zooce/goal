@@ -13,7 +13,8 @@ pub fn main() !void {
     _ = argIter.next();
 
     if (nextCommand(&argIter)) |cmd| {
-        processCommand(allocator, cmd, &argIter) catch {
+        processCommand(allocator, cmd, &argIter) catch |err| {
+            std.debug.print("\nError: {t}\n", .{err});
             std.process.exit(1);
         };
     } else {
