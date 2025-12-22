@@ -161,7 +161,11 @@ pub const GoalFile = struct {
     }
 };
 
-pub fn loadGoalFile(allocator: std.mem.Allocator, file: std.fs.File, incl_desc: bool) !GoalFile {
+pub const LoadGoalFileOptions = struct {
+    incl_desc: bool = false,
+};
+
+pub fn loadGoalFile(allocator: std.mem.Allocator, file: std.fs.File, options: LoadGoalFileOptions) !GoalFile {
     var read_buffer: [1024]u8 = undefined;
     var file_reader = file.reader(&read_buffer);
 
@@ -177,7 +181,7 @@ pub fn loadGoalFile(allocator: std.mem.Allocator, file: std.fs.File, incl_desc: 
     const title = try allocator.dupe(u8, stream_writer.written());
     var description: ?[]const u8 = null;
 
-    if (incl_desc and get_desc) {
+    if (options.incl_desc and get_desc) {
         stream_writer.clearRetainingCapacity();
         _ = file_reader.interface.toss(1); // skip title LF
         _ = try file_reader.interface.streamRemaining(&stream_writer.writer);

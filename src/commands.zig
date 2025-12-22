@@ -344,7 +344,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
 
         _ = try editor.spawnAndWait();
 
-        var goalFile = try paths.loadGoalFile(allocator, goal, false);
+        var goalFile = try paths.loadGoalFile(allocator, goal, .{});
         defer goalFile.deinit(allocator);
 
         if (goalFile.title.len == 0) {
@@ -377,7 +377,7 @@ fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
         if (std.mem.eql(u8, "m", entry.name)) continue;
         const file = try goalsDir.openFile(entry.name, .{ .mode = .read_only });
         defer file.close();
-        var goalFile = try paths.loadGoalFile(allocator, file, false);
+        var goalFile = try paths.loadGoalFile(allocator, file, .{});
         defer goalFile.deinit(allocator);
         // TODO: make format width for largest digit -- maybe use .nextId from the meta file
         std.debug.print("{s: >4}  {s}\n", .{ entry.name, goalFile.title });
@@ -405,7 +405,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
         };
         defer file.close();
 
-        var goalFile = try paths.loadGoalFile(allocator, file, true);
+        var goalFile = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
         defer goalFile.deinit(allocator);
 
         std.debug.print("\n{s}\n", .{goalFile.title});
@@ -437,7 +437,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
         };
         defer file.close();
 
-        var goalFile = try paths.loadGoalFile(allocator, file, true);
+        var goalFile = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
         defer goalFile.deinit(allocator);
 
         std.debug.print("\n{s}\n", .{goalFile.title});
