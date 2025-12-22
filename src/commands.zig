@@ -360,18 +360,87 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
     try paths.storeMetaFile(meta, goalsDir.dir);
 }
 
+/// List all goals showing their ID and title.
 pub fn list(allocator: std.mem.Allocator) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
 
-    var iter = goalsDir.dir.iterate();
-    while (try iter.next()) |entry| {
+    std.debug.print("\n", .{});
+
+    try _list(allocator, goalsDir.dir);
+}
+
+fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
+    var count: u8 = 0;
+    var iter = goalsDir.iterate();
+    while (try iter.next()) |entry| : (count += 1) {
         if (std.mem.eql(u8, "m", entry.name)) continue;
-        const file = try goalsDir.dir.openFile(entry.name, .{ .mode = .read_only });
+        const file = try goalsDir.openFile(entry.name, .{ .mode = .read_only });
         defer file.close();
         var goalFile = try paths.loadGoalFile(allocator, file, false);
         defer goalFile.deinit(allocator);
-        // TODO: make format width for largest digit
+        // TODO: make format width for largest digit -- maybe use .nextId from the meta file
         std.debug.print("{s: >4}  {s}\n", .{ entry.name, goalFile.title });
+    }
+
+    if (count == 0) {
+        std.debug.print("No goals to show. Use `goal new` to create a new goal.\n", .{});
+    }
+}
+
+pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
+    defer goalsDir.deinit(allocator);
+
+    if (id) |fileName| {
+        const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
+            error.FileNotFound => {
+                std.debug.print("\n{s} is not in the list!\n", .{fileName});
+                return err;
+            },
+            else => return err,
+        };
+        defer file.close();
+
+        var goalFile = try paths.loadGoalFile(allocator, file, true);
+        defer goalFile.deinit(allocator);
+
+        std.debug.print("\n{s}\n", .{goalFile.title});
+
+        if (goalFile.description) |desc| {
+            std.debug.print("\n{s}\n", .{desc});
+        }
+    } else {
+        try _list(allocator, goalsDir.dir);
+
+        var stdin_buffer: [8]u8 = undefined;
+        var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+        var reader = &stdin_reader.interface;
+
+        std.debug.print("Choose a goal (type the number): ", .{});
+
+        const fileName = try reader.takeDelimiterExclusive('\n');
+
+        if (fileName.len == 0) {
+            return std.debug.print("\nYou didn't choose a goal. See you later!\n", .{});
+        }
+
+        const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
+            error.FileNotFound => {
+                std.debug.print("\n{s} is not in the list!\n", .{fileName});
+                return err;
+            },
+            else => return err,
+        };
+        defer file.close();
+
+        var goalFile = try paths.loadGoalFile(allocator, file, true);
+        defer goalFile.deinit(allocator);
+
+        std.debug.print("\n{s}\n", .{goalFile.title});
+
+        if (goalFile.description) |desc| {
+            std.debug.print("\n{s}\n", .{desc});
+        }
     }
 }

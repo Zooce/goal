@@ -71,6 +71,12 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
         .list => {
             try commands.list(allocator);
         },
+        .show => {
+            // goal show
+            // goal show 3
+            const id = iter.next();
+            try commands.show(allocator, id);
+        },
         else => return error.NotImplementedYet,
     }
 }
