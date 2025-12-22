@@ -387,10 +387,13 @@ fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
         std.debug.print("No goals to show. Use `goal new` to create a new goal.\n", .{});
     }
 }
-
+/// Show the details of a goal. If an id isn't provided then all goals will be listed
+/// for one to be chosen.
 pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
+
+    // TODO: this can all be cleaned up a bit
 
     if (id) |fileName| {
         const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
