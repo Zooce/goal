@@ -365,12 +365,12 @@ pub fn list(allocator: std.mem.Allocator) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
 
-    std.debug.print("\n", .{});
-
     try _list(allocator, goalsDir.dir);
 }
 
 fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
+    std.debug.print("\n", .{});
+
     var count: u8 = 0;
     var iter = goalsDir.iterate();
     while (try iter.next()) |entry| : (count += 1) {
@@ -380,30 +380,36 @@ fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
         var goalFile = try paths.loadGoalFile(allocator, file, .{});
         defer goalFile.deinit(allocator);
         // TODO: make format width for largest digit -- maybe use .nextId from the meta file
-        std.debug.print("#{s: <4}  {s}\n", .{ entry.name, goalFile.title });
+        std.debug.print("{s}. {s}\n", .{ entry.name, goalFile.title });
     }
 
     if (count == 0) {
         std.debug.print("No goals to show. Use `goal new` to create a new goal.\n", .{});
     }
 }
+
+/// Ask the user to input a number from the list of goals. The caller is responsible for
+/// freeing the memory with `allocator.free(choice)`.
+fn getGoalChoice(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) ![]const u8 {
+    try _list(allocator, goalsDir);
+
+    var stdin_buffer: [8]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var reader = &stdin_reader.interface;
+
+    std.debug.print("\nChoose a goal (type the number): ", .{});
+
+    return allocator.dupe(u8, try reader.takeDelimiterExclusive('\n'));
+}
+
 /// Show the details of a goal. If an id isn't provided then all goals will be listed
 /// for one to be chosen.
 pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
 
-    const fileName = id orelse fileName: {
-        try _list(allocator, goalsDir.dir);
-
-        var stdin_buffer: [8]u8 = undefined;
-        var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-        var reader = &stdin_reader.interface;
-
-        std.debug.print("Choose a goal (type the number): ", .{});
-
-        break :fileName try reader.takeDelimiterExclusive('\n');
-    };
+    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
+    defer if (id == null) allocator.free(fileName);
 
     if (fileName.len == 0) {
         std.debug.print("\nYou didn't choose a goal. Run `goal help show`. See you later!\n", .{});
@@ -426,4 +432,38 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     if (goalFile.description) |desc| {
         std.debug.print("\n{s}\n", .{desc});
     }
+}
+
+pub fn start(allocator: std.mem.Allocator, id: ?[]const u8) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
+    defer goalsDir.deinit(allocator);
+
+    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
+    defer if (id == null) allocator.free(fileName);
+
+    if (fileName.len == 0) {
+        std.debug.print("\nYou didn't choose a goal. Run `goal help start`. See you later!\n", .{});
+        return error.MissingArgument;
+    }
+
+    const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
+        error.FileNotFound => {
+            std.debug.print("\nSorry, there's no goal #{s}! Run `goal start` to pick from the list of goals.\n", .{fileName});
+            return err;
+        },
+        else => return err,
+    };
+    defer file.close();
+
+    var goalFile = try paths.loadGoalFile(allocator, file, .{});
+    defer goalFile.deinit(allocator);
+
+    var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
+    defer meta.deinit(allocator);
+
+    meta.activeId = try std.fmt.parseInt(u8, fileName, 10);
+
+    try paths.storeMetaFile(meta, goalsDir.dir);
+
+    std.debug.print("\nLet's get to work on #{s} - {s}\n", .{ fileName, goalFile.title });
 }

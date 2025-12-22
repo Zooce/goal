@@ -66,6 +66,9 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
         .new => {
             // goal new
             // goal new "fix the bug"
+            // TODO: goal new -h
+            // TODO: goal new --help "fix the bug"
+            // TODO: goal new "fix the bug" help
             const title = iter.next();
             try commands.new(allocator, title);
         },
@@ -75,8 +78,20 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
         .show => {
             // goal show
             // goal show 3
+            // TODO: goal show -h
+            // TODO: goal show --help 3
+            // TODO: goal show 3 help
             const id = iter.next();
             try commands.show(allocator, id);
+        },
+        .start => {
+            // goal start
+            // goal start 3
+            // TODO: goal start -h
+            // TODO: goal start --help 3
+            // TODO: goal start 3 help
+            const id = iter.next();
+            try commands.start(allocator, id);
         },
         else => return error.NotImplementedYet,
     }
