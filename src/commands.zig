@@ -327,11 +327,11 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
         if (t.len > 0) {
             _ = try goal.write(t);
         } else {
-            std.debug.print("Goal title cannot be empty!\n", .{});
+            std.debug.print("\nGoal title cannot be empty!\n", .{});
             try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
-        std.debug.print("Created {d}  {s}\n", .{ meta.nextId, t });
+        std.debug.print("\nCreated #{d} - {s}\n", .{ meta.nextId, t });
     } else {
         // open the new goal file in an editor
         const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
@@ -348,11 +348,11 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
         defer goalFile.deinit(allocator);
 
         if (goalFile.title.len == 0) {
-            std.debug.print("Goal title cannot be empty!\n", .{});
+            std.debug.print("\nGoal title cannot be empty!\n", .{});
             try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
-        std.debug.print("Created {d}  {s}\n", .{ meta.nextId, goalFile.title });
+        std.debug.print("Created #{d} - {s}\n", .{ meta.nextId, goalFile.title });
     }
 
     // update the meta file
@@ -380,7 +380,7 @@ fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
         var goalFile = try paths.loadGoalFile(allocator, file, .{});
         defer goalFile.deinit(allocator);
         // TODO: make format width for largest digit -- maybe use .nextId from the meta file
-        std.debug.print("{s: >4}  {s}\n", .{ entry.name, goalFile.title });
+        std.debug.print("#{s: <4}  {s}\n", .{ entry.name, goalFile.title });
     }
 
     if (count == 0) {
@@ -398,7 +398,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     if (id) |fileName| {
         const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
             error.FileNotFound => {
-                std.debug.print("\n{s} is not in the list!\n", .{fileName});
+                std.debug.print("\nSorry, there's no goal #{s}! Run `goal show` to see the list of goals.\n", .{fileName});
                 return err;
             },
             else => return err,
@@ -430,7 +430,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
 
         const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
             error.FileNotFound => {
-                std.debug.print("\n{s} is not in the list!\n", .{fileName});
+                std.debug.print("\n#{s} is not in the list!\n", .{fileName});
                 return err;
             },
             else => return err,
