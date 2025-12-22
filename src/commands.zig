@@ -311,7 +311,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
     defer goalsDir.deinit(allocator);
 
     var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
-    defer std.zon.parse.free(allocator, meta);
+    defer meta.deinit(allocator);
 
     const fileName = fileName: {
         var fileNameBuffer: [7]u8 = undefined; // 7 digits is overkill

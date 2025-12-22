@@ -118,10 +118,14 @@ test "getGitRoot - returns the parent of the .git/ directory" {
 pub const Meta = struct {
     nextId: u8 = 1,
     activeId: ?u8 = null,
+
+    pub fn deinit(self: *Meta, allocator: std.mem.Allocator) void {
+        std.zon.parse.free(allocator, self);
+    }
 };
 
 /// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
-/// struct with `std.zon.parse.free(alloc, meta)`.
+/// struct with `meta.deinit(allocator)`.
 pub fn loadMetaFile(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !Meta {
     const metaFile = try goalsDir.readFileAllocOptions(allocator, "m", std.math.maxInt(usize), null, .of(u8), 0);
     defer allocator.free(metaFile);
