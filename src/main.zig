@@ -1,5 +1,6 @@
 const std = @import("std");
-const commands = @import("commands");
+const commands = @import("commands.zig");
+const args = @import("args.zig");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -7,13 +8,13 @@ pub fn main() !void {
 
     const allocator = arena.allocator();
 
-    var argIter = try std.process.ArgIterator.initWithAllocator(allocator);
-    defer argIter.deinit();
+    var iter = try std.process.ArgIterator.initWithAllocator(allocator);
+    defer iter.deinit();
 
-    _ = argIter.next();
+    _ = iter.next();
 
-    if (nextCommand(&argIter)) |cmd| {
-        processCommand(allocator, cmd, &argIter) catch |err| {
+    if (args.parseCommand(iter.next())) |cmd| {
+        processCommand(allocator, cmd, &iter) catch |err| {
             std.debug.print("\nError: {t}\n", .{err});
             std.process.exit(1);
         };
@@ -22,66 +23,70 @@ pub fn main() !void {
     }
 }
 
-fn nextCommand(iter: *std.process.ArgIterator) ?commands.Command {
-    const arg = iter.next();
-    if (arg) |a| {
-        return stringToCommand(a);
-    }
-    return null;
-}
-
-fn stringToCommand(arg: []const u8) ?commands.Command {
-    if (std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help")) {
-        return .help;
-    }
-    return std.meta.stringToEnum(commands.Command, arg);
-}
-
-fn isArgHelpOption(arg: ?[]const u8) bool {
-    return std.mem.eql(u8, arg, "-h") or std.mem.eql(u8, arg, "--help");
-}
-
 fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *std.process.ArgIterator) !void {
-    var command: ?commands.Command = null;
     switch (cmd) {
         .help => {
             // goal -h init
             // goal help init
-            command = nextCommand(iter);
+
+            const command = try args.parseOptionalCommand(iter, cmd);
+
             commands.help(command);
         },
         .init => {
+            // goal init
             // goal init -h
             // goal init help
-            command = nextCommand(iter);
-            if (command) |c| switch (c) {
-                .help => return commands.help(.init),
-                else => {
-                    std.debug.print("\n`goal init {t}` is invalid. See `goal help init`.\n", .{c});
-                    return error.UnexpectedArgument;
-                },
-            };
+
+            if (try args.parseOptionalHelp(iter, cmd)) {
+                return commands.help(cmd);
+            }
+
             try commands.init(allocator);
         },
         .new => {
             // goal new
             // goal new "fix the bug"
-            // TODO: goal new -h
-            // TODO: goal new --help "fix the bug"
-            // TODO: goal new "fix the bug" help
-            const title = iter.next();
+            // goal new -h
+            // goal new --help "fix the bug"
+            // goal new "fix the bug" help
+
+            const title = title: {
+                if (try args.parseSingleArgForCommand(allocator, iter, cmd)) |res| switch (res) {
+                    .arg => |arg| break :title arg,
+                    .help => return commands.help(cmd),
+                };
+                break :title null;
+            };
+
             try commands.new(allocator, title);
         },
         .list => {
+            // goal list
+            // goal list -h
+            // goal list help
+
+            if (try args.parseOptionalHelp(iter, cmd)) {
+                return commands.help(cmd);
+            }
+
             try commands.list(allocator);
         },
         .show => {
             // goal show
             // goal show 3
-            // TODO: goal show -h
-            // TODO: goal show --help 3
-            // TODO: goal show 3 help
-            const id = iter.next();
+            // goal show -h
+            // goal show --help 3
+            // goal show 3 help
+
+            const id = id: {
+                if (try args.parseSingleArgForCommand(allocator, iter, cmd)) |x| switch (x) {
+                    .arg => |arg| break :id arg,
+                    .help => return commands.help(cmd),
+                };
+                break :id null;
+            };
+
             try commands.show(allocator, id);
         },
         .start => {
@@ -90,6 +95,12 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // TODO: goal start -h
             // TODO: goal start --help 3
             // TODO: goal start 3 help
+            // TODO: goal start help new help
+            // TODO: goal start new
+            // TODO: goal start new "fix the bug"
+            // TODO: goal start new -h
+            // TODO: goal start new --help "fix the bug"
+            // TODO: goal start new "fix the bug" help
             const id = iter.next();
             try commands.start(allocator, id);
         },

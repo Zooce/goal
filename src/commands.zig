@@ -1,5 +1,5 @@
 const std = @import("std");
-const paths = @import("paths");
+const paths = @import("paths.zig");
 
 pub const Command = enum {
     help,
@@ -14,12 +14,33 @@ pub const Command = enum {
     delete,
 
     batman, // just for development
+
+    pub fn unexpectedArgument(self: Command, arg: []const u8) anyerror {
+        std.debug.print(
+            \\
+            \\`goal {t}` was given an unexpected argument "{s}".
+            \\
+        , .{ self, arg });
+        return error.UnexpectedArgument;
+    }
+
+    pub fn unexpectedSubcommand(self: Command, sub: Command) anyerror {
+        std.debug.print(
+            \\
+            \\`goal {t}` does not accept the subcommand `{t}`.
+            \\
+        , .{ self, sub });
+        return error.UnexpectedSubcommand;
+    }
 };
 
 pub fn help(command: ?Command) void {
     const mainHelpText =
         \\
         \\`goal` is a simple CLI to help you keep track of your goals, while focusing on one at a time.
+        \\
+        \\Although not required, `goal` caters to projects tracked with Git.
+        \\
         \\
         \\Usage:
         \\
@@ -56,9 +77,13 @@ pub fn help(command: ?Command) void {
             \\
             \\The `init` Command
             \\
+            \\
             \\Initializes `goal` in your project.
             \\
-            \\All `goal` files can be found in your project root under the .goals/ directory.
+            \\All `goal` files can be found in your project root under the .goals/ directory,
+            \\where the root is either the result of `git rev-parse --show-toplevel` or the
+            \\directory from which you run this `init` command.
+            \\
             \\
             \\Usage:
             \\
@@ -77,10 +102,18 @@ pub fn help(command: ?Command) void {
             \\
             \\The `new` Command
             \\
-            \\Creates a new goal.
             \\
-            \\If no title is given the goal file will opened in your configured editor. The
-            \\first line is the title while all subsequent lines form the description.
+            \\Creates a new goal (duh).
+            \\
+            \\If no title is given the goal file will be opened in your configured editor. The
+            \\first line in the file is the goal's title while all subsequent lines form the
+            \\goal's description.
+            \\
+            \\If `title` is provided it cannot match a command. For example, the following
+            \\would be invalid.
+            \\
+            \\    goal new "new"
+            \\
             \\
             \\Usage:
             \\
@@ -103,7 +136,9 @@ pub fn help(command: ?Command) void {
             \\
             \\The `list` Command
             \\
-            \\Lists all goals.
+            \\
+            \\Does what you think it does (lists all goals).
+            \\
             \\
             \\Usage:
             \\
@@ -122,9 +157,11 @@ pub fn help(command: ?Command) void {
             \\
             \\The `show` Command
             \\
+            \\
             \\Shows the details of a goal.
             \\
             \\If no goal ID is given you'll select from the list of goals.
+            \\
             \\
             \\Usage:
             \\
@@ -147,12 +184,14 @@ pub fn help(command: ?Command) void {
             \\
             \\The `start` Command
             \\
+            \\
             \\Activates a goal.
             \\
             \\If no goal ID is given you'll select from the list of goals.
             \\
             \\If you're in a Git project, the ID and details of a this activated goal will be
             \\appended to commit messages as long as this goal is activated.
+            \\
             \\
             \\Usage:
             \\
@@ -176,10 +215,12 @@ pub fn help(command: ?Command) void {
             \\
             \\The `status` Command
             \\
+            \\
             \\Shows the status of your active goal.
             \\
             \\If you're in a Git project, this will also list the set of commits that contain
             \\the active goal's details.
+            \\
             \\
             \\Usage:
             \\
@@ -198,9 +239,11 @@ pub fn help(command: ?Command) void {
             \\
             \\The `complete` Command
             \\
+            \\
             \\Completes the active goal.
             \\
             \\This also deletes the goal.
+            \\
             \\
             \\Usage:
             \\
@@ -219,9 +262,11 @@ pub fn help(command: ?Command) void {
             \\
             \\The `edit` Command
             \\
+            \\
             \\Opens your editor to edit the details of a goal.
             \\
             \\If no goal ID is given you'll select one from the list of goals.
+            \\
             \\
             \\Usage:
             \\
@@ -244,9 +289,11 @@ pub fn help(command: ?Command) void {
             \\
             \\The `delete` Command
             \\
+            \\
             \\Deletes a goal.
             \\
             \\If no goal ID is given you'll select one from the list of goals.
+            \\
             \\
             \\Usage:
             \\
@@ -266,7 +313,7 @@ pub fn help(command: ?Command) void {
             \\
             ,
             .help => mainHelpText,
-            else => "...no help message for that command bro!\n",
+            else => "\n...no help message for that command bro!\n",
         };
     }
     std.debug.print("{s}", .{helpMsg});
@@ -352,7 +399,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
             try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
-        std.debug.print("Created #{d} - {s}\n", .{ meta.nextId, goalFile.title });
+        std.debug.print("\nCreated #{d} - {s}\n", .{ meta.nextId, goalFile.title });
     }
 
     // update the meta file
