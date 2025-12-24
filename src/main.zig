@@ -13,7 +13,7 @@ pub fn main() !void {
 
     _ = iter.next();
 
-    if (args.parseCommand(iter.next())) |cmd| {
+    if (args.stringToCommand(iter.next())) |cmd| {
         processCommand(allocator, cmd, &iter) catch |err| {
             std.debug.print("\nError: {t}\n", .{err});
             std.process.exit(1);
@@ -29,7 +29,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // goal -h init
             // goal help init
 
-            const command = try args.parseOptionalCommand(iter, cmd);
+            const command = try args.optionalCommand(iter, cmd);
 
             commands.help(command);
         },
@@ -38,7 +38,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // goal init -h
             // goal init help
 
-            if (try args.parseOptionalHelp(iter, cmd)) {
+            if (try args.optionalHelp(iter, cmd)) {
                 return commands.help(cmd);
             }
 
@@ -52,7 +52,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // goal new "fix the bug" help
 
             const title = title: {
-                if (try args.parseSingleArgForCommand(allocator, iter, cmd)) |res| switch (res) {
+                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |res| switch (res) {
                     .arg => |arg| break :title arg,
                     .help => return commands.help(cmd),
                 };
@@ -66,7 +66,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // goal list -h
             // goal list help
 
-            if (try args.parseOptionalHelp(iter, cmd)) {
+            if (try args.optionalHelp(iter, cmd)) {
                 return commands.help(cmd);
             }
 
@@ -80,7 +80,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // goal show 3 help
 
             const id = id: {
-                if (try args.parseSingleArgForCommand(allocator, iter, cmd)) |x| switch (x) {
+                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
                     .arg => |arg| break :id arg,
                     .help => return commands.help(cmd),
                 };
@@ -101,9 +101,12 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             // TODO: goal start new -h
             // TODO: goal start new --help "fix the bug"
             // TODO: goal start new "fix the bug" help
+
             const id = iter.next();
             try commands.start(allocator, id);
         },
+
+        // TODO
         else => return error.NotImplementedYet,
     }
 }

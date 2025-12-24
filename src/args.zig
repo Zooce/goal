@@ -10,8 +10,8 @@ pub inline fn expectNoMoreArgs(args: *std.process.ArgIterator) !void {
     }
 }
 
-pub fn parseOptionalHelp(args: *std.process.ArgIterator, cmd: commands.Command) !bool {
-    const first = parseArgOrCommand(args.next());
+pub fn optionalHelp(args: *std.process.ArgIterator, cmd: commands.Command) !bool {
+    const first = optionalArgOrCommand(args.next());
     try expectNoMoreArgs(args);
 
     if (first) |f| switch (f) {
@@ -25,8 +25,8 @@ pub fn parseOptionalHelp(args: *std.process.ArgIterator, cmd: commands.Command) 
     return false;
 }
 
-pub fn parseOptionalCommand(args: *std.process.ArgIterator, cmd: commands.Command) !?commands.Command {
-    const first = parseArgOrCommand(args.next());
+pub fn optionalCommand(args: *std.process.ArgIterator, cmd: commands.Command) !?commands.Command {
+    const first = optionalArgOrCommand(args.next());
     try expectNoMoreArgs(args);
 
     if (first) |f| switch (f) {
@@ -44,10 +44,10 @@ pub const ArgOrCommand = union(enum) {
 };
 
 /// Parses the next argument as either a string or `Command`.
-pub fn parseArgOrCommand(arg: ?[]const u8) ?ArgOrCommand {
+pub fn optionalArgOrCommand(arg: ?[]const u8) ?ArgOrCommand {
     if (arg) |_arg| {
         // parse as either an argument or a command
-        if (parseCommand(_arg)) |command| {
+        if (stringToCommand(_arg)) |command| {
             return ArgOrCommand{ .command = command };
         } else {
             return ArgOrCommand{ .arg = _arg };
@@ -57,7 +57,7 @@ pub fn parseArgOrCommand(arg: ?[]const u8) ?ArgOrCommand {
     }
 }
 
-pub fn parseCommand(arg: ?[]const u8) ?commands.Command {
+pub fn stringToCommand(arg: ?[]const u8) ?commands.Command {
     if (arg) |_arg| {
         if (std.mem.eql(u8, _arg, "-h") or std.mem.eql(u8, _arg, "--help")) {
             return .help;
@@ -73,11 +73,10 @@ pub const ArgOrHelp = union(enum) {
     help,
 };
 
-// TODO: maybe name this a little better?
-pub fn parseSingleArgForCommand(allocator: std.mem.Allocator, args: *std.process.ArgIterator, cmd: commands.Command) !?ArgOrHelp {
+pub fn optionalArgOrHelp(allocator: std.mem.Allocator, args: *std.process.ArgIterator, cmd: commands.Command) !?ArgOrHelp {
     // arg and/or help
-    const first = parseArgOrCommand(args.next());
-    const second = parseArgOrCommand(args.next());
+    const first = optionalArgOrCommand(args.next());
+    const second = optionalArgOrCommand(args.next());
     try expectNoMoreArgs(args);
 
     if (first) |f| switch (f) {
