@@ -1,16 +1,43 @@
 const std = @import("std");
 const commands = @import("commands.zig");
 
+pub const ArgIter = struct {
+    iter: std.process.ArgIterator,
+    _next: ?[]const u8,
+
+    pub fn init(allocator: std.mem.Allocator) !ArgIter {
+        return ArgIter{
+            .iter = try std.process.ArgIterator.initWithAllocator(allocator),
+            ._next = null,
+        };
+    }
+
+    pub fn deinit(self: *ArgIter) void {
+        self.iter.deinit();
+    }
+
+    pub fn next(self: *ArgIter) ?[]const u8 {
+        const arg = self._next orelse self.iter.next();
+        self._next = null;
+        return arg;
+    }
+
+    pub fn peek(self: *ArgIter) ?[]const u8 {
+        self._next = self._next orelse self.iter.next();
+        return self._next;
+    }
+};
+
 // TODO: this file could be cleaned up a bit
 
-pub inline fn expectNoMoreArgs(args: *std.process.ArgIterator) !void {
+pub inline fn expectNoMoreArgs(args: *ArgIter) !void {
     if (args.next()) |_| {
         std.debug.print("\nLooks like you've got too many arguments there, friend!\n", .{});
         return error.TooManyArguments;
     }
 }
 
-pub fn optionalHelp(args: *std.process.ArgIterator, cmd: commands.Command) !bool {
+pub fn optionalHelp(args: *ArgIter, cmd: commands.Command) !bool {
     const first = optionalArgOrCommand(args.next());
     try expectNoMoreArgs(args);
 
@@ -25,7 +52,7 @@ pub fn optionalHelp(args: *std.process.ArgIterator, cmd: commands.Command) !bool
     return false;
 }
 
-pub fn optionalCommand(args: *std.process.ArgIterator, cmd: commands.Command) !?commands.Command {
+pub fn optionalCommand(args: *ArgIter, cmd: commands.Command) !?commands.Command {
     const first = optionalArgOrCommand(args.next());
     try expectNoMoreArgs(args);
 
@@ -73,7 +100,7 @@ pub const ArgOrHelp = union(enum) {
     help,
 };
 
-pub fn optionalArgOrHelp(allocator: std.mem.Allocator, args: *std.process.ArgIterator, cmd: commands.Command) !?ArgOrHelp {
+pub fn optionalArgOrHelp(allocator: std.mem.Allocator, args: *ArgIter, cmd: commands.Command) !?ArgOrHelp {
     // arg and/or help
     const first = optionalArgOrCommand(args.next());
     const second = optionalArgOrCommand(args.next());

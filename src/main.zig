@@ -8,7 +8,7 @@ pub fn main() !void {
 
     const allocator = arena.allocator();
 
-    var iter = try std.process.ArgIterator.initWithAllocator(allocator);
+    var iter = try args.ArgIter.init(allocator);
     defer iter.deinit();
 
     _ = iter.next();
@@ -23,7 +23,7 @@ pub fn main() !void {
     }
 }
 
-fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *std.process.ArgIterator) !void {
+fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *args.ArgIter) !void {
     switch (cmd) {
         .help => {
             // goal -h init
@@ -59,7 +59,8 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
                 break :title null;
             };
 
-            try commands.new(allocator, title);
+            const fileName = try commands.new(allocator, title);
+            defer allocator.free(fileName);
         },
         .list => {
             // goal list
@@ -90,19 +91,43 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *st
             try commands.show(allocator, id);
         },
         .start => {
+            // goal start new
+            // goal start new "fix the bug"
+            // goal start new -h
+            // goal start new --help "fix the bug"
+            // goal start new "fix the bug" help
+
+            if (args.stringToCommand(iter.peek())) |sub| switch (sub) {
+                .new => {
+                    _ = iter.next();
+                    const title = title: {
+                        if (try args.optionalArgOrHelp(allocator, iter, .new)) |res| switch (res) {
+                            .arg => |arg| break :title arg,
+                            .help => return commands.help(cmd),
+                        };
+                        break :title null;
+                    };
+                    const id = try commands.new(allocator, title);
+                    defer allocator.free(id);
+                    return try commands.start(allocator, id);
+                },
+                .help => {}, // handle this below
+                else => return cmd.unexpectedSubcommand(sub),
+            };
+
             // goal start
             // goal start 3
-            // TODO: goal start -h
-            // TODO: goal start --help 3
-            // TODO: goal start 3 help
-            // TODO: goal start help new help
-            // TODO: goal start new
-            // TODO: goal start new "fix the bug"
-            // TODO: goal start new -h
-            // TODO: goal start new --help "fix the bug"
-            // TODO: goal start new "fix the bug" help
+            // goal start -h
+            // goal start --help 3
+            // goal start 3 help
 
-            const id = iter.next();
+            const id = id: {
+                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |res| switch (res) {
+                    .arg => |arg| break :id arg,
+                    .help => return commands.help(cmd),
+                };
+                break :id null;
+            };
             try commands.start(allocator, id);
         },
 

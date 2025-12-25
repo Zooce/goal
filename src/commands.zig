@@ -18,7 +18,7 @@ pub const Command = enum {
     pub fn unexpectedArgument(self: Command, arg: []const u8) anyerror {
         std.debug.print(
             \\
-            \\`goal {t}` was given an unexpected argument "{s}".
+            \\The `{t}` command was given an unexpected argument "{s}".
             \\
         , .{ self, arg });
         return error.UnexpectedArgument;
@@ -27,7 +27,7 @@ pub const Command = enum {
     pub fn unexpectedSubcommand(self: Command, sub: Command) anyerror {
         std.debug.print(
             \\
-            \\`goal {t}` does not accept the subcommand `{t}`.
+            \\The `{t}` command does not accept the subcommand `{t}`.
             \\
         , .{ self, sub });
         return error.UnexpectedSubcommand;
@@ -353,7 +353,10 @@ pub fn init(allocator: std.mem.Allocator) !void {
 
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.
-pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
+///
+/// Returns the file name so the caller is responsible for calling
+/// `allocator.free(filename)`.
+pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) ![]const u8 {
     var goalsDir = try paths.openGoalsDir(allocator, .{});
     defer goalsDir.deinit(allocator);
 
@@ -405,6 +408,8 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) !void {
     // update the meta file
     meta.nextId += 1;
     try paths.storeMetaFile(meta, goalsDir.dir);
+
+    return try allocator.dupe(u8, fileName);
 }
 
 /// List all goals showing their ID and title.
