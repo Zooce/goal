@@ -33,6 +33,9 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
             commands.help(command);
         },
+
+        // zero argument commands...
+
         .init => {
             // goal init
             // goal init -h
@@ -44,6 +47,22 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
             try commands.init(allocator);
         },
+        .list => {
+            // goal list
+            // goal list -h
+            // goal list help
+
+            if (try args.optionalHelp(iter, cmd)) {
+                return commands.help(cmd);
+            }
+
+            try commands.list(allocator);
+        },
+        // TODO: status
+        // TODO: complete
+
+        // single argument commands...
+
         .new => {
             // goal new
             // goal new "fix the bug"
@@ -62,17 +81,6 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             const fileName = try commands.new(allocator, title);
             defer allocator.free(fileName);
         },
-        .list => {
-            // goal list
-            // goal list -h
-            // goal list help
-
-            if (try args.optionalHelp(iter, cmd)) {
-                return commands.help(cmd);
-            }
-
-            try commands.list(allocator);
-        },
         .show => {
             // goal show
             // goal show 3
@@ -90,6 +98,11 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
             try commands.show(allocator, id);
         },
+        // TODO: edit
+        // TODO: delete
+
+        // commands with subcommands...
+
         .start => {
             // goal start new
             // goal start new "fix the bug"

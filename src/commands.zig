@@ -4,14 +4,14 @@ const paths = @import("paths.zig");
 pub const Command = enum {
     help,
     init,
-    new,
     list,
-    show,
-    start,
     status,
     complete,
+    new,
+    show,
     edit,
     delete,
+    start,
 
     batman, // just for development
 
@@ -50,14 +50,14 @@ pub fn help(command: ?Command) void {
         \\
         \\    help [command]              Show this help message or the message for a command.
         \\    init                        Initialze `goal` in a project.
-        \\    new [title]                 Create a new goal.
         \\    list                        List all goals.
-        \\    show [id]                   Show a goal's details.
-        \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
         \\    status                      Show your active goal's status.
         \\    complete                    Complete the active goal.
+        \\    new [title]                 Create a new goal.
+        \\    show [id]                   Show a goal's details.
         \\    edit [id]                   Edit a goal.
         \\    delete [id]                 Delete a goal.
+        \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
         \\
         \\Help:
         \\
@@ -98,40 +98,6 @@ pub fn help(command: ?Command) void {
             \\        goal help init
             \\
             ,
-            .new =>
-            \\
-            \\The `new` Command
-            \\
-            \\
-            \\Creates a new goal (duh).
-            \\
-            \\If no title is given the goal file will be opened in your configured editor. The
-            \\first line in the file is the goal's title while all subsequent lines form the
-            \\goal's description.
-            \\
-            \\If `title` is provided it cannot match a command. For example, the following
-            \\would be invalid.
-            \\
-            \\    goal new "new"
-            \\
-            \\
-            \\Usage:
-            \\
-            \\    goal new [title]
-            \\
-            \\Arguments:
-            \\
-            \\    [title]                 The title of the goal (optional).
-            \\
-            \\Help:
-            \\
-            \\    To show this message use one of the following:
-            \\
-            \\        goal new [help | -h | --help]
-            \\    OR
-            \\        goal help new
-            \\
-            ,
             .list =>
             \\
             \\The `list` Command
@@ -151,64 +117,6 @@ pub fn help(command: ?Command) void {
             \\        goal list [help | -h | --help]
             \\    OR
             \\        goal help list
-            \\
-            ,
-            .show =>
-            \\
-            \\The `show` Command
-            \\
-            \\
-            \\Shows the details of a goal.
-            \\
-            \\If no goal ID is given you'll select from the list of goals.
-            \\
-            \\
-            \\Usage:
-            \\
-            \\    goal show [id]
-            \\
-            \\Arguments:
-            \\
-            \\    [id]                    The goal ID (optional).
-            \\
-            \\Help:
-            \\
-            \\    To show this message use one of the following:
-            \\
-            \\        goal show [help | -h | --help]
-            \\    OR
-            \\        goal help show
-            \\
-            ,
-            .start =>
-            \\
-            \\The `start` Command
-            \\
-            \\
-            \\Activates a goal.
-            \\
-            \\If no goal ID is given you'll select from the list of goals.
-            \\
-            \\If you're in a Git project, the ID and details of a this activated goal will be
-            \\appended to commit messages as long as this goal is activated.
-            \\
-            \\
-            \\Usage:
-            \\
-            \\    goal start [id | new [title]]
-            \\
-            \\Arguments:
-            \\
-            \\    [id]                    The goal ID (optional).
-            \\    [new [title]]           Start a new goal. See `goal help new`.
-            \\
-            \\Help:
-            \\
-            \\    To show this message use one of the following:
-            \\
-            \\        goal start [help | -h | --help]
-            \\    OR
-            \\        goal help start
             \\
             ,
             .status =>
@@ -256,6 +164,67 @@ pub fn help(command: ?Command) void {
             \\        goal complete [help | -h | --help]
             \\    OR
             \\        goal help complete
+            \\
+            ,
+            .new =>
+            \\
+            \\The `new` Command
+            \\
+            \\
+            \\Creates a new goal (duh).
+            \\
+            \\If no title is given the goal file will be opened in your configured editor. The
+            \\first line in the file is the goal's title while all subsequent lines form the
+            \\goal's description.
+            \\
+            \\If `title` is provided it cannot match a command. For example, the following
+            \\would be invalid.
+            \\
+            \\    goal new "new"
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal new [title]
+            \\
+            \\Arguments:
+            \\
+            \\    [title]                 The title of the goal (optional).
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal new [help | -h | --help]
+            \\    OR
+            \\        goal help new
+            \\
+            ,
+            .show =>
+            \\
+            \\The `show` Command
+            \\
+            \\
+            \\Shows the details of a goal.
+            \\
+            \\If no goal ID is given you'll select from the list of goals.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal show [id]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]                    The goal ID (optional).
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal show [help | -h | --help]
+            \\    OR
+            \\        goal help show
             \\
             ,
             .edit =>
@@ -312,6 +281,37 @@ pub fn help(command: ?Command) void {
             \\        goal help delete
             \\
             ,
+            .start =>
+            \\
+            \\The `start` Command
+            \\
+            \\
+            \\Activates a goal.
+            \\
+            \\If no goal ID is given you'll select from the list of goals.
+            \\
+            \\If you're in a Git project, the ID and details of a this activated goal will be
+            \\appended to commit messages as long as this goal is activated.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal start [id | new [title]]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]                    The goal ID (optional).
+            \\    [new [title]]           Start a new goal. See `goal help new`.
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal start [help | -h | --help]
+            \\    OR
+            \\        goal help start
+            \\
+            ,
             .help => mainHelpText,
             else => "\n...no help message for that command bro!\n",
         };
@@ -350,6 +350,36 @@ pub fn init(allocator: std.mem.Allocator) !void {
 
     std.debug.print("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n", .{});
 }
+
+/// List all goals showing their ID and title.
+pub fn list(allocator: std.mem.Allocator) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
+    defer goalsDir.deinit(allocator);
+
+    try listGoalsDir(allocator, goalsDir.dir);
+}
+
+fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
+    std.debug.print("\n", .{});
+
+    var count: u8 = 0;
+    var iter = goalsDir.iterate();
+    while (try iter.next()) |entry| : (count += 1) {
+        if (std.mem.eql(u8, "m", entry.name)) continue;
+        const file = try goalsDir.openFile(entry.name, .{ .mode = .read_only });
+        defer file.close();
+        var goalFile = try paths.loadGoalFile(allocator, file, .{});
+        defer goalFile.deinit(allocator);
+        // TODO: make format width for largest digit -- maybe use .nextId from the meta file
+        std.debug.print("{s}. {s}\n", .{ entry.name, goalFile.title });
+    }
+
+    if (count == 0) {
+        std.debug.print("No goals to show. Use `goal new` to create a new goal.\n", .{});
+    }
+}
+
+// TODO: pub fn status
 
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.
@@ -412,38 +442,10 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) ![]const u8 {
     return try allocator.dupe(u8, fileName);
 }
 
-/// List all goals showing their ID and title.
-pub fn list(allocator: std.mem.Allocator) !void {
-    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
-    defer goalsDir.deinit(allocator);
-
-    try _list(allocator, goalsDir.dir);
-}
-
-fn _list(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
-    std.debug.print("\n", .{});
-
-    var count: u8 = 0;
-    var iter = goalsDir.iterate();
-    while (try iter.next()) |entry| : (count += 1) {
-        if (std.mem.eql(u8, "m", entry.name)) continue;
-        const file = try goalsDir.openFile(entry.name, .{ .mode = .read_only });
-        defer file.close();
-        var goalFile = try paths.loadGoalFile(allocator, file, .{});
-        defer goalFile.deinit(allocator);
-        // TODO: make format width for largest digit -- maybe use .nextId from the meta file
-        std.debug.print("{s}. {s}\n", .{ entry.name, goalFile.title });
-    }
-
-    if (count == 0) {
-        std.debug.print("No goals to show. Use `goal new` to create a new goal.\n", .{});
-    }
-}
-
 /// Ask the user to input a number from the list of goals. The caller is responsible for
 /// freeing the memory with `allocator.free(choice)`.
 fn getGoalChoice(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) ![]const u8 {
-    try _list(allocator, goalsDir);
+    try listGoalsDir(allocator, goalsDir);
 
     var stdin_buffer: [8]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
@@ -485,6 +487,9 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
         std.debug.print("\n{s}\n", .{desc});
     }
 }
+
+// TODO: pub fn edit
+// TODO: pub fn delete
 
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
