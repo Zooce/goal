@@ -50,14 +50,14 @@ pub fn help(command: ?Command) void {
         \\
         \\    help [command]              Show this help message or the message for a command.
         \\    init                        Initialze `goal` in a project.
-        \\    list                        List all goals.
+        \\    new [title]                 Create a new goal.
+        \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
         \\    status                      Show your active goal's status.
         \\    complete                    Complete the active goal.
-        \\    new [title]                 Create a new goal.
+        \\    list                        List all goals.
         \\    show [id]                   Show a goal's details.
         \\    edit [id]                   Edit a goal.
         \\    delete [id]                 Delete a goal.
-        \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
         \\
         \\Help:
         \\
