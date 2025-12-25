@@ -379,7 +379,27 @@ fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
     }
 }
 
-// TODO: pub fn status
+pub fn status(allocator: std.mem.Allocator) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{});
+    defer goalsDir.deinit(allocator);
+
+    var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
+    defer meta.deinit(allocator);
+
+    if (meta.activeId) |id| {
+        const fileName = fileName: {
+            var fileNameBuffer: [7]u8 = undefined; // 7 digits is overkill
+            break :fileName try std.fmt.bufPrint(&fileNameBuffer, "{d}", .{id});
+        };
+        try showGoalFile(allocator, goalsDir.dir, fileName);
+        // TODO: find all git commits with the goal number in the commit message
+        // git log --all --graph --decorate --oneline --grep="Goal #42"
+    } else {
+        std.debug.print("\nThere's no active goal.\n", .{});
+    }
+}
+
+// TODO: pub fn complete
 
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.
@@ -467,24 +487,31 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
 
     if (fileName.len == 0) {
         std.debug.print("\nYou didn't choose a goal. Run `goal help show`. See you later!\n", .{});
+        // TODO: add fn to Command
         return error.MissingArgument;
     }
 
-    const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
-        error.FileNotFound => {
-            std.debug.print("\nSorry, there is no goal #{s}! Run `goal show` to pick from the list of goals.\n", .{fileName});
-            return err;
-        },
-        else => return err,
-    };
+    try showGoalFile(allocator, goalsDir.dir, fileName);
+}
+
+pub fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8) !void {
+    const file = try dir.openFile(fileName, .{ .mode = .read_only });
     defer file.close();
 
-    var goalFile = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
-    defer goalFile.deinit(allocator);
+    var goal = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
+    defer goal.deinit(allocator);
 
-    std.debug.print("\n{s}\n", .{goalFile.title});
-    if (goalFile.description) |desc| {
-        std.debug.print("\n{s}\n", .{desc});
+    std.debug.print(
+        \\
+        \\[ Goal #{s} ] - {s}
+        \\
+    , .{ fileName, goal.title });
+    if (goal.description) |desc| {
+        std.debug.print(
+            \\
+            \\{s}
+            \\
+        , .{desc});
     }
 }
 
