@@ -12,6 +12,7 @@ pub const Command = enum {
     edit,
     delete,
     start,
+    stop,
 
     batman, // just for development
 
@@ -53,6 +54,7 @@ pub fn help(command: ?Command) void {
         \\    new [title]                 Create a new goal.
         \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
         \\    status                      Show your active goal's status.
+        \\    stop                        Stop working on the active goal.
         \\    complete                    Complete the active goal.
         \\    list                        List all goals.
         \\    show [id]                   Show a goal's details.
@@ -312,6 +314,27 @@ pub fn help(command: ?Command) void {
             \\        goal help start
             \\
             ,
+            .stop =>
+            \\
+            \\The `stop` Command
+            \\
+            \\
+            \\Stop working on the active goal.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal stop
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal stop [help | -h | --help]
+            \\    OR
+            \\        goal help stop
+            \\
+            ,
             .help => mainHelpText,
             else => "\n...no help message for that command bro!\n",
         };
@@ -395,11 +418,39 @@ pub fn status(allocator: std.mem.Allocator) !void {
         // TODO: find all git commits with the goal number in the commit message
         // git log --all --graph --decorate --oneline --grep="Goal #42"
     } else {
-        std.debug.print("\nThere's no active goal.\n", .{});
+        std.debug.print("\nOh my... it looks like there's no active goal :). Bye now!\n", .{});
     }
 }
 
 // TODO: pub fn complete
+
+pub fn stop(allocator: std.mem.Allocator) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{});
+    defer goalsDir.deinit(allocator);
+
+    var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
+    defer meta.deinit(allocator);
+
+    if (meta.activeId) |id| {
+        const fileName = fileName: {
+            var buffer: [7]u8 = undefined;
+            break :fileName try std.fmt.bufPrint(&buffer, "{d}", .{id});
+        };
+
+        const file = try goalsDir.dir.openFile(fileName, .{ .mode = .read_only });
+        defer file.close();
+
+        var goal = try paths.loadGoalFile(allocator, file, .{});
+        defer goal.deinit(allocator);
+
+        meta.activeId = null;
+        try paths.storeMetaFile(meta, goalsDir.dir);
+
+        std.debug.print("\nTaking a break from working on goal #{s} - {s}\n", .{ fileName, goal.title });
+    } else {
+        std.debug.print("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n", .{});
+    }
+}
 
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.

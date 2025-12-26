@@ -69,6 +69,17 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
             try commands.status(allocator);
         },
+        .stop => {
+            // goal stop
+            // goal stop -h
+            // goal stop help
+
+            if (try args.optionalHelp(iter, cmd)) {
+                return commands.help(cmd);
+            }
+
+            try commands.stop(allocator);
+        },
         // TODO: complete
 
         // single argument commands...
