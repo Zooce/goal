@@ -385,6 +385,9 @@ pub fn list(allocator: std.mem.Allocator) !void {
 fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
     std.debug.print("\n", .{});
 
+    var meta = try paths.loadMetaFile(allocator, goalsDir);
+    defer meta.deinit(allocator);
+
     var count: u8 = 0;
     var iter = goalsDir.iterate();
     while (try iter.next()) |entry| : (count += 1) {
@@ -393,8 +396,17 @@ fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
         defer file.close();
         var goalFile = try paths.loadGoalFile(allocator, file, .{});
         defer goalFile.deinit(allocator);
-        // TODO: make format width for largest digit -- maybe use .nextId from the meta file
-        std.debug.print("{s}. {s}\n", .{ entry.name, goalFile.title });
+        if (meta.activeId == try std.fmt.parseInt(u8, entry.name, 10)) {
+            std.debug.print(
+                \\
+                \\[active]
+                \\{s}. {s}
+                \\
+                \\
+            , .{ entry.name, goalFile.title });
+        } else {
+            std.debug.print("{s}. {s}\n", .{ entry.name, goalFile.title });
+        }
     }
 
     if (count == 0) {
@@ -545,7 +557,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     try showGoalFile(allocator, goalsDir.dir, fileName);
 }
 
-pub fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8) !void {
+fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8) !void {
     const file = try dir.openFile(fileName, .{ .mode = .read_only });
     defer file.close();
 
@@ -566,8 +578,82 @@ pub fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []c
     }
 }
 
-// TODO: pub fn edit
-// TODO: pub fn delete
+pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
+    defer goalsDir.deinit(allocator);
+
+    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
+    defer if (id == null) allocator.free(fileName);
+
+    if (fileName.len == 0) {
+        std.debug.print("\nYou didn't choose a goal. Run `goal help edit`. See you later!\n", .{});
+        // TODO: add fn to Command
+        return error.MissingArgument;
+    }
+
+    // open the new goal file in an editor
+    const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
+    defer allocator.free(filePath);
+
+    // TODO: editor should be configurable
+    const cmd = [_][]const u8{ "nvim", filePath, "+startinsert" };
+    // const cmd = [_][]const u8{ "code", filePath, "-w" };
+    var editor = std.process.Child.init(&cmd, allocator);
+
+    _ = try editor.spawnAndWait();
+
+    // empty file check
+    const goalFile = try goalsDir.dir.openFile(fileName, .{ .mode = .read_only });
+    defer goalFile.close();
+
+    var goal = try paths.loadGoalFile(allocator, goalFile, .{});
+    defer goal.deinit(allocator);
+
+    if (goal.title.len == 0) {
+        std.debug.print(
+            \\
+            \\Alright, look... you emptied the file. That's kind of against the rules but I'll
+            \\let it slide and just suggest that you run `goal delete`.
+            \\
+            \\If you did this by accident then hopefully you're tracking the `.goals/`
+            \\directory with Git and you can undo it. If not, then run `goal edit {s}` again
+            \\and rewrite whatever you can remember about it -- you'll be okay.
+            \\
+        , .{fileName});
+    } else {
+        std.debug.print("\nThat was an awesome edit, dude! Peace out!\n", .{});
+    }
+}
+
+pub fn delete(allocator: std.mem.Allocator, id: ?[]const u8) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
+    defer goalsDir.deinit(allocator);
+
+    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
+    defer if (id == null) allocator.free(fileName);
+
+    if (fileName.len == 0) {
+        std.debug.print("\nYou didn't choose a goal. Run `goal help delete`. See you later!\n", .{});
+        // TODO: add fn to Command
+        return error.MissingArgument;
+    }
+
+    // make sure it's not the active goal anymore (if it's the active one, of course)
+    var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
+    defer meta.deinit(allocator);
+
+    if (meta.activeId) |active| if (active == try std.fmt.parseInt(u8, fileName, 10)) {
+        meta.activeId = null;
+        try paths.storeMetaFile(meta, goalsDir.dir);
+    };
+
+    // delete the file but do this after the "active goal" stuff in case that
+    // stuff fails so we're not in a corrupted state where we still have an
+    // active goal but the file for it doesn't exist
+    try goalsDir.dir.deleteFile(fileName);
+
+    std.debug.print("\nGoal #{s} was deleted. It was a success!\n", .{fileName});
+}
 
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });

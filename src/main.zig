@@ -119,8 +119,40 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
             try commands.show(allocator, id);
         },
-        // TODO: edit
-        // TODO: delete
+        .edit => {
+            // goal edit
+            // goal edit 3
+            // goal edit -h
+            // goal edit --help 3
+            // goal edit 3 help
+
+            const id = id: {
+                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
+                    .arg => |arg| break :id arg,
+                    .help => return commands.help(cmd),
+                };
+                break :id null;
+            };
+
+            try commands.edit(allocator, id);
+        },
+        .delete => {
+            // goal delete
+            // goal delete 3
+            // goal delete -h
+            // goal delete --help 3
+            // goal delete 3 help
+
+            const id = id: {
+                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
+                    .arg => |arg| break :id arg,
+                    .help => return commands.help(cmd),
+                };
+                break :id null;
+            };
+
+            try commands.delete(allocator, id);
+        },
 
         // commands with subcommands...
 
