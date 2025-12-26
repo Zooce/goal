@@ -66,32 +66,21 @@ pub fn getGoalsPath(allocator: std.mem.Allocator) ![]const u8 {
 /// If there's no git root or git is not installed, then null is returned,
 /// otherwise a string is returned and must be freed by the caller.
 fn getGitRoot(allocator: std.mem.Allocator) !?[]const u8 {
-    var child = std.process.Child.init(&[_][]const u8{ "git", "rev-parse", "--show-toplevel" }, allocator);
-    child.stdout_behavior = .Pipe;
-    child.stderr_behavior = .Pipe;
+    const argv = [_][]const u8{ "git", "rev-parse", "--show-toplevel" };
+    const res = try std.process.Child.run(.{ .allocator = allocator, .argv = &argv });
+    defer {
+        allocator.free(res.stdout);
+        allocator.free(res.stderr);
+    }
 
-    try child.spawn();
-
-    var stdout = std.ArrayListUnmanaged(u8){};
-    defer stdout.deinit(allocator);
-    var stderr = std.ArrayListUnmanaged(u8){};
-    defer stderr.deinit(allocator);
-    _ = try child.collectOutput(allocator, &stdout, &stderr, 4096);
-
-    const term = try child.wait();
-    const gitRoot = root: switch (term) {
+    const gitRoot = root: switch (res.term) {
         .Exited => |code| {
-            if (code == 0 and stdout.items.len > 0) {
-                const trimmed = std.mem.trim(u8, stdout.items, " \t\r\n");
-                if (trimmed.len > 0) {
-                    // need to copy this so the caller owns the memory
-                    break :root try allocator.dupe(u8, trimmed);
-                } else {
-                    break :root null;
-                }
-            } else {
-                break :root null;
+            if (code == 0 and res.stdout.len > 0) {
+                const trimmed = std.mem.trim(u8, res.stdout, " \t\r\n");
+                // need to copy this so the caller owns the memory
+                break :root if (trimmed.len > 0) try allocator.dupe(u8, trimmed) else null;
             }
+            break :root null;
         },
         else => null,
     };
