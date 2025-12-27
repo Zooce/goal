@@ -80,7 +80,17 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
             try commands.stop(allocator);
         },
-        // TODO: complete
+        .complete => {
+            // goal complete
+            // goal complete -h
+            // goal complete help
+
+            if (try args.optionalHelp(iter, cmd)) {
+                return commands.help(cmd);
+            }
+
+            try commands.complete(allocator);
+        },
 
         // single argument commands...
 
@@ -197,7 +207,6 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             try commands.start(allocator, id);
         },
 
-        // TODO
-        else => return error.NotImplementedYet,
+        .batman => std.debug.print("\nWhat are you doing here?!\n", .{}),
     }
 }

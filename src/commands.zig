@@ -33,6 +33,24 @@ pub const Command = enum {
         , .{ self, sub });
         return error.UnexpectedSubcommand;
     }
+
+    pub fn missingArgument(self: Command) anyerror {
+        std.debug.print(
+            \\
+            \\You didn't choose a goal. Run `goal help {t}`. See you later!
+            \\
+        , .{self});
+        return error.MissingArgument;
+    }
+
+    pub fn fileNotFound(self: Command, id: []const u8) anyerror {
+        std.debug.print(
+            \\
+            \\Goal #{s} doesn't exist! Run `goal {t}` to pick from the list of goals.
+            \\
+        , .{ id, self });
+        return error.FileNotFound;
+    }
 };
 
 pub fn help(command: ?Command) void {
@@ -434,7 +452,34 @@ pub fn status(allocator: std.mem.Allocator) !void {
     }
 }
 
-// TODO: pub fn complete
+pub fn complete(allocator: std.mem.Allocator) !void {
+    var goalsDir = try paths.openGoalsDir(allocator, .{});
+    defer goalsDir.deinit(allocator);
+
+    var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
+    defer meta.deinit(allocator);
+
+    if (meta.activeId) |id| {
+        if (!try confirm()) return;
+
+        const fileName = fileName: {
+            var buffer: [7]u8 = undefined;
+            break :fileName try std.fmt.bufPrint(&buffer, "{d}", .{id});
+        };
+
+        meta.activeId = null;
+        try paths.storeMetaFile(meta, goalsDir.dir);
+
+        // delete the file but do this after the meta file stuff in case that
+        // stuff fails so we're not in a corrupted state where we still have an
+        // active goal but the file for it doesn't exist
+        try goalsDir.dir.deleteFile(fileName);
+
+        std.debug.print("\nGoal #{s} complete! I'm so proud of you. You did it!\n", .{fileName});
+    } else {
+        std.debug.print("\nWelp... there's no active goal to complete so I guess we're good here?\n", .{});
+    }
+}
 
 pub fn stop(allocator: std.mem.Allocator) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{});
@@ -490,7 +535,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) ![]const u8 {
         if (t.len > 0) {
             _ = try goal.write(t);
         } else {
-            std.debug.print("\nGoal title cannot be empty!\n", .{});
+            std.debug.print("\nGoal title cannot be empty! You're so funny.\n", .{});
             try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
@@ -548,13 +593,12 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
     defer if (id == null) allocator.free(fileName);
 
-    if (fileName.len == 0) {
-        std.debug.print("\nYou didn't choose a goal. Run `goal help show`. See you later!\n", .{});
-        // TODO: add fn to Command
-        return error.MissingArgument;
-    }
+    if (fileName.len == 0) return Command.show.missingArgument();
 
-    try showGoalFile(allocator, goalsDir.dir, fileName);
+    showGoalFile(allocator, goalsDir.dir, fileName) catch |err| switch (err) {
+        error.FileNotFound => return Command.show.fileNotFound(fileName),
+        else => return err,
+    };
 }
 
 fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8) !void {
@@ -585,18 +629,19 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
     defer if (id == null) allocator.free(fileName);
 
-    if (fileName.len == 0) {
-        std.debug.print("\nYou didn't choose a goal. Run `goal help edit`. See you later!\n", .{});
-        // TODO: add fn to Command
-        return error.MissingArgument;
-    }
+    if (fileName.len == 0) return Command.edit.missingArgument();
+
+    goalsDir.dir.access(fileName, .{}) catch |err| switch (err) {
+        error.FileNotFound => return Command.edit.fileNotFound(fileName),
+        else => return err,
+    };
 
     // open the new goal file in an editor
     const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
     defer allocator.free(filePath);
 
     // TODO: editor should be configurable
-    const cmd = [_][]const u8{ "nvim", filePath, "+startinsert" };
+    const cmd = [_][]const u8{ "nvim", filePath };
     // const cmd = [_][]const u8{ "code", filePath, "-w" };
     var editor = std.process.Child.init(&cmd, allocator);
 
@@ -625,6 +670,28 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     }
 }
 
+pub fn confirm() !bool {
+    var stdin_buffer: [64]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var reader = &stdin_reader.interface;
+
+    std.debug.print("\nAnd you're sure about this? (y/N): ", .{});
+
+    const answer = try reader.takeDelimiterExclusive('\n');
+
+    if (std.mem.eql(u8, answer, "y") or std.mem.eql(u8, answer, "Y") or std.mem.eql(u8, answer, "yes") or std.mem.eql(u8, answer, "YES") or std.mem.eql(u8, answer, "yep")) {
+        return true;
+    }
+
+    if (answer.len == 0 or std.mem.eql(u8, answer, "n") or std.mem.eql(u8, answer, "N") or std.mem.eql(u8, answer, "no") or std.mem.eql(u8, answer, "NO") or std.mem.eql(u8, answer, "nope")) {
+        std.debug.print("\nNo problemo! Adios!\n", .{});
+        return false;
+    }
+
+    std.debug.print("\nI guess I'll take that as a NO. See ya!\n", .{});
+    return false;
+}
+
 pub fn delete(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
@@ -632,11 +699,14 @@ pub fn delete(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
     defer if (id == null) allocator.free(fileName);
 
-    if (fileName.len == 0) {
-        std.debug.print("\nYou didn't choose a goal. Run `goal help delete`. See you later!\n", .{});
-        // TODO: add fn to Command
-        return error.MissingArgument;
-    }
+    if (fileName.len == 0) return Command.delete.missingArgument();
+
+    goalsDir.dir.access(fileName, .{}) catch |err| switch (err) {
+        error.FileNotFound => return Command.delete.fileNotFound(fileName),
+        else => return err,
+    };
+
+    if (!try confirm()) return;
 
     // make sure it's not the active goal anymore (if it's the active one, of course)
     var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
@@ -662,16 +732,10 @@ pub fn start(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
     defer if (id == null) allocator.free(fileName);
 
-    if (fileName.len == 0) {
-        std.debug.print("\nYou didn't choose a goal. Run `goal help start`. See you later!\n", .{});
-        return error.MissingArgument;
-    }
+    if (fileName.len == 0) return Command.start.missingArgument();
 
     const file = goalsDir.dir.openFile(fileName, .{ .mode = .read_only }) catch |err| switch (err) {
-        error.FileNotFound => {
-            std.debug.print("\nSorry, there's no goal #{s}! Run `goal start` to pick from the list of goals.\n", .{fileName});
-            return err;
-        },
+        error.FileNotFound => return Command.start.fileNotFound(fileName),
         else => return err,
     };
     defer file.close();
