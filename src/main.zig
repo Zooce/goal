@@ -108,6 +108,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                 };
                 break :title null;
             };
+            defer if (title) |t| allocator.free(t);
 
             const fileName = try commands.new(allocator, title);
             defer allocator.free(fileName);
@@ -126,6 +127,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                 };
                 break :id null;
             };
+            defer if (id) |_id| allocator.free(_id);
 
             try commands.show(allocator, id);
         },
@@ -143,25 +145,31 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                 };
                 break :id null;
             };
+            defer if (id) |_id| allocator.free(_id);
 
             try commands.edit(allocator, id);
         },
+
+        // commands with multiple arguments
+
         .delete => {
             // goal delete
             // goal delete 3
+            // goal delete 3 4 5, 6
             // goal delete -h
             // goal delete --help 3
             // goal delete 3 help
 
-            const id = id: {
-                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
-                    .arg => |arg| break :id arg,
+            const ids = ids: {
+                if (try args.optionalArgsOrHelp(allocator, iter, cmd)) |x| switch (x) {
+                    .args => |arg| break :ids arg,
                     .help => return commands.help(cmd),
                 };
-                break :id null;
+                break :ids null;
             };
+            defer if (ids) |_ids| allocator.free(_ids);
 
-            try commands.delete(allocator, id);
+            try commands.delete(allocator, ids);
         },
 
         // commands with subcommands...
@@ -183,6 +191,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                         };
                         break :title null;
                     };
+                    defer if (title) |t| allocator.free(t);
                     const id = try commands.new(allocator, title);
                     defer allocator.free(id);
                     return try commands.start(allocator, id);
@@ -204,9 +213,13 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                 };
                 break :id null;
             };
+            defer if (id) |_id| allocator.free(_id);
+
             try commands.start(allocator, id);
         },
 
-        .batman => std.debug.print("\nWhat are you doing here?!\n", .{}),
+        .batman => {
+            std.debug.print("\nWhat are you doing here?!\n", .{});
+        },
     }
 }

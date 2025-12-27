@@ -400,38 +400,6 @@ pub fn list(allocator: std.mem.Allocator) !void {
     try listGoalsDir(allocator, goalsDir.dir);
 }
 
-fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
-    std.debug.print("\n", .{});
-
-    var meta = try paths.loadMetaFile(allocator, goalsDir);
-    defer meta.deinit(allocator);
-
-    var count: u8 = 0;
-    var iter = goalsDir.iterate();
-    while (try iter.next()) |entry| : (count += 1) {
-        if (std.mem.eql(u8, "m", entry.name)) continue;
-        const file = try goalsDir.openFile(entry.name, .{ .mode = .read_only });
-        defer file.close();
-        var goalFile = try paths.loadGoalFile(allocator, file, .{});
-        defer goalFile.deinit(allocator);
-        if (meta.activeId == try std.fmt.parseInt(u8, entry.name, 10)) {
-            std.debug.print(
-                \\
-                \\[active]
-                \\{s}. {s}
-                \\
-                \\
-            , .{ entry.name, goalFile.title });
-        } else {
-            std.debug.print("{s}. {s}\n", .{ entry.name, goalFile.title });
-        }
-    }
-
-    if (count == 0) {
-        std.debug.print("No goals to show. Use `goal new` to create a new goal.\n", .{});
-    }
-}
-
 pub fn status(allocator: std.mem.Allocator) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{});
     defer goalsDir.deinit(allocator);
@@ -570,20 +538,6 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8) ![]const u8 {
     return try allocator.dupe(u8, fileName);
 }
 
-/// Ask the user to input a number from the list of goals. The caller is responsible for
-/// freeing the memory with `allocator.free(choice)`.
-fn getGoalChoice(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) ![]const u8 {
-    try listGoalsDir(allocator, goalsDir);
-
-    var stdin_buffer: [8]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    std.debug.print("\nChoose a goal (type the number): ", .{});
-
-    return allocator.dupe(u8, try reader.takeDelimiterExclusive('\n'));
-}
-
 /// Show the details of a goal. If an id isn't provided then all goals will be listed
 /// for one to be chosen.
 pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
@@ -599,27 +553,6 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8) !void {
         error.FileNotFound => return Command.show.fileNotFound(fileName),
         else => return err,
     };
-}
-
-fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8) !void {
-    const file = try dir.openFile(fileName, .{ .mode = .read_only });
-    defer file.close();
-
-    var goal = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
-    defer goal.deinit(allocator);
-
-    std.debug.print(
-        \\
-        \\[ Goal #{s} ] - {s}
-        \\
-    , .{ fileName, goal.title });
-    if (goal.description) |desc| {
-        std.debug.print(
-            \\
-            \\{s}
-            \\
-        , .{desc});
-    }
 }
 
 pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8) !void {
@@ -670,59 +603,33 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     }
 }
 
-pub fn confirm() !bool {
-    var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    std.debug.print("\nAnd you're sure about this? (y/N): ", .{});
-
-    const answer = try reader.takeDelimiterExclusive('\n');
-
-    if (std.mem.eql(u8, answer, "y") or std.mem.eql(u8, answer, "Y") or std.mem.eql(u8, answer, "yes") or std.mem.eql(u8, answer, "YES") or std.mem.eql(u8, answer, "yep")) {
-        return true;
-    }
-
-    if (answer.len == 0 or std.mem.eql(u8, answer, "n") or std.mem.eql(u8, answer, "N") or std.mem.eql(u8, answer, "no") or std.mem.eql(u8, answer, "NO") or std.mem.eql(u8, answer, "nope")) {
-        std.debug.print("\nNo problemo! Adios!\n", .{});
-        return false;
-    }
-
-    std.debug.print("\nI guess I'll take that as a NO. See ya!\n", .{});
-    return false;
-}
-
-pub fn delete(allocator: std.mem.Allocator, id: ?[]const u8) !void {
+pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8) !void {
     var goalsDir = try paths.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
     defer goalsDir.deinit(allocator);
 
-    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir);
-    defer if (id == null) allocator.free(fileName);
+    const choices = ids orelse try getGoalChoices(allocator, goalsDir.dir);
+    defer if (ids == null) allocator.free(choices);
 
-    if (fileName.len == 0) return Command.delete.missingArgument();
-
-    goalsDir.dir.access(fileName, .{}) catch |err| switch (err) {
-        error.FileNotFound => return Command.delete.fileNotFound(fileName),
-        else => return err,
-    };
-
-    if (!try confirm()) return;
-
-    // make sure it's not the active goal anymore (if it's the active one, of course)
     var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
     defer meta.deinit(allocator);
 
-    if (meta.activeId) |active| if (active == try std.fmt.parseInt(u8, fileName, 10)) {
-        meta.activeId = null;
-        try paths.storeMetaFile(meta, goalsDir.dir);
-    };
+    std.debug.print("\nHere's what I'm going to delete:\n\n", .{});
+    try listGoals(allocator, goalsDir.dir, GoalList{ .list = choices }, meta.activeId);
 
-    // delete the file but do this after the "active goal" stuff in case that
-    // stuff fails so we're not in a corrupted state where we still have an
-    // active goal but the file for it doesn't exist
-    try goalsDir.dir.deleteFile(fileName);
+    if (!try confirm()) return;
 
-    std.debug.print("\nGoal #{s} was deleted. It was a success!\n", .{fileName});
+    for (choices) |choice| {
+        // we might de deleting the active goal
+        if (meta.activeId) |active| if (active == try std.fmt.parseInt(u8, choice, 10)) {
+            meta.activeId = null;
+            try paths.storeMetaFile(meta, goalsDir.dir);
+        };
+
+        // delete the file but do this after the "active goal" stuff in case that
+        // stuff fails so we're not in a corrupted state where we still have an
+        // active goal but the file for it doesn't exist
+        try goalsDir.dir.deleteFile(choice);
+    }
 }
 
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8) !void {
@@ -751,4 +658,141 @@ pub fn start(allocator: std.mem.Allocator, id: ?[]const u8) !void {
     try paths.storeMetaFile(meta, goalsDir.dir);
 
     std.debug.print("\nLet's get to work on #{s} - {s}\n", .{ fileName, goalFile.title });
+}
+
+//
+// HELPERS
+//
+
+fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !void {
+    var meta = try paths.loadMetaFile(allocator, goalsDir);
+    defer meta.deinit(allocator);
+
+    try listGoals(allocator, goalsDir, GoalList.iter, meta.activeId);
+}
+
+const GoalList = union(enum) {
+    iter: void,
+    list: []const []const u8,
+};
+
+fn listGoals(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, goals: GoalList, activeId: ?u8) !void {
+    std.debug.print("\n", .{});
+
+    var foundActive = false;
+    var count: usize = 0;
+    switch (goals) {
+        .iter => {
+            var iter = goalsDir.iterate();
+            while (try iter.next()) |entry| : (count += 1) {
+                if (std.mem.eql(u8, "m", entry.name)) continue;
+                const id = entry.name;
+                const file = try goalsDir.openFile(id, .{ .mode = .read_only });
+                defer file.close();
+                var goalFile = try paths.loadGoalFile(allocator, file, .{});
+                defer goalFile.deinit(allocator);
+                const active = activeId == try std.fmt.parseInt(u8, id, 10);
+                foundActive = foundActive or active;
+                std.debug.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", id, goalFile.title });
+            }
+        },
+        .list => |ids| {
+            count = ids.len;
+            for (ids) |id| {
+                const file = try goalsDir.openFile(id, .{ .mode = .read_only });
+                defer file.close();
+                var goalFile = try paths.loadGoalFile(allocator, file, .{});
+                defer goalFile.deinit(allocator);
+                const active = activeId == try std.fmt.parseInt(u8, id, 10);
+                foundActive = foundActive or active;
+                std.debug.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", id, goalFile.title });
+            }
+        },
+    }
+
+    if (count == 0) {
+        std.debug.print("No goals to list.\n", .{});
+    } else if (foundActive) {
+        std.debug.print("\n(* marks the active goal)\n", .{});
+    }
+}
+
+fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8) !void {
+    const file = try dir.openFile(fileName, .{ .mode = .read_only });
+    defer file.close();
+
+    var goal = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
+    defer goal.deinit(allocator);
+
+    std.debug.print(
+        \\
+        \\[ Goal #{s} ] - {s}
+        \\
+    , .{ fileName, goal.title });
+    if (goal.description) |desc| {
+        std.debug.print(
+            \\
+            \\{s}
+            \\
+        , .{desc});
+    }
+}
+
+fn confirm() !bool {
+    var stdin_buffer: [64]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var reader = &stdin_reader.interface;
+
+    std.debug.print("\nAnd you're sure about this? (y/N): ", .{});
+
+    const answer = try reader.takeDelimiterExclusive('\n');
+
+    if (std.mem.eql(u8, answer, "y") or std.mem.eql(u8, answer, "Y") or std.mem.eql(u8, answer, "yes") or std.mem.eql(u8, answer, "YES") or std.mem.eql(u8, answer, "yep")) {
+        return true;
+    }
+
+    if (answer.len == 0 or std.mem.eql(u8, answer, "n") or std.mem.eql(u8, answer, "N") or std.mem.eql(u8, answer, "no") or std.mem.eql(u8, answer, "NO") or std.mem.eql(u8, answer, "nope")) {
+        std.debug.print("\nNo problemo! Adios!\n", .{});
+        return false;
+    }
+
+    std.debug.print("\nI guess I'll take that as a NO. See ya!\n", .{});
+    return false;
+}
+
+/// Ask the user to input a number from the list of goals. The caller is responsible for
+/// freeing the memory with `allocator.free(choice)`.
+fn getGoalChoice(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) ![]const u8 {
+    try listGoalsDir(allocator, goalsDir);
+
+    var stdin_buffer: [8]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var reader = &stdin_reader.interface;
+
+    std.debug.print("\nChoose a goal (type the number): ", .{});
+
+    return allocator.dupe(u8, try reader.takeDelimiterExclusive('\n'));
+}
+
+fn getGoalChoices(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) ![]const []const u8 {
+    try listGoalsDir(allocator, goalsDir);
+
+    var stdin_buffer: [64]u8 = undefined;
+    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var reader = &stdin_reader.interface;
+
+    std.debug.print("\nChoose goals (space or comma separated list of numbers): ", .{});
+
+    const answer = try reader.takeDelimiterExclusive('\n');
+    var iter = std.mem.splitAny(u8, answer, " ,");
+
+    var choices: std.ArrayList([]const u8) = .empty;
+
+    while (iter.next()) |choice| {
+        if (choice.len == 0) continue;
+        const trimmed = std.mem.trim(u8, choice, ", \t\r\n");
+        try choices.append(allocator, try allocator.dupe(u8, trimmed));
+    }
+
+    return try choices.toOwnedSlice(allocator);
 }
