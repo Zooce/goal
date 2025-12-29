@@ -671,7 +671,7 @@ pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *s
     var meta = try paths.loadMetaFile(allocator, goalsDir.dir);
     defer meta.deinit(allocator);
 
-    try stdout.print("\nHere's what I'm going to delete:\n\n", .{});
+    try stdout.print("\nHere's what I'm going to delete:\n", .{});
     try listGoals(allocator, goalsDir.dir, GoalList{ .list = choices }, meta.activeId, stdout);
 
     if (!try confirm(stdout)) return;
@@ -688,6 +688,8 @@ pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *s
         // active goal but the file for it doesn't exist
         try goalsDir.dir.deleteFile(choice);
     }
+
+    try stdout.print("\nAll done! Smell ya later!\n", .{});
 }
 
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
