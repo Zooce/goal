@@ -41,11 +41,36 @@ pub fn openGoalsDir(allocator: std.mem.Allocator, options: OpenGoalsDirOptions) 
     };
 }
 
+pub fn createGitHook(allocator: std.mem.Allocator) !void {
+    const hooksPath = try getHooksPath(allocator);
+
+    if (hooksPath) |path| {
+        defer allocator.free(path);
+
+        std.fs.makeDirAbsolute(path) catch |err| switch (err) {
+            error.PathAlreadyExists => {},
+            else => return err,
+        };
+
+        var hooksDir = try std.fs.openDirAbsolute(path, .{});
+        defer hooksDir.close();
+
+        const hookContent = @embedFile("prepare-commit-msg");
+        try hooksDir.writeFile(.{ .sub_path = "prepare-commit-msg", .data = hookContent, .flags = .{ .truncate = false } });
+
+        var hookFile = try hooksDir.openFile("prepare-commit-msg", .{});
+        defer hookFile.close();
+
+        try hookFile.chmod(0o755);
+    }
+}
+
 /// Generates the `.goals/` path from the project root.
 ///
 /// The project root is either the git root or the current directory.
 ///
-/// This returns a joined string so the caller must free the memory.
+/// This returns a joined string so the caller must free the memory with
+/// `allocator.free(goalsPath)`.
 pub fn getGoalsPath(allocator: std.mem.Allocator) ![]const u8 {
     // .goals/ should be at a project root so .git/ is our best case
     // IDEA: perhaps we could detect other root-level project files as well
@@ -59,6 +84,28 @@ pub fn getGoalsPath(allocator: std.mem.Allocator) ![]const u8 {
     var buffer: [std.fs.max_path_bytes]u8 = undefined;
     const cwd = try std.process.getCwd(&buffer);
     return try std.fs.path.join(allocator, &[_][]const u8{ cwd, ".goals" });
+}
+
+/// Finds the `.git/hooks` path if there's a Git root directory in the project.
+///
+/// Returns an optional string which the caller is responsible for freeing.
+///
+/// Example:
+///
+/// ```zig
+/// const hooksPath: ?[]const u8 = try getHooksPath(allocator);
+/// if (hooksPath) |path| {
+///     defer allocator.free(path);
+///     // use `path`
+/// }
+/// ```
+pub fn getHooksPath(allocator: std.mem.Allocator) !?[]const u8 {
+    const gitRoot = try getGitRoot(allocator);
+    if (gitRoot) |root| {
+        defer allocator.free(root);
+        return try std.fs.path.join(allocator, &[_][]const u8{ root, ".git", "hooks" });
+    }
+    return null;
 }
 
 /// Find the git root by running `git rev-parse --show-toplevel`.
