@@ -558,7 +558,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
             try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
-        try stdout.print("\nCreated #{d} - {s}\n", .{ meta.nextId, t });
+        try stdout.print("\nGoal #{d} - {s}\n", .{ meta.nextId, t });
     } else {
         // open the new goal file in an editor
         const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
@@ -582,7 +582,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
             try goalsDir.dir.deleteFile(fileName);
             return error.EmptyGoalTitle;
         }
-        try stdout.print("\nCreated #{d} - {s}\n", .{ meta.nextId, goal.title });
+        try stdout.print("\nGoal #{d} - {s}\n", .{ meta.nextId, goal.title });
     }
 
     // update the meta file
