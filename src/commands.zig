@@ -437,7 +437,7 @@ pub fn status(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
         // show goal details
         const fileName = try std.fmt.allocPrint(allocator, "{d}", .{id});
         defer allocator.free(fileName);
-        try showGoalFile(allocator, goalsDir.dir, fileName, stdout);
+        try showGoalFile(allocator, goalsDir.dir, fileName, .{ .incl_desc = true }, stdout);
 
         // show goal git commits
         const grep = try std.fmt.allocPrint(allocator, "Goal #{d}", .{id});
@@ -448,7 +448,9 @@ pub fn status(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             allocator.free(res.stdout);
             allocator.free(res.stderr);
         }
-        try stdout.print("\n{s}", .{res.stdout});
+        if (res.stdout.len > 0) {
+            try stdout.print("\n{s}", .{res.stdout});
+        }
     } else {
         try stdout.print("\nOh my... it looks like there's no active goal :). Bye now!\n", .{});
     }
@@ -466,9 +468,7 @@ pub fn commitmsg(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             var fileNameBuffer: [7]u8 = undefined; // 7 digits is overkill
             break :fileName try std.fmt.bufPrint(&fileNameBuffer, "{d}", .{id});
         };
-        try stdout.print("{s:-<72}\n", .{""});
-        try showGoalFile(allocator, goalsDir.dir, fileName, stdout);
-        try stdout.print("\n{s:-<72}\n", .{""});
+        try showGoalFile(allocator, goalsDir.dir, fileName, .{}, stdout);
     }
 }
 
@@ -603,7 +603,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
 
     if (fileName.len == 0) return Command.show.missingArgument();
 
-    showGoalFile(allocator, goalsDir.dir, fileName, stdout) catch |err| switch (err) {
+    showGoalFile(allocator, goalsDir.dir, fileName, .{ .incl_desc = true }, stdout) catch |err| switch (err) {
         error.FileNotFound => return Command.show.fileNotFound(fileName),
         else => return err,
     };
@@ -778,16 +778,16 @@ fn listGoals(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, goals: GoalList
     }
 }
 
-fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8, stdout: *std.io.Writer) !void {
+fn showGoalFile(allocator: std.mem.Allocator, dir: std.fs.Dir, fileName: []const u8, options: paths.LoadGoalFileOptions, stdout: *std.io.Writer) !void {
     const file = try dir.openFile(fileName, .{ .mode = .read_only });
     defer file.close();
 
-    var goal = try paths.loadGoalFile(allocator, file, .{ .incl_desc = true });
+    var goal = try paths.loadGoalFile(allocator, file, options);
     defer goal.deinit(allocator);
 
     try stdout.print(
         \\
-        \\[ Goal #{s} ] - {s}
+        \\Goal #{s} - {s}
         \\
     , .{ fileName, goal.title });
     if (goal.description) |desc| {
