@@ -394,14 +394,14 @@ pub fn help(command: ?Command, stdout: *std.io.Writer) !void {
 ///
 /// Returns error.GoalAlreadyInitialized if `goal` is already initialized.
 pub fn init(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{ .create = true });
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{ .create = true });
+    defer root.deinit(allocator);
 
     // TODO: tell user this will overwrite their prepare-commit-msg hook and confirm with them
     try git.createHook(allocator);
 
     // don't overwrite the file - only create a new one or fail
-    const metaFile = goalsDir.dir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
+    const metaFile = root.dir.createFile("m", .{ .exclusive = true }) catch |err| switch (err) {
         error.PathAlreadyExists => return try stdout.print("\n`goal` is already initialized in this project. Happy coding!\n", .{}),
         else => return err,
     };
@@ -421,22 +421,22 @@ pub fn init(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 
 /// List all goals showing their ID and title.
 pub fn list(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
+    defer root.deinit(allocator);
 
-    try listGoalsDir(allocator, goalsDir.dir, stdout);
+    try listGoalsDir(allocator, root.dir, stdout);
 }
 
 pub fn status(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{});
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{});
+    defer root.deinit(allocator);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     if (meta.activeId) |id| {
         // show goal details
-        var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .num = id }, .{ .incl_desc = true });
+        var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{ .incl_desc = true });
         defer goal.deinit(allocator);
         try goal.print(stdout);
 
@@ -448,28 +448,28 @@ pub fn status(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 }
 
 pub fn commitmsg(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{});
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{});
+    defer root.deinit(allocator);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     if (meta.activeId) |id| {
-        var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .num = id }, .{});
+        var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{});
         defer goal.deinit(allocator);
         try goal.print(stdout);
     }
 }
 
 pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{});
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{});
+    defer root.deinit(allocator);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     if (meta.activeId) |id| {
-        var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .num = id }, .{});
+        var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{});
         defer goal.deinit(allocator);
 
         // if there's a Git project then there's some Git stuff we want to do
@@ -486,17 +486,17 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             // still have an active goal but the file for it doesn't exist
             if (try git.hasChanges(allocator, stdout, .{ .staged = true })) {
                 if (try confirm("\nCommit staged changes as part of completing this goal?", stdout)) {
-                    var commitFile = try goals.CommitFile.init(allocator, goalsDir, goal.id);
+                    var commitFile = try goals.CommitFile.init(allocator, root, goal.id);
                     defer commitFile.deinit(allocator);
                     meta.activeId = null;
-                    try goals.storeMetaFile(meta, goalsDir.dir);
+                    try goals.storeMetaFile(meta, root.dir);
                     try git.commit(allocator, stdout, commitFile.path, .{ .empty = false });
-                    try goalsDir.dir.deleteFile(goal.id);
+                    try root.dir.deleteFile(goal.id);
                     _ = try stdout.write("\nCongrats! You did it.\n");
                 } else if (try confirm("\nComplete the goal anyways?", stdout)) {
                     meta.activeId = null;
-                    try goals.storeMetaFile(meta, goalsDir.dir);
-                    try goalsDir.dir.deleteFile(goal.id);
+                    try goals.storeMetaFile(meta, root.dir);
+                    try root.dir.deleteFile(goal.id);
                     _ = try stdout.write("\nGoal completed! Congrats!\n");
                 } else {
                     _ = try stdout.write("\nNo problem! Let the work continue!\n");
@@ -511,12 +511,12 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             }
 
             if (try confirm("\nWould you like to create an empty commit for completing this goal?", stdout)) {
-                var commitFile = try goals.CommitFile.init(allocator, goalsDir, goal.id);
+                var commitFile = try goals.CommitFile.init(allocator, root, goal.id);
                 defer commitFile.deinit(allocator);
                 meta.activeId = null;
-                try goals.storeMetaFile(meta, goalsDir.dir);
+                try goals.storeMetaFile(meta, root.dir);
                 try git.commit(allocator, stdout, commitFile.path, .{ .empty = true });
-                try goalsDir.dir.deleteFile(goal.id);
+                try root.dir.deleteFile(goal.id);
                 _ = try stdout.write("\nWow! You crushed it!\n");
                 return;
             }
@@ -528,8 +528,8 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
         }
 
         meta.activeId = null;
-        try goals.storeMetaFile(meta, goalsDir.dir);
-        try goalsDir.dir.deleteFile(goal.id);
+        try goals.storeMetaFile(meta, root.dir);
+        try root.dir.deleteFile(goal.id);
 
         try stdout.print("\nGoal #{s} is now complete! I'm so proud of you. You did it!\n", .{goal.id});
     } else {
@@ -538,18 +538,18 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 }
 
 pub fn stop(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{});
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{});
+    defer root.deinit(allocator);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     if (meta.activeId) |id| {
-        var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .num = id }, .{});
+        var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{});
         defer goal.deinit(allocator);
 
         meta.activeId = null;
-        try goals.storeMetaFile(meta, goalsDir.dir);
+        try goals.storeMetaFile(meta, root.dir);
 
         try stdout.print("\nTaking a break from working on goal #{s} - {s}\n", .{ goal.id, goal.title });
     } else {
@@ -563,10 +563,10 @@ pub fn stop(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 /// Returns the file name so the caller is responsible for calling
 /// `allocator.free(filename)`.
 pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Writer) ![]const u8 {
-    var goalsDir = try goals.openGoalsDir(allocator, .{});
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{});
+    defer root.deinit(allocator);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     const fileName = fileName: {
@@ -577,8 +577,9 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
     // TODO: feels like the rest of this could be cleaned up a bit
 
     if (title) |t| {
+        // TODO: trim t
         if (t.len > 0) {
-            const goalFile = try goalsDir.dir.createFile(fileName, .{ .exclusive = true });
+            const goalFile = try root.dir.createFile(fileName, .{ .exclusive = true });
             defer goalFile.close();
             _ = try goalFile.write(t);
             try stdout.print("\nGoal #{d} - {s}\n", .{ meta.nextId, t });
@@ -588,7 +589,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
         }
     } else {
         // open the new goal file in an editor
-        const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
+        const filePath = try std.fs.path.join(allocator, &[_][]const u8{ root.path, fileName });
         defer allocator.free(filePath);
 
         // TODO: editor should be configurable
@@ -599,12 +600,12 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
         var editor = std.process.Child.init(&cmd, allocator);
         _ = try editor.spawnAndWait();
 
-        var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .str = fileName }, .{});
+        var goal = try goals.Goal.init(allocator, root.dir, .{ .str = fileName }, .{});
         defer goal.deinit(allocator);
 
         if (goal.title.len == 0) {
             std.debug.print("\nGoal title cannot be empty!\n", .{});
-            try goalsDir.dir.deleteFile(goal.id);
+            try root.dir.deleteFile(goal.id);
             return error.EmptyGoalTitle;
         }
         try stdout.print("\nGoal #{d} - {s}\n", .{ meta.nextId, goal.title });
@@ -612,7 +613,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
 
     // update the meta file
     meta.nextId += 1;
-    try goals.storeMetaFile(meta, goalsDir.dir);
+    try goals.storeMetaFile(meta, root.dir);
 
     return try allocator.dupe(u8, fileName);
 }
@@ -620,29 +621,29 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
 /// Show the details of a goal. If an id isn't provided then all goals will be listed
 /// for one to be chosen.
 pub fn show(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
+    defer root.deinit(allocator);
 
-    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir, stdout);
+    const fileName = id orelse try getGoalChoice(allocator, root.dir, stdout);
     defer if (id == null) allocator.free(fileName);
 
     if (fileName.len == 0) return Command.show.missingArgument();
 
-    var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .str = fileName }, .{ .incl_desc = true });
+    var goal = try goals.Goal.init(allocator, root.dir, .{ .str = fileName }, .{ .incl_desc = true });
     defer goal.deinit(allocator);
     try goal.print(stdout);
 }
 
 pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
+    defer root.deinit(allocator);
 
-    const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir, stdout);
+    const fileName = id orelse try getGoalChoice(allocator, root.dir, stdout);
     defer if (id == null) allocator.free(fileName);
 
     if (fileName.len == 0) return Command.edit.missingArgument();
 
-    goalsDir.dir.access(fileName, .{}) catch |err| switch (err) {
+    root.dir.access(fileName, .{}) catch |err| switch (err) {
         error.FileNotFound => return Command.edit.fileNotFound(fileName),
         else => return err,
     };
@@ -650,7 +651,7 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
     // TODO: from here........
 
     // open the new goal file in an editor
-    const filePath = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, fileName });
+    const filePath = try std.fs.path.join(allocator, &[_][]const u8{ root.path, fileName });
     defer allocator.free(filePath);
 
     // TODO: editor should be configurable
@@ -662,7 +663,7 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
     _ = try editor.spawnAndWait();
 
     // empty file check
-    var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .str = fileName }, .{});
+    var goal = try goals.Goal.init(allocator, root.dir, .{ .str = fileName }, .{});
     defer goal.deinit(allocator);
 
     // TODO: ........to here the code is basically the same as in `new`
@@ -685,17 +686,17 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
 }
 
 pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
+    defer root.deinit(allocator);
 
-    const choices = ids orelse try getGoalChoices(allocator, goalsDir.dir, stdout);
+    const choices = ids orelse try getGoalChoices(allocator, root.dir, stdout);
     defer if (ids == null) allocator.free(choices);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     try stdout.print("\nHere's what I'm going to delete:\n", .{});
-    try listGoals(allocator, goalsDir.dir, GoalList{ .list = choices }, meta.activeId, stdout);
+    try listGoals(allocator, root.dir, GoalList{ .list = choices }, meta.activeId, stdout);
 
     if (!try confirm("\nShould I proceed?", stdout)) {
         _ = try stdout.write("\nMaybe next time then, friend!\n");
@@ -706,37 +707,37 @@ pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *s
         // we might de deleting the active goal
         if (meta.activeId) |active| if (active == try std.fmt.parseInt(u8, choice, 10)) {
             meta.activeId = null;
-            try goals.storeMetaFile(meta, goalsDir.dir);
+            try goals.storeMetaFile(meta, root.dir);
         };
 
         // delete the file but do this after the "active goal" stuff in case that
         // stuff fails so we're not in a corrupted state where we still have an
         // active goal but the file for it doesn't exist
-        try goalsDir.dir.deleteFile(choice);
+        try root.dir.deleteFile(choice);
     }
 
     try stdout.print("\nAll done! Smell ya later!\n", .{});
 }
 
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
-    var goalsDir = try goals.openGoalsDir(allocator, .{ .options = .{ .iterate = true } });
-    defer goalsDir.deinit(allocator);
+    var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
+    defer root.deinit(allocator);
 
     var goal = goal: {
-        const fileName = id orelse try getGoalChoice(allocator, goalsDir.dir, stdout);
+        const fileName = id orelse try getGoalChoice(allocator, root.dir, stdout);
         defer if (id == null) allocator.free(fileName);
 
         if (fileName.len == 0) return Command.start.missingArgument();
-        break :goal try goals.Goal.init(allocator, goalsDir.dir, .{ .str = fileName }, .{});
+        break :goal try goals.Goal.init(allocator, root.dir, .{ .str = fileName }, .{});
     };
     defer goal.deinit(allocator);
 
-    var meta = try goals.loadMetaFile(allocator, goalsDir.dir);
+    var meta = try goals.loadMetaFile(allocator, root.dir);
     defer meta.deinit(allocator);
 
     meta.activeId = try std.fmt.parseInt(u8, goal.id, 10);
 
-    try goals.storeMetaFile(meta, goalsDir.dir);
+    try goals.storeMetaFile(meta, root.dir);
 
     try stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
 }
@@ -745,11 +746,11 @@ pub fn start(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writ
 // HELPERS
 //
 
-fn listGoalsDir(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, stdout: *std.io.Writer) !void {
-    var meta = try goals.loadMetaFile(allocator, goalsDir);
+fn listGoalsDir(allocator: std.mem.Allocator, rootDir: std.fs.Dir, stdout: *std.io.Writer) !void {
+    var meta = try goals.loadMetaFile(allocator, rootDir);
     defer meta.deinit(allocator);
 
-    try listGoals(allocator, goalsDir, GoalList.iter, meta.activeId, stdout);
+    try listGoals(allocator, rootDir, GoalList.iter, meta.activeId, stdout);
 }
 
 const GoalList = union(enum) {
@@ -757,7 +758,7 @@ const GoalList = union(enum) {
     list: []const []const u8,
 };
 
-fn listGoals(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, goalList: GoalList, activeId: ?u8, stdout: *std.io.Writer) !void {
+fn listGoals(allocator: std.mem.Allocator, rootDir: std.fs.Dir, goalList: GoalList, activeId: ?u8, stdout: *std.io.Writer) !void {
     try stdout.print("\n", .{});
 
     var foundActive = false;
@@ -765,10 +766,10 @@ fn listGoals(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, goalList: GoalL
     switch (goalList) {
         .iter => {
             // TOOD: the order isn't consistent
-            var iter = goalsDir.iterate();
+            var iter = rootDir.iterate();
             while (try iter.next()) |entry| : (count += 1) {
                 if (std.mem.eql(u8, "m", entry.name)) continue;
-                var goal = try goals.Goal.init(allocator, goalsDir, .{ .str = entry.name }, .{});
+                var goal = try goals.Goal.init(allocator, rootDir, .{ .str = entry.name }, .{});
                 defer goal.deinit(allocator);
                 const active = activeId == try std.fmt.parseInt(u8, goal.id, 10);
                 foundActive = foundActive or active;
@@ -778,7 +779,7 @@ fn listGoals(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, goalList: GoalL
         .list => |ids| {
             count = ids.len;
             for (ids) |id| {
-                var goal = try goals.Goal.init(allocator, goalsDir, .{ .str = id }, .{});
+                var goal = try goals.Goal.init(allocator, rootDir, .{ .str = id }, .{});
                 defer goal.deinit(allocator);
                 const active = activeId == try std.fmt.parseInt(u8, goal.id, 10);
                 foundActive = foundActive or active;
@@ -819,8 +820,8 @@ fn confirm(prompt: []const u8, stdout: *std.io.Writer) !bool {
 
 /// Ask the user to input a number from the list of goals. The caller is responsible for
 /// freeing the memory with `allocator.free(choice)`.
-fn getGoalChoice(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, stdout: *std.io.Writer) ![]const u8 {
-    try listGoalsDir(allocator, goalsDir, stdout);
+fn getGoalChoice(allocator: std.mem.Allocator, rootDir: std.fs.Dir, stdout: *std.io.Writer) ![]const u8 {
+    try listGoalsDir(allocator, rootDir, stdout);
 
     var stdin_buffer: [8]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
@@ -832,8 +833,8 @@ fn getGoalChoice(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, stdout: *st
     return allocator.dupe(u8, try reader.takeDelimiterExclusive('\n'));
 }
 
-fn getGoalChoices(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, stdout: *std.io.Writer) ![]const []const u8 {
-    try listGoalsDir(allocator, goalsDir, stdout);
+fn getGoalChoices(allocator: std.mem.Allocator, rootDir: std.fs.Dir, stdout: *std.io.Writer) ![]const []const u8 {
+    try listGoalsDir(allocator, rootDir, stdout);
 
     var stdin_buffer: [64]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);

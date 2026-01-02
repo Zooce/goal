@@ -1,73 +1,70 @@
 const std = @import("std");
 const git = @import("git.zig");
 
-pub const GoalsDir = struct {
-    dir: std.fs.Dir,
-    path: []const u8,
-
-    pub fn deinit(self: *GoalsDir, allocator: std.mem.Allocator) void {
-        self.dir.close();
-        allocator.free(self.path);
-    }
-};
-
 /// Options for opening the `.goals/` directory.
-pub const OpenGoalsDirOptions = struct {
+pub const RootOptions = struct {
     /// Create the `.goals/` directory if it doesn't exist.
     create: bool = false,
     options: std.fs.Dir.OpenOptions = .{},
 };
 
-/// Opens a `std.fs.Dir` handle to the `.goals/` directory. The caller is
-/// responsible for calling `close()` on the handle.
-///
-/// You also have the option to create the `.goals/` directory if it doesn't
-/// exist. See `OpenGoalsDirOptions`.
-///
-/// Returns the `std.fs.Dir` handle and the path string which the caller is
-/// responsible for freeing.
-pub fn openGoalsDir(allocator: std.mem.Allocator, options: OpenGoalsDirOptions) !GoalsDir {
-    const goalsPath = try getGoalsPath(allocator);
+pub const Root = struct {
+    dir: std.fs.Dir,
+    path: []const u8,
 
-    if (options.create) {
-        std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => return err,
+    /// Opens a `std.fs.Dir` handle to the `.goals/` directory. The caller is
+    /// responsible for calling `close()` on the handle.
+    ///
+    /// You also have the option to create the `.goals/` directory if it doesn't
+    /// exist. See `OpenGoalsDirOptions`.
+    ///
+    /// Returns the `std.fs.Dir` handle and the path string which the caller is
+    /// responsible for freeing.
+    ///
+    /// Opens the `.goals/` directory (access via `.dir` property).
+    ///
+    /// Example:
+    ///
+    /// ```zig
+    /// const root = try goals.Root.init(allocator, .{});
+    /// defer root.deinit(allocator);
+    ///
+    /// // use `root.dir` and `root.path`
+    /// ```
+    pub fn init(allocator: std.mem.Allocator, options: RootOptions) !Root {
+        const goalsPath = path: {
+            // .goals/ should be at a project root so .git/ is our best case
+            // IDEA: perhaps we could detect other root-level project files as well
+            const gitRoot = try git.projectRoot(allocator);
+            if (gitRoot) |root| {
+                defer allocator.free(root);
+                break :path try std.fs.path.join(allocator, &[_][]const u8{ root, ".goals" });
+            }
+
+            // fallback to current working directory
+            var buffer: [std.fs.max_path_bytes]u8 = undefined;
+            const cwd = try std.process.getCwd(&buffer);
+            break :path try std.fs.path.join(allocator, &[_][]const u8{ cwd, ".goals" });
+        };
+
+        if (options.create) {
+            std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
+                error.PathAlreadyExists => {},
+                else => return err,
+            };
+        }
+
+        return .{
+            .dir = try std.fs.openDirAbsolute(goalsPath, options.options),
+            .path = goalsPath,
         };
     }
 
-    return .{
-        .dir = try std.fs.openDirAbsolute(goalsPath, options.options),
-        .path = goalsPath,
-    };
-}
-
-/// Generates the `.goals/` path from the project root.
-///
-/// The project root is either the git root or the current directory.
-///
-/// This returns a joined string so the caller must free the memory with
-/// `allocator.free(goalsPath)`.
-///
-/// Example:
-/// ```zig
-/// const path = try goals.path(allocator);
-/// defer allocator.free(path);
-/// ```
-pub fn getGoalsPath(allocator: std.mem.Allocator) ![]const u8 {
-    // .goals/ should be at a project root so .git/ is our best case
-    // IDEA: perhaps we could detect other root-level project files as well
-    const gitRoot = try git.projectRoot(allocator);
-    if (gitRoot) |root| {
-        defer allocator.free(root);
-        return try std.fs.path.join(allocator, &[_][]const u8{ root, ".goals" });
+    pub fn deinit(self: *Root, allocator: std.mem.Allocator) void {
+        self.dir.close();
+        allocator.free(self.path);
     }
-
-    // fallback to current working directory
-    var buffer: [std.fs.max_path_bytes]u8 = undefined;
-    const cwd = try std.process.getCwd(&buffer);
-    return try std.fs.path.join(allocator, &[_][]const u8{ cwd, ".goals" });
-}
+};
 
 /// This the struct in the `.goals/m` ZONE file.
 pub const Meta = struct {
@@ -127,13 +124,13 @@ pub const Goal = struct {
     /// Example:
     ///
     /// ```zig
-    /// const goalsDir = goals.openGoalsDir(allocator, .{});
-    /// defer goalsDir.deinit(allocator);
+    /// const root = goals.Root.init(allocator, .{});
+    /// defer root.deinit(allocator);
     ///
     /// // .num example
     /// {
     ///     const id: u8 = 5;
-    ///     var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .num = id }, .{});
+    ///     var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{});
     ///     defer goal.deinit(allocator);
     /// }
     ///
@@ -141,7 +138,7 @@ pub const Goal = struct {
     /// {
     ///     const id = try std.fmt.allocPrint(allocator, "{d}", .{5});
     ///     defer allocator.free(id_str); // Goal.init does NOT take ownership of this
-    ///     var goal = try goals.Goal.init(allocator, goalsDir.dir, .{ .str = id }, .{});
+    ///     var goal = try goals.Goal.init(allocator, root.dir, .{ .str = id }, .{});
     ///     defer goal.deinit(allocator);
     /// }
     /// ```
@@ -228,7 +225,7 @@ pub const CommitFile = struct {
     /// defer commitFile.deinit(allocator);
     /// // use `commitFile.path`
     /// ```
-    pub fn init(allocator: std.mem.Allocator, goalsDir: GoalsDir, goalFileName: []const u8) !CommitFile {
+    pub fn init(allocator: std.mem.Allocator, goalsDir: Root, goalFileName: []const u8) !CommitFile {
         // use the goal file as the commit template
         try goalsDir.dir.copyFile(goalFileName, goalsDir.dir, "t", .{});
 
@@ -268,7 +265,7 @@ pub const CommitFile = struct {
     }
 };
 
-pub fn createCommitFile(allocator: std.mem.Allocator, goalsDir: GoalsDir, id: []const u8) ![]const u8 {
+pub fn createCommitFile(allocator: std.mem.Allocator, goalsDir: Root, id: []const u8) ![]const u8 {
     // use the goal file as the commit template
     try goalsDir.dir.copyFile(id, goalsDir.dir, "t", .{});
 
