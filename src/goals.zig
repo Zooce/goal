@@ -64,42 +64,118 @@ pub const Root = struct {
         self.dir.close();
         allocator.free(self.path);
     }
+
+    pub fn listAll(self: Root, allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
+        const meta = try Meta.load(allocator, self);
+
+        _ = try stdout.write("\n");
+
+        var count: u8 = 0;
+        var foundActive = false;
+        var iter = self.dir.iterate();
+        while (try iter.next()) |entry| : (count += 1) {
+            if (std.mem.eql(u8, "m", entry.name)) continue;
+            var goal = try Goal.init(allocator, self.dir, .{ .str = entry.name }, .{});
+            defer goal.deinit(allocator);
+
+            const active = meta.activeId == try std.fmt.parseInt(u8, goal.id, 10);
+            foundActive = foundActive or active;
+
+            try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
+        }
+
+        if (count == 0) {
+            try stdout.print("No goals to list.\n", .{});
+        } else if (foundActive) {
+            try stdout.print("\n(* marks the active goal)\n", .{});
+        }
+    }
+
+    pub fn listSome(self: Root, allocator: std.mem.Allocator, stdout: *std.io.Writer, list: []const []const u8) !void {
+        const meta = try Meta.load(allocator, self);
+
+        _ = try stdout.write("\n");
+
+        var foundActive = false;
+        for (list) |id| {
+            var goal = try Goal.init(allocator, self.dir, .{ .str = id }, .{});
+            defer goal.deinit(allocator);
+
+            const active = meta.activeId == try std.fmt.parseInt(u8, goal.id, 10);
+            foundActive = foundActive or active;
+
+            try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
+        }
+
+        if (list.len == 0) {
+            try stdout.print("No goals to list.\n", .{});
+        } else if (foundActive) {
+            try stdout.print("\n(* marks the active goal)\n", .{});
+        }
+    }
 };
 
-/// This the struct in the `.goals/m` ZONE file.
+const M = struct {
+    nextId: u8 = 1,
+    activeId: ?u8 = null,
+};
+
 pub const Meta = struct {
     nextId: u8 = 1,
     activeId: ?u8 = null,
 
-    pub fn deinit(self: *Meta, allocator: std.mem.Allocator) void {
-        std.zon.parse.free(allocator, self);
+    _root: Root,
+
+    /// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
+    /// struct with `meta.deinit(allocator)`.
+    pub fn load(allocator: std.mem.Allocator, root: Root) !Meta {
+        const metaFile = try root.dir.readFileAllocOptions(allocator, "m", std.math.maxInt(usize), null, .of(u8), 0);
+        defer allocator.free(metaFile);
+
+        const m = try std.zon.parse.fromSlice(M, allocator, metaFile, null, .{});
+        defer std.zon.parse.free(allocator, m);
+
+        return .{
+            .nextId = m.nextId,
+            .activeId = m.activeId,
+            ._root = root,
+        };
+    }
+
+    /// Store the `Meta` object as the `.goals/m` file.
+    pub fn store(self: Meta) !void {
+        const metaFile = try self._root.dir.createFile("~m", .{});
+        defer metaFile.close();
+
+        var write_buffer: [1024]u8 = undefined;
+        var writer = metaFile.writer(&write_buffer);
+
+        const m = M{
+            .nextId = self.nextId,
+            .activeId = self.activeId,
+        };
+        try std.zon.stringify.serialize(m, .{}, &writer.interface);
+
+        try writer.interface.flush();
+        try metaFile.sync();
+
+        try std.fs.rename(self._root.dir, "~m", self._root.dir, "m");
+    }
+
+    /// Creates the `.goals/m` file.
+    pub fn create(rootDir: std.fs.Dir) !void {
+        const metaFile = try rootDir.createFile("m", .{ .exclusive = true });
+        defer metaFile.close();
+
+        var write_buffer: [64]u8 = undefined;
+        var writer = metaFile.writer(&write_buffer);
+
+        try std.zon.stringify.serialize(M{}, .{}, &writer.interface);
+
+        try writer.interface.flush();
+        try metaFile.sync();
     }
 };
-
-/// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
-/// struct with `meta.deinit(allocator)`.
-pub fn loadMetaFile(allocator: std.mem.Allocator, goalsDir: std.fs.Dir) !Meta {
-    const metaFile = try goalsDir.readFileAllocOptions(allocator, "m", std.math.maxInt(usize), null, .of(u8), 0);
-    defer allocator.free(metaFile);
-
-    return try std.zon.parse.fromSlice(Meta, allocator, metaFile, null, .{});
-}
-
-/// Store the `Meta` object as the `.goals/m` file.
-pub fn storeMetaFile(meta: Meta, goalsDir: std.fs.Dir) !void {
-    const metaFile = try goalsDir.createFile("~m", .{});
-    defer metaFile.close();
-
-    var write_buffer: [1024]u8 = undefined;
-    var writer = metaFile.writer(&write_buffer);
-
-    try std.zon.stringify.serialize(meta, .{}, &writer.interface);
-
-    try writer.interface.flush();
-    try metaFile.sync();
-
-    try std.fs.rename(goalsDir, "~m", goalsDir, "m");
-}
 
 pub const GoalOptions = struct {
     incl_desc: bool = false,
