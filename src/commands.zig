@@ -383,7 +383,7 @@ pub fn help(command: ?Command, stdout: *std.io.Writer) !void {
             else => "\n...no help message for that command bro!\n",
         };
     }
-    try stdout.print("{s}", .{help_msg});
+    try stdout.writeAll(help_msg);
 }
 
 /// Initializes `goal` by creating the `.goals/` directory at the root of a
@@ -401,11 +401,11 @@ pub fn init(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     try git.createHook(allocator);
 
     goals.Meta.create(root.dir) catch |err| switch (err) {
-        error.PathAlreadyExists => return try stdout.print("\n`goal` is already initialized in this project. Happy coding!\n", .{}),
+        error.PathAlreadyExists => return try stdout.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
     };
 
-    try stdout.print("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n", .{});
+    try stdout.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
 }
 
 /// List all goals showing their ID and title.
@@ -431,7 +431,7 @@ pub fn status(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
         // show goal git commits
         try git.logGrep(allocator, stdout, goal.id);
     } else {
-        try stdout.print("\nOh my... it looks like there's no active goal :). Bye now!\n", .{});
+        try stdout.writeAll("\nOh my... it looks like there's no active goal :). Bye now!\n");
     }
 }
 
@@ -478,22 +478,22 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
                     try meta.store();
                     try git.commit(allocator, stdout, commit_file.path, .{ .empty = false });
                     try root.dir.deleteFile(goal.id);
-                    _ = try stdout.write("\nCongrats! You did it.\n");
+                    try stdout.writeAll("\nCongrats! You did it.\n");
                 } else if (try confirm("\nComplete the goal anyways?", stdout)) {
                     meta.active_id = null;
                     try meta.store();
                     try root.dir.deleteFile(goal.id);
-                    _ = try stdout.write("\nGoal completed! Congrats!\n");
+                    try stdout.writeAll("\nGoal completed! Congrats!\n");
                 } else {
-                    _ = try stdout.write("\nNo problem! Let the work continue!\n");
+                    try stdout.writeAll("\nNo problem! Let the work continue!\n");
                 }
                 return;
             } else if (try git.hasChanges(allocator, stdout, .{ .staged = false })) {
                 if (try confirm("\nDid you forget to stage/commit these changes?", stdout)) {
-                    _ = try stdout.write("\nNo worries! Let me know when you're ready.\n");
+                    try stdout.writeAll("\nNo worries! Let me know when you're ready.\n");
                     return;
                 }
-                _ = try stdout.write("\nAlright, I'll leave those alone then.\n");
+                try stdout.writeAll("\nAlright, I'll leave those alone then.\n");
             }
 
             if (try confirm("\nWould you like to create an empty commit for completing this goal?", stdout)) {
@@ -503,13 +503,13 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
                 try meta.store();
                 try git.commit(allocator, stdout, commit_file.path, .{ .empty = true });
                 try root.dir.deleteFile(goal.id);
-                _ = try stdout.write("\nWow! You crushed it!\n");
+                try stdout.writeAll("\nWow! You crushed it!\n");
                 return;
             }
         }
 
         if (!try confirm("\nReady to complete this goal?", stdout)) {
-            _ = try stdout.write("\nWell let's keep working on it then!\n");
+            try stdout.writeAll("\nWell let's keep working on it then!\n");
             return;
         }
 
@@ -519,7 +519,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 
         try stdout.print("\nGoal #{s} is now complete! I'm so proud of you. You did it!\n", .{goal.id});
     } else {
-        try stdout.print("\nWelp... there's no active goal to complete so I guess we're good here?\n", .{});
+        try stdout.writeAll("\nWelp... there's no active goal to complete so I guess we're good here?\n");
     }
 }
 
@@ -538,7 +538,7 @@ pub fn stop(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 
         try stdout.print("\nTaking a break from working on goal #{s} - {s}\n", .{ goal.id, goal.title });
     } else {
-        try stdout.print("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n", .{});
+        try stdout.writeAll("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n");
     }
 }
 
@@ -665,7 +665,7 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
             \\
         , .{file_name});
     } else {
-        try stdout.print("\nThat was an awesome edit, dude! Peace out!\n", .{});
+        try stdout.writeAll("\nThat was an awesome edit, dude! Peace out!\n");
     }
 }
 
@@ -680,11 +680,11 @@ pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *s
 
     var meta = try goals.Meta.load(allocator, root);
 
-    try stdout.print("\nHere's what I'm going to delete:\n", .{});
+    try stdout.writeAll("\nHere's what I'm going to delete:\n");
     try root.listSome(allocator, stdout, choices);
 
     if (!try confirm("\nShould I proceed?", stdout)) {
-        _ = try stdout.write("\nMaybe next time then, friend!\n");
+        try stdout.writeAll("\nMaybe next time then, friend!\n");
         return;
     }
 
@@ -701,7 +701,7 @@ pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *s
         try root.dir.deleteFile(choice);
     }
 
-    try stdout.print("\nAll done! Smell ya later!\n", .{});
+    try stdout.writeAll("\nAll done! Smell ya later!\n");
 }
 
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
@@ -736,8 +736,7 @@ fn confirm(prompt: []const u8, stdout: *std.io.Writer) !bool {
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
     var reader = &stdin_reader.interface;
 
-    _ = try stdout.write(prompt);
-    _ = try stdout.write(" (y/N): ");
+    try stdout.print("{s} (y/N): ", .{prompt});
     try stdout.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');
@@ -762,7 +761,7 @@ fn getGoalChoice(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
     var reader = &stdin_reader.interface;
 
-    try stdout.print("\nChoose a goal (type the number): ", .{});
+    try stdout.writeAll("\nChoose a goal (type the number): ");
     try stdout.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');
@@ -777,7 +776,7 @@ fn getGoalChoices(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.i
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
     var reader = &stdin_reader.interface;
 
-    try stdout.print("\nChoose goals (space or comma separated list of numbers): ", .{});
+    try stdout.writeAll("\nChoose goals (space or comma separated list of numbers): ");
     try stdout.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');

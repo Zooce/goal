@@ -128,8 +128,7 @@ pub fn hasChanges(allocator: std.mem.Allocator, stdout: *std.io.Writer, options:
     }
 
     if (res.stdout.len > 0) {
-        _ = try stdout.write("\n");
-        _ = try stdout.write(res.stdout);
+        try stdout.print("\n{s}", .{res.stdout});
         return true;
     }
 
@@ -159,8 +158,7 @@ pub fn logGrep(allocator: std.mem.Allocator, stdout: *std.io.Writer, id: []const
     }
 
     if (res.stdout.len > 0) {
-        _ = try stdout.write("\n");
-        _ = try stdout.write(res.stdout);
+        try stdout.print("\n{s}", .{res.stdout});
     }
 }
 
@@ -169,7 +167,7 @@ pub const CommitOptions = struct {
 };
 
 pub fn commit(allocator: std.mem.Allocator, stdout: *std.io.Writer, filePath: []const u8, options: CommitOptions) !void {
-    _ = try stdout.write("\n"); // give some space for the git output
+    try stdout.writeAll("\n"); // give some space for the git output
     try stdout.flush();
     var proc = if (options.empty)
         std.process.Child.init(&[_][]const u8{ "git", "commit", "--file", filePath, "--edit", "--allow-empty" }, allocator)

@@ -68,7 +68,7 @@ pub const Root = struct {
     pub fn listAll(self: Root, allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
         const meta = try Meta.load(allocator, self);
 
-        _ = try stdout.write("\n");
+        try stdout.writeAll("\n");
 
         var count: u8 = 0;
         var found_active = false;
@@ -83,20 +83,20 @@ pub const Root = struct {
             const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
             found_active = found_active or active;
 
-            try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
+            try stdout.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
         }
 
         if (count == 1) { // m file should always be there
-            try stdout.print("No goals to list.\n", .{});
+            try stdout.writeAll("No goals to list.\n");
         } else if (found_active) {
-            try stdout.print("\n(* marks the active goal)\n", .{});
+            try stdout.writeAll("\n(* marks the active goal)\n");
         }
     }
 
     pub fn listSome(self: Root, allocator: std.mem.Allocator, stdout: *std.io.Writer, list: []const []const u8) !void {
         const meta = try Meta.load(allocator, self);
 
-        _ = try stdout.write("\n");
+        try stdout.writeAll("\n");
 
         var found_active = false;
         for (list) |id| {
@@ -106,13 +106,13 @@ pub const Root = struct {
             const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
             found_active = found_active or active;
 
-            try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
+            try stdout.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
         }
 
         if (list.len == 0) {
-            try stdout.print("No goals to list.\n", .{});
+            try stdout.writeAll("No goals to list.\n");
         } else if (found_active) {
-            try stdout.print("\n(* marks the active goal)\n", .{});
+            try stdout.writeAll("\n(* marks the active goal)\n");
         }
     }
 };
@@ -317,15 +317,15 @@ pub const CommitFile = struct {
         var writer = t_file.writer(&buffer);
         var w = &writer.interface;
 
-        _ = try w.write("Completed Goal #");
-        _ = try w.write(goalFileName);
-        _ = try w.write(" - ");
-        _ = try w.write(goal.title);
+        try w.print("Completed Goal #{s} - {s}", .{ goal.id, goal.title });
 
         if (goal.description) |desc| {
-            _ = try w.write("\n\n");
-            _ = try w.write(desc);
-            _ = try w.write("\n");
+            try w.print(
+                \\
+                \\
+                \\{s}
+                \\
+            , .{desc});
         }
 
         try w.flush();
