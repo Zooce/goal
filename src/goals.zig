@@ -177,6 +177,25 @@ pub const Meta = struct {
         try writer.interface.flush();
         try meta_file.sync();
     }
+
+    /// Restores the given active goal id.
+    ///
+    /// This is meant to be used in an error handling case.
+    ///
+    /// Example:
+    ///
+    /// ```zig
+    /// meta.active_id = null;
+    /// try meta.store();
+    /// git.commit(allocator, stdout, commit_file.path, .{ .empty = false }) catch |err| {
+    ///     try meta.restoreActive(goal.id);
+    ///     return err;
+    /// };
+    /// ```
+    pub fn restoreActive(self: *Meta, id: []const u8) !void {
+        self.active_id = try std.fmt.parseInt(u8, id, 10);
+        try self.store();
+    }
 };
 
 pub const GoalOptions = struct {

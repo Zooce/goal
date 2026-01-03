@@ -476,13 +476,20 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
                     defer commit_file.deinit(allocator);
                     meta.active_id = null;
                     try meta.store();
-                    try git.commit(allocator, stdout, commit_file.path, .{ .empty = false });
+                    git.commit(allocator, stdout, commit_file.path, .{ .empty = false }) catch |err| {
+                        try meta.restoreActive(goal.id);
+                        return err;
+                    };
                     try root.dir.deleteFile(goal.id);
+                    // TODO: consider undoing the commit and restoring the active id
                     try stdout.writeAll("\nCongrats! You did it.\n");
                 } else if (try confirm("\nComplete the goal anyways?", stdout)) {
                     meta.active_id = null;
                     try meta.store();
-                    try root.dir.deleteFile(goal.id);
+                    root.dir.deleteFile(goal.id) catch |err| {
+                        try meta.restoreActive(goal.id);
+                        return err;
+                    };
                     try stdout.writeAll("\nGoal completed! Congrats!\n");
                 } else {
                     try stdout.writeAll("\nNo problem! Let the work continue!\n");
@@ -501,8 +508,12 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
                 defer commit_file.deinit(allocator);
                 meta.active_id = null;
                 try meta.store();
-                try git.commit(allocator, stdout, commit_file.path, .{ .empty = true });
+                git.commit(allocator, stdout, commit_file.path, .{ .empty = true }) catch |err| {
+                    try meta.restoreActive(goal.id);
+                    return err;
+                };
                 try root.dir.deleteFile(goal.id);
+                // TODO: consider undoing the commit and restoring the active id
                 try stdout.writeAll("\nWow! You crushed it!\n");
                 return;
             }
@@ -515,7 +526,10 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 
         meta.active_id = null;
         try meta.store();
-        try root.dir.deleteFile(goal.id);
+        root.dir.deleteFile(goal.id) catch |err| {
+            try meta.restoreActive(goal.id);
+            return err;
+        };
 
         try stdout.print("\nGoal #{s} is now complete! I'm so proud of you. You did it!\n", .{goal.id});
     } else {
