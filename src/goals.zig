@@ -213,19 +213,19 @@ pub const Goal = struct {
     /// // .str example
     /// {
     ///     const id = try std.fmt.allocPrint(allocator, "{d}", .{5});
-    ///     defer allocator.free(id_str); // Goal.init does NOT take ownership of this
+    ///     defer allocator.free(id); // Goal.init does NOT take ownership of this
     ///     var goal = try goals.Goal.init(allocator, root.dir, .{ .str = id }, .{});
     ///     defer goal.deinit(allocator);
     /// }
     /// ```
-    pub fn init(allocator: std.mem.Allocator, goalsDir: std.fs.Dir, id: GoalId, options: GoalOptions) !Goal {
+    pub fn init(allocator: std.mem.Allocator, rootdir: std.fs.Dir, id: GoalId, options: GoalOptions) !Goal {
         // id is the file name
         const goalFileName = switch (id) {
             .num => |num| try std.fmt.allocPrint(allocator, "{d}", .{num}),
             .str => |str| try allocator.dupe(u8, str),
         };
 
-        const goalFile = try goalsDir.openFile(goalFileName, .{});
+        const goalFile = try rootdir.openFile(goalFileName, .{});
         defer goalFile.close();
 
         var read_buffer: [1024]u8 = undefined;
@@ -297,18 +297,18 @@ pub const CommitFile = struct {
     /// Example:
     ///
     /// ```zig
-    /// var commitFile = try goals.CommitFile.init(allocator, goalsDir, goalFileName);
+    /// var commitFile = try goals.CommitFile.init(allocator, root, goalFileName);
     /// defer commitFile.deinit(allocator);
     /// // use `commitFile.path`
     /// ```
-    pub fn init(allocator: std.mem.Allocator, goalsDir: Root, goalFileName: []const u8) !CommitFile {
+    pub fn init(allocator: std.mem.Allocator, root: Root, goalFileName: []const u8) !CommitFile {
         // use the goal file as the commit template
-        try goalsDir.dir.copyFile(goalFileName, goalsDir.dir, "t", .{});
+        try root.dir.copyFile(goalFileName, root.dir, "t", .{});
 
-        var goal = try Goal.init(allocator, goalsDir.dir, .{ .str = goalFileName }, .{ .incl_desc = true });
+        var goal = try Goal.init(allocator, root.dir, .{ .str = goalFileName }, .{ .incl_desc = true });
         defer goal.deinit(allocator);
 
-        const tFile = try goalsDir.dir.createFile("t", .{});
+        const tFile = try root.dir.createFile("t", .{});
         defer tFile.close();
 
         var buffer: [5 * 1024]u8 = undefined;
@@ -329,7 +329,7 @@ pub const CommitFile = struct {
         try w.flush();
         try tFile.sync();
 
-        return .{ .path = try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, "t" }) };
+        return .{ .path = try std.fs.path.join(allocator, &[_][]const u8{ root.path, "t" }) };
     }
 
     /// Deletes the commit file at `.goals/t` and frees the path string memory.
@@ -340,34 +340,3 @@ pub const CommitFile = struct {
         allocator.free(self.path);
     }
 };
-
-pub fn createCommitFile(allocator: std.mem.Allocator, goalsDir: Root, id: []const u8) ![]const u8 {
-    // use the goal file as the commit template
-    try goalsDir.dir.copyFile(id, goalsDir.dir, "t", .{});
-
-    var goal = try Goal.init(allocator, goalsDir.dir, .{ .str = id }, .{ .incl_desc = true });
-    defer goal.deinit(allocator);
-
-    const tFile = try goalsDir.dir.createFile("t", .{});
-    defer tFile.close();
-
-    var buffer: [5 * 1024]u8 = undefined;
-    var writer = tFile.writer(&buffer);
-    var w = &writer.interface;
-
-    _ = try w.write("Completed Goal #");
-    _ = try w.write(id);
-    _ = try w.write(" - ");
-    _ = try w.write(goal.title);
-
-    if (goal.description) |desc| {
-        _ = try w.write("\n\n");
-        _ = try w.write(desc);
-        _ = try w.write("\n");
-    }
-
-    try w.flush();
-    try tFile.sync();
-
-    return try std.fs.path.join(allocator, &[_][]const u8{ goalsDir.path, "t" });
-}
