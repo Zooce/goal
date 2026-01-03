@@ -676,6 +676,8 @@ pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *s
     const choices = ids orelse try getGoalChoices(allocator, root, stdout);
     defer if (ids == null) allocator.free(choices);
 
+    if (choices.len == 0) return Command.delete.missingArgument();
+
     var meta = try goals.Meta.load(allocator, root);
 
     try stdout.print("\nHere's what I'm going to delete:\n", .{});
@@ -763,7 +765,9 @@ fn getGoalChoice(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io
     try stdout.print("\nChoose a goal (type the number): ", .{});
     try stdout.flush();
 
-    return allocator.dupe(u8, try reader.takeDelimiterExclusive('\n'));
+    const answer = try reader.takeDelimiterExclusive('\n');
+
+    return try allocator.dupe(u8, std.mem.trim(u8, answer, ", \t\r\n"));
 }
 
 fn getGoalChoices(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io.Writer) ![]const []const u8 {
@@ -777,7 +781,7 @@ fn getGoalChoices(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.i
     try stdout.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');
-    var iter = std.mem.splitAny(u8, answer, " ,");
+    var iter = std.mem.splitAny(u8, answer, ", \t");
 
     var choices: std.ArrayList([]const u8) = .empty;
 

@@ -74,7 +74,9 @@ pub const Root = struct {
         var found_active = false;
         var iter = self.dir.iterate();
         while (try iter.next()) |entry| : (count += 1) {
+            // the m file will count towards `count`
             if (std.mem.eql(u8, "m", entry.name)) continue;
+
             var goal = try Goal.init(allocator, self.dir, .{ .str = entry.name }, .{});
             defer goal.deinit(allocator);
 
@@ -84,7 +86,7 @@ pub const Root = struct {
             try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
         }
 
-        if (count == 0) {
+        if (count == 1) { // m file should always be there
             try stdout.print("No goals to list.\n", .{});
         } else if (found_active) {
             try stdout.print("\n(* marks the active goal)\n", .{});
