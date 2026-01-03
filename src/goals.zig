@@ -32,11 +32,11 @@ pub const Root = struct {
     /// // use `root.dir` and `root.path`
     /// ```
     pub fn init(allocator: std.mem.Allocator, options: RootOptions) !Root {
-        const goalsPath = path: {
+        const goals_path = path: {
             // .goals/ should be at a project root so .git/ is our best case
             // IDEA: perhaps we could detect other root-level project files as well
-            const gitRoot = try git.projectRoot(allocator);
-            if (gitRoot) |root| {
+            const git_root = try git.projectRoot(allocator);
+            if (git_root) |root| {
                 defer allocator.free(root);
                 break :path try std.fs.path.join(allocator, &[_][]const u8{ root, ".goals" });
             }
@@ -48,15 +48,15 @@ pub const Root = struct {
         };
 
         if (options.create) {
-            std.fs.makeDirAbsolute(goalsPath) catch |err| switch (err) {
+            std.fs.makeDirAbsolute(goals_path) catch |err| switch (err) {
                 error.PathAlreadyExists => {},
                 else => return err,
             };
         }
 
         return .{
-            .dir = try std.fs.openDirAbsolute(goalsPath, options.options),
-            .path = goalsPath,
+            .dir = try std.fs.openDirAbsolute(goals_path, options.options),
+            .path = goals_path,
         };
     }
 
@@ -71,22 +71,22 @@ pub const Root = struct {
         _ = try stdout.write("\n");
 
         var count: u8 = 0;
-        var foundActive = false;
+        var found_active = false;
         var iter = self.dir.iterate();
         while (try iter.next()) |entry| : (count += 1) {
             if (std.mem.eql(u8, "m", entry.name)) continue;
             var goal = try Goal.init(allocator, self.dir, .{ .str = entry.name }, .{});
             defer goal.deinit(allocator);
 
-            const active = meta.activeId == try std.fmt.parseInt(u8, goal.id, 10);
-            foundActive = foundActive or active;
+            const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
+            found_active = found_active or active;
 
             try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
         }
 
         if (count == 0) {
             try stdout.print("No goals to list.\n", .{});
-        } else if (foundActive) {
+        } else if (found_active) {
             try stdout.print("\n(* marks the active goal)\n", .{});
         }
     }
@@ -96,84 +96,84 @@ pub const Root = struct {
 
         _ = try stdout.write("\n");
 
-        var foundActive = false;
+        var found_active = false;
         for (list) |id| {
             var goal = try Goal.init(allocator, self.dir, .{ .str = id }, .{});
             defer goal.deinit(allocator);
 
-            const active = meta.activeId == try std.fmt.parseInt(u8, goal.id, 10);
-            foundActive = foundActive or active;
+            const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
+            found_active = found_active or active;
 
             try stdout.print("{s: <1} {s}. {s}\n", .{ if (active) "*" else "", goal.id, goal.title });
         }
 
         if (list.len == 0) {
             try stdout.print("No goals to list.\n", .{});
-        } else if (foundActive) {
+        } else if (found_active) {
             try stdout.print("\n(* marks the active goal)\n", .{});
         }
     }
 };
 
 const M = struct {
-    nextId: u8 = 1,
-    activeId: ?u8 = null,
+    next_id: u8 = 1,
+    active_id: ?u8 = null,
 };
 
 pub const Meta = struct {
-    nextId: u8 = 1,
-    activeId: ?u8 = null,
+    next_id: u8 = 1,
+    active_id: ?u8 = null,
 
     _root: Root,
 
     /// Load the `.goals/m` file. The caller is responsible for freeing the `Meta`
     /// struct with `meta.deinit(allocator)`.
     pub fn load(allocator: std.mem.Allocator, root: Root) !Meta {
-        const metaFile = try root.dir.readFileAllocOptions(allocator, "m", std.math.maxInt(usize), null, .of(u8), 0);
-        defer allocator.free(metaFile);
+        const meta_file = try root.dir.readFileAllocOptions(allocator, "m", std.math.maxInt(usize), null, .of(u8), 0);
+        defer allocator.free(meta_file);
 
-        const m = try std.zon.parse.fromSlice(M, allocator, metaFile, null, .{});
+        const m = try std.zon.parse.fromSlice(M, allocator, meta_file, null, .{});
         defer std.zon.parse.free(allocator, m);
 
         return .{
-            .nextId = m.nextId,
-            .activeId = m.activeId,
+            .next_id = m.next_id,
+            .active_id = m.active_id,
             ._root = root,
         };
     }
 
     /// Store the `Meta` object as the `.goals/m` file.
     pub fn store(self: Meta) !void {
-        const metaFile = try self._root.dir.createFile("~m", .{});
-        defer metaFile.close();
+        const meta_file = try self._root.dir.createFile("~m", .{});
+        defer meta_file.close();
 
         var write_buffer: [1024]u8 = undefined;
-        var writer = metaFile.writer(&write_buffer);
+        var writer = meta_file.writer(&write_buffer);
 
         const m = M{
-            .nextId = self.nextId,
-            .activeId = self.activeId,
+            .next_id = self.next_id,
+            .active_id = self.active_id,
         };
         try std.zon.stringify.serialize(m, .{}, &writer.interface);
 
         try writer.interface.flush();
-        try metaFile.sync();
+        try meta_file.sync();
 
         try std.fs.rename(self._root.dir, "~m", self._root.dir, "m");
     }
 
     /// Creates the `.goals/m` file.
     pub fn create(rootDir: std.fs.Dir) !void {
-        const metaFile = try rootDir.createFile("m", .{ .exclusive = true });
-        defer metaFile.close();
+        const meta_file = try rootDir.createFile("m", .{ .exclusive = true });
+        defer meta_file.close();
 
         var write_buffer: [64]u8 = undefined;
-        var writer = metaFile.writer(&write_buffer);
+        var writer = meta_file.writer(&write_buffer);
 
         try std.zon.stringify.serialize(M{}, .{}, &writer.interface);
 
         try writer.interface.flush();
-        try metaFile.sync();
+        try meta_file.sync();
     }
 };
 
@@ -218,18 +218,18 @@ pub const Goal = struct {
     ///     defer goal.deinit(allocator);
     /// }
     /// ```
-    pub fn init(allocator: std.mem.Allocator, rootdir: std.fs.Dir, id: GoalId, options: GoalOptions) !Goal {
+    pub fn init(allocator: std.mem.Allocator, root_dir: std.fs.Dir, id: GoalId, options: GoalOptions) !Goal {
         // id is the file name
-        const goalFileName = switch (id) {
+        const goal_file_name = switch (id) {
             .num => |num| try std.fmt.allocPrint(allocator, "{d}", .{num}),
             .str => |str| try allocator.dupe(u8, str),
         };
 
-        const goalFile = try rootdir.openFile(goalFileName, .{});
-        defer goalFile.close();
+        const goal_file = try root_dir.openFile(goal_file_name, .{});
+        defer goal_file.close();
 
         var read_buffer: [1024]u8 = undefined;
-        var file_reader = goalFile.reader(&read_buffer);
+        var file_reader = goal_file.reader(&read_buffer);
 
         var stream_writer = std.io.Writer.Allocating.init(allocator);
         defer stream_writer.deinit();
@@ -255,7 +255,7 @@ pub const Goal = struct {
         }
 
         return .{
-            .id = goalFileName,
+            .id = goal_file_name,
             .title = title,
             .description = description,
         };
@@ -308,11 +308,11 @@ pub const CommitFile = struct {
         var goal = try Goal.init(allocator, root.dir, .{ .str = goalFileName }, .{ .incl_desc = true });
         defer goal.deinit(allocator);
 
-        const tFile = try root.dir.createFile("t", .{});
-        defer tFile.close();
+        const t_file = try root.dir.createFile("t", .{});
+        defer t_file.close();
 
         var buffer: [5 * 1024]u8 = undefined;
-        var writer = tFile.writer(&buffer);
+        var writer = t_file.writer(&buffer);
         var w = &writer.interface;
 
         _ = try w.write("Completed Goal #");
@@ -327,7 +327,7 @@ pub const CommitFile = struct {
         }
 
         try w.flush();
-        try tFile.sync();
+        try t_file.sync();
 
         return .{ .path = try std.fs.path.join(allocator, &[_][]const u8{ root.path, "t" }) };
     }

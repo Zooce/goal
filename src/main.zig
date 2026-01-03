@@ -118,8 +118,8 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             };
             defer if (title) |t| allocator.free(t);
 
-            const fileName = try commands.new(allocator, title, stdout);
-            defer allocator.free(fileName);
+            const file_name = try commands.new(allocator, title, stdout);
+            defer allocator.free(file_name);
         },
         .show => {
             // goal show

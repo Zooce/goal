@@ -22,7 +22,7 @@ pub fn projectRoot(allocator: std.mem.Allocator) !?[]const u8 {
         allocator.free(res.stderr);
     }
 
-    const gitRoot = root: switch (res.term) {
+    const git_root = root: switch (res.term) {
         .Exited => |code| {
             if (code == 0 and res.stdout.len > 0) {
                 const trimmed = std.mem.trim(u8, res.stdout, " \t\r\n");
@@ -34,13 +34,13 @@ pub fn projectRoot(allocator: std.mem.Allocator) !?[]const u8 {
         else => null,
     };
 
-    return gitRoot;
+    return git_root;
 }
 
 test "getGitRoot - returns the parent of the .git/ directory" {
     var allocator = std.testing.allocator;
-    const gitRoot = try projectRoot(allocator);
-    defer if (gitRoot) |root| allocator.free(root);
+    const git_root = try projectRoot(allocator);
+    defer if (git_root) |root| allocator.free(root);
 
     // NOTES
     // Running this test from inside any git-tracked project on your
@@ -49,7 +49,7 @@ test "getGitRoot - returns the parent of the .git/ directory" {
     // reason is because `getGitRoot` runs a real git command as a
     // child process to find out if the current working directory is
     // inside a git-tracked project.
-    try std.testing.expect(gitRoot != null);
+    try std.testing.expect(git_root != null);
 }
 
 /// Finds the `.git/hooks` path if there's a Git root directory in the project.
@@ -66,8 +66,8 @@ test "getGitRoot - returns the parent of the .git/ directory" {
 /// }
 /// ```
 pub fn hooksPath(allocator: std.mem.Allocator) !?[]const u8 {
-    const gitRoot = try projectRoot(allocator);
-    if (gitRoot) |root| {
+    const git_root = try projectRoot(allocator);
+    if (git_root) |root| {
         defer allocator.free(root);
         return try std.fs.path.join(allocator, &[_][]const u8{ root, ".git", "hooks" });
     }
@@ -84,16 +84,16 @@ pub fn createHook(allocator: std.mem.Allocator) !void {
             else => return err,
         };
 
-        var hooksDir = try std.fs.openDirAbsolute(path, .{});
-        defer hooksDir.close();
+        var hooks_dir = try std.fs.openDirAbsolute(path, .{});
+        defer hooks_dir.close();
 
-        const hookContent = @embedFile("prepare-commit-msg");
-        try hooksDir.writeFile(.{ .sub_path = "prepare-commit-msg", .data = hookContent, .flags = .{ .truncate = false } });
+        const hook_content = @embedFile("prepare-commit-msg");
+        try hooks_dir.writeFile(.{ .sub_path = "prepare-commit-msg", .data = hook_content, .flags = .{ .truncate = false } });
 
-        var hookFile = try hooksDir.openFile("prepare-commit-msg", .{});
-        defer hookFile.close();
+        var hook_file = try hooks_dir.openFile("prepare-commit-msg", .{});
+        defer hook_file.close();
 
-        try hookFile.chmod(0o755);
+        try hook_file.chmod(0o755);
     }
 }
 

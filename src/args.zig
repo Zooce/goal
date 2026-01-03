@@ -139,11 +139,11 @@ pub const ArgsOrHelp = union(enum) {
 };
 
 pub fn optionalArgsOrHelp(allocator: std.mem.Allocator, args: *ArgIter, cmd: commands.Command) !?ArgsOrHelp {
-    var argList: std.ArrayList([]const u8) = .empty;
+    var arg_list: std.ArrayList([]const u8) = .empty;
 
     while (args.next()) |arg| {
         if (optionalArgOrCommand(arg)) |x| switch (x) {
-            .arg => |a| try argList.append(allocator, std.mem.trim(u8, a, ", \t\r\n")),
+            .arg => |a| try arg_list.append(allocator, std.mem.trim(u8, a, ", \t\r\n")),
             .command => |sub| switch (sub) {
                 .help => return .help,
                 else => return cmd.unexpectedSubcommand(sub),
@@ -151,5 +151,5 @@ pub fn optionalArgsOrHelp(allocator: std.mem.Allocator, args: *ArgIter, cmd: com
         };
     }
 
-    return if (argList.items.len > 0) ArgsOrHelp{ .args = try argList.toOwnedSlice(allocator) } else null;
+    return if (arg_list.items.len > 0) ArgsOrHelp{ .args = try arg_list.toOwnedSlice(allocator) } else null;
 }
