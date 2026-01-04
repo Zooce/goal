@@ -2,8 +2,6 @@ const std = @import("std");
 const commands = @import("commands.zig");
 const args = @import("args.zig");
 
-const commit = @import("commit.zig");
-
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
@@ -240,7 +238,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             try commands.commitmsg(allocator, stdout);
         },
 
-        .commit => try commit.run(allocator, stdout, iter),
+        .commit => try commands.commit.run(allocator, stdout, iter),
 
         .batman => {
             std.debug.print("\nWhat are you doing here?!\n", .{});

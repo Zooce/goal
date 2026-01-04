@@ -1,5 +1,5 @@
 const std = @import("std");
-const Command = @import("commands.zig").Command;
+const Command = @import("../commands.zig").Command;
 
 pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
     const main_help_text =

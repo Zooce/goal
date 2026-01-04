@@ -1,11 +1,11 @@
 const std = @import("std");
-const ArgIter = @import("args.zig").ArgIter;
-const stringToCommand = @import("args.zig").stringToCommand;
-const Command = @import("commands.zig").Command;
-const getGoalChoice = @import("commands.zig").getGoalChoice;
+const ArgIter = @import("../args.zig").ArgIter;
+const stringToCommand = @import("../args.zig").stringToCommand;
+const Command = @import("../commands.zig").Command;
+const getGoalChoice = @import("../commands.zig").getGoalChoice;
 const help = @import("help.zig");
-const git = @import("git.zig");
-const goals = @import("goals.zig");
+const git = @import("../git.zig");
+const goals = @import("../goals.zig");
 
 const Args = struct {
     id: ?[]const u8 = null,

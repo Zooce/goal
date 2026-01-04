@@ -2,6 +2,9 @@ const std = @import("std");
 const goals = @import("goals.zig");
 const git = @import("git.zig");
 
+// re-exports
+pub const commit = @import("commands/commit.zig");
+
 pub const Command = enum {
     help,
     init,
