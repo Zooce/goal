@@ -52,51 +52,6 @@ test "getGitRoot - returns the parent of the .git/ directory" {
     try std.testing.expect(git_root != null);
 }
 
-/// Finds the `.git/hooks` path if there's a Git root directory in the project.
-///
-/// Returns an optional string which the caller is responsible for freeing.
-///
-/// Example:
-///
-/// ```zig
-/// const hooksPath: ?[]const u8 = try git.getHooksPath(allocator);
-/// if (hooksPath) |path| {
-///     defer allocator.free(path);
-///     // use `path`
-/// }
-/// ```
-pub fn hooksPath(allocator: std.mem.Allocator) !?[]const u8 {
-    const git_root = try projectRoot(allocator);
-    if (git_root) |root| {
-        defer allocator.free(root);
-        return try std.fs.path.join(allocator, &[_][]const u8{ root, ".git", "hooks" });
-    }
-    return null;
-}
-
-pub fn createHook(allocator: std.mem.Allocator) !void {
-    const hooks = try hooksPath(allocator);
-    if (hooks) |path| {
-        defer allocator.free(path);
-
-        std.fs.makeDirAbsolute(path) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => return err,
-        };
-
-        var hooks_dir = try std.fs.openDirAbsolute(path, .{});
-        defer hooks_dir.close();
-
-        const hook_content = @embedFile("prepare-commit-msg");
-        try hooks_dir.writeFile(.{ .sub_path = "prepare-commit-msg", .data = hook_content, .flags = .{ .truncate = false } });
-
-        var hook_file = try hooks_dir.openFile("prepare-commit-msg", .{});
-        defer hook_file.close();
-
-        try hook_file.chmod(0o755);
-    }
-}
-
 pub fn isGitProject(allocator: std.mem.Allocator) !bool {
     if (try projectRoot(allocator)) |root| {
         allocator.free(root);
