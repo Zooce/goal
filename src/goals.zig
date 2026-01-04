@@ -306,6 +306,12 @@ pub const Goal = struct {
     }
 };
 
+pub const CommitFileOptions = struct {
+    goal_id: []const u8,
+    completed: bool = false,
+};
+
+// TODO: move to CommitFile.zig
 pub const CommitFile = struct {
     /// absolute path to the commit file `.goals/t`
     path: []const u8,
@@ -318,15 +324,15 @@ pub const CommitFile = struct {
     /// Example:
     ///
     /// ```zig
-    /// var commitFile = try goals.CommitFile.init(allocator, root, goalFileName);
-    /// defer commitFile.deinit(allocator);
-    /// // use `commitFile.path`
+    /// var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = "42" });
+    /// defer commit_file.deinit(allocator);
+    /// // use `commit_file.path`
     /// ```
-    pub fn init(allocator: std.mem.Allocator, root: Root, goalFileName: []const u8) !CommitFile {
+    pub fn init(allocator: std.mem.Allocator, root: Root, options: CommitFileOptions) !CommitFile {
         // use the goal file as the commit template
-        try root.dir.copyFile(goalFileName, root.dir, "t", .{});
+        try root.dir.copyFile(options.goal_id, root.dir, "t", .{});
 
-        var goal = try Goal.init(allocator, root.dir, .{ .str = goalFileName }, .{ .incl_desc = true });
+        var goal = try Goal.init(allocator, root.dir, .{ .str = options.goal_id }, .{});
         defer goal.deinit(allocator);
 
         const t_file = try root.dir.createFile("t", .{});
@@ -336,16 +342,9 @@ pub const CommitFile = struct {
         var writer = t_file.writer(&buffer);
         var w = &writer.interface;
 
-        try w.print("Completed Goal #{s} - {s}", .{ goal.id, goal.title });
+        try w.print("\n\nGoal #{s} - {s}{s}\n", .{ goal.id, goal.title, if (options.completed) " (completed)" else "" });
 
-        if (goal.description) |desc| {
-            try w.print(
-                \\
-                \\
-                \\{s}
-                \\
-            , .{desc});
-        }
+        // TODO: put goal description into commit file optionally
 
         try w.flush();
         try t_file.sync();

@@ -1,6 +1,7 @@
 const std = @import("std");
 const commands = @import("commands.zig");
 
+// TODO: rename file to ArgIter.zig
 pub const ArgIter = struct {
     iter: std.process.ArgIterator,
     _next: ?[]const u8,
@@ -84,6 +85,7 @@ pub fn optionalArgOrCommand(arg: ?[]const u8) ?ArgOrCommand {
     }
 }
 
+// TODO: move to a `cli.zig` file (or maybe a different)
 pub fn stringToCommand(arg: ?[]const u8) ?commands.Command {
     if (arg) |_arg| {
         if (std.mem.eql(u8, _arg, "-h") or std.mem.eql(u8, _arg, "--help")) {

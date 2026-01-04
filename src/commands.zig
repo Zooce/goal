@@ -15,6 +15,8 @@ pub const Command = enum {
     start,
     stop,
 
+    commit,
+
     commitmsg, // just for scripting
 
     batman, // just for development
@@ -472,7 +474,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             // still have an active goal but the file for it doesn't exist
             if (try git.hasChanges(allocator, stdout, .{ .staged = true })) {
                 if (try confirm("\nCommit staged changes as part of completing this goal?", stdout)) {
-                    var commit_file = try goals.CommitFile.init(allocator, root, goal.id);
+                    var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = goal.id, .completed = true });
                     defer commit_file.deinit(allocator);
                     meta.active_id = null;
                     try meta.store();
@@ -504,7 +506,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             }
 
             if (try confirm("\nWould you like to create an empty commit for completing this goal?", stdout)) {
-                var commit_file = try goals.CommitFile.init(allocator, root, goal.id);
+                var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = goal.id, .completed = true });
                 defer commit_file.deinit(allocator);
                 meta.active_id = null;
                 try meta.store();
@@ -745,6 +747,7 @@ pub fn start(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writ
 //
 
 // TODO: pick the default value (y/n) as a parameter
+// TODO: move to a `cli.zig` file (or maybe a different)
 fn confirm(prompt: []const u8, stdout: *std.io.Writer) !bool {
     var stdin_buffer: [64]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
@@ -768,7 +771,8 @@ fn confirm(prompt: []const u8, stdout: *std.io.Writer) !bool {
 
 /// Ask the user to input a number from the list of goals. The caller is responsible for
 /// freeing the memory with `allocator.free(choice)`.
-fn getGoalChoice(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io.Writer) ![]const u8 {
+/// TODO: move to a `cli.zig` file (or maybe a different)
+pub fn getGoalChoice(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io.Writer) ![]const u8 {
     try root.listAll(allocator, stdout);
 
     var stdin_buffer: [8]u8 = undefined;
@@ -783,6 +787,7 @@ fn getGoalChoice(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io
     return try allocator.dupe(u8, std.mem.trim(u8, answer, ", \t\r\n"));
 }
 
+// TODO: move to a `cli.zig` file (or maybe a different)
 fn getGoalChoices(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.io.Writer) ![]const []const u8 {
     try root.listAll(allocator, stdout);
 

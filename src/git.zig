@@ -170,9 +170,9 @@ pub fn commit(allocator: std.mem.Allocator, stdout: *std.io.Writer, filePath: []
     try stdout.writeAll("\n"); // give some space for the git output
     try stdout.flush();
     var proc = if (options.empty)
-        std.process.Child.init(&[_][]const u8{ "git", "commit", "--file", filePath, "--edit", "--allow-empty" }, allocator)
+        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", filePath, "--edit", "--allow-empty" }, allocator)
     else
-        std.process.Child.init(&[_][]const u8{ "git", "commit", "--file", filePath, "--edit" }, allocator);
+        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", filePath, "--edit" }, allocator);
 
     const term = try proc.spawnAndWait();
     switch (term) {
