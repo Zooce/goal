@@ -5,6 +5,7 @@ const git = @import("git.zig");
 // re-exports
 pub const save = @import("commands/save.zig");
 pub const help = @import("commands/help.zig");
+pub const status = @import("commands/status.zig");
 
 pub const Command = enum {
     help,
@@ -86,25 +87,6 @@ pub fn list(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     defer root.deinit(allocator);
 
     try root.listAll(allocator, stdout);
-}
-
-pub fn status(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var root = try goals.Root.init(allocator, .{});
-    defer root.deinit(allocator);
-
-    const meta = try goals.Meta.load(allocator, root);
-
-    if (meta.active_id) |id| {
-        // show goal details
-        var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{ .incl_desc = true });
-        defer goal.deinit(allocator);
-        try goal.print(stdout);
-
-        // show goal git commits
-        try git.logGrep(allocator, stdout, goal.id);
-    } else {
-        try stdout.writeAll("\nOh my... it looks like there's no active goal :). Bye now!\n");
-    }
 }
 
 pub fn commitmsg(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
