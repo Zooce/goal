@@ -4,7 +4,8 @@ const Command = @import("../commands.zig").Command;
 pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
     const main_help_text =
         \\
-        \\`goal` is a simple CLI to help you keep track of your goals, while focusing on one at a time.
+        \\`goal` is a simple CLI to help you keep track of your goals, while focusing on
+        \\one at a time.
         \\
         \\Although not required, `goal` caters to projects tracked with Git.
         \\
@@ -15,17 +16,22 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
         \\
         \\Commands:
         \\
-        \\    help [command]              Show this help message or the message for a command.
-        \\    init                        Initialze `goal` in a project.
-        \\    new [title]                 Create a new goal.
-        \\    start [id | new [title]]    Start working on a goal (optionally create a new one).
-        \\    status                      Show your active goal's status.
-        \\    stop                        Stop working on the active goal.
-        \\    complete                    Complete the active goal.
-        \\    list                        List all goals.
-        \\    show [id]                   Show a goal's details.
-        \\    edit [id]                   Edit a goal.
-        \\    delete [id]                 Delete a goal.
+        \\    help        Show this help message or the message for a command.
+        \\    init        Initialze `goal` in a project.
+        \\    new         Create a new goal.
+        \\    start       Start working on a goal (optionally create a new one).
+        \\    status      Show your active goal's status.
+        \\    stop        Stop working on the active goal.
+        \\    complete    Complete the active goal.
+        \\    list        List all goals.
+        \\    show        Show a goal's details.
+        \\    edit        Edit a goal.
+        \\    delete      Delete a goal.
+        \\
+        \\Git Commands:
+        \\
+        \\    save (alias: commit)    Commit (save) staged changes while including the
+        \\                            goal tag in the commit message.
         \\
         \\Help:
         \\
@@ -157,7 +163,7 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Arguments:
             \\
-            \\    [title]                 The title of the goal (optional).
+            \\    [title]    The title of the goal (optional).
             \\
             \\Help:
             \\
@@ -184,7 +190,7 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Arguments:
             \\
-            \\    [id]                    The goal ID (optional).
+            \\    [id]    The goal ID (optional).
             \\
             \\Help:
             \\
@@ -202,8 +208,6 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Opens your editor to edit the details of a goal.
             \\
-            \\If no goal ID is given you'll select one from the list of goals.
-            \\
             \\
             \\Usage:
             \\
@@ -211,7 +215,8 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Arguments:
             \\
-            \\    [id]                    The goal ID (optional).
+            \\    [id]    The goal ID (optional). If no goal ID is given you'll pick one from
+            \\            the list of goals.
             \\
             \\Help:
             \\
@@ -238,7 +243,7 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Arguments:
             \\
-            \\    [id]                    The goal ID (optional).
+            \\    [id]    The goal ID (optional).
             \\
             \\Help:
             \\
@@ -268,8 +273,8 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Arguments:
             \\
-            \\    [id]                    The goal ID (optional).
-            \\    [new [title]]           Start a new goal. See `goal help new`.
+            \\    [id]             The goal ID (optional).
+            \\    [new [title]]    Start a new goal. See `goal help new`.
             \\
             \\Help:
             \\
@@ -325,38 +330,40 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\        goal help commitmsg
             \\
             ,
-            .commit =>
+            .save, .commit =>
             \\
-            \\The `commit` Command
+            \\The `save` Command
             \\
             \\
-            \\Commits all staged files with a goal tag in the commit message.
+            \\Commits (saves) all staged files with a goal tag in the commit message.
             \\
             \\If neither a goal ID or the `--pick` option is given then the active goal is
             \\chosen by default. If there is no active goal then the list of goals is shown
             \\and one must be chosen.
             \\
             \\
+            \\Alias: `commit`
+            \\
             \\Usage:
             \\
-            \\    goal commit [id | --pick] [--complete]
+            \\    goal save [id | --pick] [--complete]
             \\
             \\Arguments:
             \\
-            \\    [id]                    The goal ID (optional).
+            \\    [id]          The goal ID (optional).
             \\
             \\Options:
             \\
-            \\    --pick                  Pick a goal ID from the list of goals.
-            \\    --complete              Also complete the goal.
+            \\    --pick        Pick a goal ID from the list of goals.
+            \\    --complete    Also complete the goal.
             \\
             \\Help:
             \\
             \\    To show this message use one of the following:
             \\
-            \\        goal start [help | -h | --help]
+            \\        goal save [help | -h | --help]
             \\    OR
-            \\        goal help start
+            \\        goal help save
             \\
             ,
             else => "\n...no help message for that command bro!\n",

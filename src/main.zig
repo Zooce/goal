@@ -27,7 +27,7 @@ pub fn main() !void {
             std.process.exit(1);
         };
     } else {
-        try commands.help(null, stdout);
+        try commands.help.run(null, stdout);
     }
 }
 
@@ -37,9 +37,10 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal -h init
             // goal help init
 
+            // TODO: move into help.zig
             const command = try args.optionalCommand(iter, cmd);
 
-            try commands.help(command, stdout);
+            try commands.help.run(command, stdout);
         },
 
         // zero argument commands...
@@ -50,7 +51,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal init help
 
             if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help(cmd, stdout);
+                return try commands.help.run(cmd, stdout);
             }
 
             try commands.init(allocator, stdout);
@@ -61,7 +62,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal list help
 
             if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help(cmd, stdout);
+                return try commands.help.run(cmd, stdout);
             }
 
             try commands.list(allocator, stdout);
@@ -72,7 +73,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal status help
 
             if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help(cmd, stdout);
+                return try commands.help.run(cmd, stdout);
             }
 
             try commands.status(allocator, stdout);
@@ -83,7 +84,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal stop help
 
             if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help(cmd, stdout);
+                return try commands.help.run(cmd, stdout);
             }
 
             try commands.stop(allocator, stdout);
@@ -94,7 +95,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal complete help
 
             if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help(cmd, stdout);
+                return try commands.help.run(cmd, stdout);
             }
 
             try commands.complete(allocator, stdout);
@@ -112,7 +113,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             const title = title: {
                 if (try args.optionalArgOrHelp(allocator, iter, cmd)) |res| switch (res) {
                     .arg => |arg| break :title arg,
-                    .help => return try commands.help(cmd, stdout),
+                    .help => return try commands.help.run(cmd, stdout),
                 };
                 break :title null;
             };
@@ -131,7 +132,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             const id = id: {
                 if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
                     .arg => |arg| break :id arg,
-                    .help => return try commands.help(cmd, stdout),
+                    .help => return try commands.help.run(cmd, stdout),
                 };
                 break :id null;
             };
@@ -149,7 +150,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             const id = id: {
                 if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
                     .arg => |arg| break :id arg,
-                    .help => return try commands.help(cmd, stdout),
+                    .help => return try commands.help.run(cmd, stdout),
                 };
                 break :id null;
             };
@@ -171,7 +172,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             const ids = ids: {
                 if (try args.optionalArgsOrHelp(allocator, iter, cmd)) |x| switch (x) {
                     .args => |arg| break :ids arg,
-                    .help => return try commands.help(cmd, stdout),
+                    .help => return try commands.help.run(cmd, stdout),
                 };
                 break :ids null;
             };
@@ -195,7 +196,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                     const title = title: {
                         if (try args.optionalArgOrHelp(allocator, iter, .new)) |res| switch (res) {
                             .arg => |arg| break :title arg,
-                            .help => return try commands.help(cmd, stdout),
+                            .help => return try commands.help.run(cmd, stdout),
                         };
                         break :title null;
                     };
@@ -217,7 +218,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             const id = id: {
                 if (try args.optionalArgOrHelp(allocator, iter, cmd)) |res| switch (res) {
                     .arg => |arg| break :id arg,
-                    .help => return try commands.help(cmd, stdout),
+                    .help => return try commands.help.run(cmd, stdout),
                 };
                 break :id null;
             };
@@ -232,13 +233,13 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal commitmsg help
 
             if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help(cmd, stdout);
+                return try commands.help.run(cmd, stdout);
             }
 
             try commands.commitmsg(allocator, stdout);
         },
 
-        .commit => try commands.commit.run(allocator, stdout, iter),
+        .save, .commit => try commands.save.run(allocator, stdout, iter),
 
         .batman => {
             std.debug.print("\nWhat are you doing here?!\n", .{});
