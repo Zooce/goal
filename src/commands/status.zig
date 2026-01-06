@@ -28,11 +28,15 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
         defer goal.deinit(allocator);
 
         try goal.tag(stdout);
-        try git.logGrep(allocator, stdout, goal.id);
 
-        try git.staged(allocator, stdout);
-        try git.unstaged(allocator, stdout);
-        try git.untracked(allocator, stdout);
+        if (try git.isGitProject(allocator)) {
+            try git.logGrep(allocator, stdout, goal.id);
+            try git.staged(allocator, stdout);
+            try git.unstaged(allocator, stdout);
+            try git.untracked(allocator, stdout);
+        } else {
+            try stdout.writeAll("\nHint: You can get more info here if you `git init` :)\n");
+        }
     } else {
         try stdout.writeAll("\nOh my... it looks like there's no active goal :). Bye now!\n");
     }
