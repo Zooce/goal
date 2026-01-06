@@ -31,7 +31,7 @@ pub const ArgIter = struct {
 
 // TODO: this file could be cleaned up a bit
 
-pub inline fn expectNoMoreArgs(args: *ArgIter) !void {
+pub fn expectNoMoreArgs(args: *ArgIter) !void {
     if (args.next()) |_| {
         std.debug.print("\nLooks like you've got too many arguments there, friend!\n", .{});
         return error.TooManyArguments;
