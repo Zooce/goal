@@ -30,6 +30,10 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
         \\
         \\Git Commands:
         \\
+        \\    Most of these commands are simple wrappers around Git commands to keep you
+        \\    in the context of working on your goals.
+        \\
+        \\    stage                   Stage changes.
         \\    save (alias: commit)    Commit (save) staged changes while including the
         \\                            goal tag in the commit message.
         \\
@@ -307,6 +311,8 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             ,
             .help => main_help_text,
+
+            // TODO: remove
             .commitmsg =>
             \\
             \\The `commitmsg` Command
@@ -328,6 +334,46 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\        goal commitmsg [help | -h | --help]
             \\    OR
             \\        goal help commitmsg
+            \\
+            ,
+
+            // Git Commands
+
+            .stage =>
+            \\
+            \\The `stage` Command
+            \\
+            \\
+            \\Stages changes with Git, just like `git add`. The details below are abbreviated
+            \\for your sanity. For more details see https://git-scm.com/docs/git-add.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal stage [git add options...] <git add args..>
+            \\
+            \\Arguments:
+            \\
+            \\    <pathspec>...    Files to stage. Use globs (e.g., *.c) for matching files,
+            \\                     or a directory (e.g., dir/) to stage all changes in it
+            \\                     (modified, added, and removed files).
+            \\
+            \\Options:
+            \\
+            \\    There's a million of them and many are uncommon, so if you really want to
+            \\    more then see the Help section below or https://git-scm.com/docs/git-add.
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal stage [help | -h | --help]
+            \\    OR
+            \\        goal help stage
+            \\
+            \\    For `git add` help (pipe this to `less`, trust me):
+            \\
+            \\        goal stage --git-help | less
             \\
             ,
             .save, .commit =>
@@ -366,6 +412,9 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\        goal help save
             \\
             ,
+
+            // WTF
+
             else => "\n...no help message for that command bro!\n",
         };
     }

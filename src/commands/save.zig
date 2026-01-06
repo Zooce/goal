@@ -87,19 +87,9 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
         .args => |cmd_args| cmd_args,
     };
 
-    if (!try git.isGitProject(allocator)) {
-        std.debug.print(
-            \\
-            \\Looks like this isn't a Git project.
-            \\
-            \\To use this command you'll need to install Git (https://git-scm.com) and run
-            \\`git init`.
-            \\
-        , .{});
-        return error.NotAGitProject;
-    }
+    try git.requireGitProject(allocator);
 
-    if (!try git.hasChanges(allocator, stdout, .{ .staged = true })) {
+    if (!try git.hasChanges(allocator, .{ .staged = true })) {
         std.debug.print(
             \\
             \\Can't commit when there aren't any staged changes.

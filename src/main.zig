@@ -229,6 +229,9 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             try commands.commitmsg(allocator, stdout);
         },
 
+        // Git Commands
+
+        .stage => try commands.stage.run(allocator, stdout, iter),
         .save, .commit => try commands.save.run(allocator, stdout, iter),
 
         .batman => {

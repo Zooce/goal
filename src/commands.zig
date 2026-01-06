@@ -6,6 +6,7 @@ const git = @import("git.zig");
 pub const save = @import("commands/save.zig");
 pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
+pub const stage = @import("commands/stage.zig");
 
 pub const Command = enum {
     help,
@@ -22,6 +23,8 @@ pub const Command = enum {
 
     commit,
     save,
+
+    stage,
 
     commitmsg, // just for scripting
 
@@ -124,7 +127,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             // also I'm deleting the goal file after the meta file stuff in
             // case that stuff fails so we're not in a corrupted state where we
             // still have an active goal but the file for it doesn't exist
-            if (try git.hasChanges(allocator, stdout, .{ .staged = true })) {
+            if (try git.hasChanges(allocator, .{ .staged = true })) {
                 if (try confirm("\nCommit staged changes as part of completing this goal?", stdout)) {
                     var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = goal.id, .completed = true });
                     defer commit_file.deinit(allocator);
@@ -149,7 +152,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
                     try stdout.writeAll("\nNo problem! Let the work continue!\n");
                 }
                 return;
-            } else if (try git.hasChanges(allocator, stdout, .{ .staged = false })) {
+            } else if (try git.hasChanges(allocator, .{ .staged = false })) {
                 if (try confirm("\nDid you forget to stage/commit these changes?", stdout)) {
                     try stdout.writeAll("\nNo worries! Let me know when you're ready.\n");
                     return;
@@ -461,5 +464,6 @@ fn getGoalChoices(allocator: std.mem.Allocator, root: goals.Root, stdout: *std.i
         try choices.append(allocator, try allocator.dupe(u8, trimmed));
     }
 
+    // TODO: consider just returning the array list
     return try choices.toOwnedSlice(allocator);
 }

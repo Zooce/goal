@@ -60,11 +60,25 @@ pub fn isGitProject(allocator: std.mem.Allocator) !bool {
     return false;
 }
 
+pub fn requireGitProject(allocator: std.mem.Allocator) !void {
+    if (!try isGitProject(allocator)) {
+        std.debug.print(
+            \\
+            \\Looks like this isn't a Git project.
+            \\
+            \\To use this command you'll need to install Git (https://git-scm.com) and run
+            \\`git init`.
+            \\
+        , .{});
+        return error.NotAGitProject;
+    }
+}
+
 pub const DiffOptions = struct {
     staged: bool,
 };
 
-pub fn hasChanges(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffOptions) !bool {
+pub fn hasChanges(allocator: std.mem.Allocator, options: DiffOptions) !bool {
     const res = try std.process.Child.run(.{
         .allocator = allocator,
         .argv = if (options.staged)
@@ -82,12 +96,7 @@ pub fn hasChanges(allocator: std.mem.Allocator, stdout: *std.io.Writer, options:
         return error.GitDiffError;
     }
 
-    if (res.stdout.len > 0) {
-        try stdout.print("\n{s}", .{res.stdout});
-        return true;
-    }
-
-    return false;
+    return res.stdout.len > 0;
 }
 
 pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffOptions) !void {
@@ -113,7 +122,7 @@ pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffO
     }
 }
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime label: []const u8, comptime argv: []const []const u8) !void {
+pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime label: ?[]const u8, argv: []const []const u8) !void {
     const res = try std.process.Child.run(.{
         .allocator = allocator,
         .argv = argv,
@@ -129,7 +138,11 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime label:
     }
 
     if (res.stdout.len > 0) {
-        try stdout.print("\n{s}\n{s}", .{ label, res.stdout });
+        if (label) |lbl| {
+            try stdout.print("\n{s}\n{s}", .{ lbl, res.stdout });
+        } else {
+            try stdout.print("\n{s}", .{res.stdout});
+        }
     }
 }
 
@@ -164,6 +177,10 @@ pub fn untracked(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             try stdout.print(" {s}\n", .{file});
         }
     }
+}
+
+pub fn help(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime cmd: []const u8) !void {
+    try run(allocator, stdout, null, &[_][]const u8{ "git", cmd, "--help" });
 }
 
 /// Runs `git log --all --graph --decorate --oneline --grep "Goal #{id}"` showing
