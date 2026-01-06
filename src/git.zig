@@ -90,6 +90,82 @@ pub fn hasChanges(allocator: std.mem.Allocator, stdout: *std.io.Writer, options:
     return false;
 }
 
+pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffOptions) !void {
+    const res = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = if (options.staged)
+            &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" }
+        else
+            &[_][]const u8{ "git", "diff", "--stat", "--color" },
+    });
+    defer {
+        allocator.free(res.stdout);
+        allocator.free(res.stderr);
+    }
+
+    if (res.stderr.len > 0) {
+        std.debug.print("\n{s}\n", .{res.stderr});
+        return error.GitDiffError;
+    }
+
+    if (res.stdout.len > 0) {
+        try stdout.print("\n{s}", .{res.stdout});
+    }
+}
+
+pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime label: []const u8, comptime argv: []const []const u8) !void {
+    const res = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = argv,
+    });
+    defer {
+        allocator.free(res.stderr);
+        allocator.free(res.stdout);
+    }
+
+    if (res.stderr.len > 0) {
+        std.debug.print("\n{s}", .{res.stderr});
+        return error.GitError;
+    }
+
+    if (res.stdout.len > 0) {
+        try stdout.print("\n{s}\n{s}", .{ label, res.stdout });
+    }
+}
+
+pub fn staged(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
+    try run(allocator, stdout, "Staged changes:", &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" });
+}
+
+pub fn unstaged(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
+    try run(allocator, stdout, "Unstaged changes:", &[_][]const u8{ "git", "diff", "--stat", "--color" });
+}
+
+pub fn untracked(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
+    const res = try std.process.Child.run(.{
+        .allocator = allocator,
+        .argv = &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
+    });
+    defer {
+        allocator.free(res.stderr);
+        allocator.free(res.stdout);
+    }
+
+    if (res.stderr.len > 0) {
+        std.debug.print("\n{s}", .{res.stderr});
+        return error.GitError;
+    }
+
+    if (res.stdout.len > 0) {
+        try stdout.writeAll("\nUntracked files:\n");
+        var iter = std.mem.splitAny(u8, res.stdout, "\n");
+        while (iter.next()) |file| {
+            if (file.len == 0) continue;
+            try stdout.print(" {s}\n", .{file});
+        }
+    }
+}
+
 /// Runs `git log --all --graph --decorate --oneline --grep "Goal #{id}"` showing
 /// the output in stdout.
 ///
@@ -100,7 +176,7 @@ pub fn hasChanges(allocator: std.mem.Allocator, stdout: *std.io.Writer, options:
 pub fn logGrep(allocator: std.mem.Allocator, stdout: *std.io.Writer, id: []const u8) !void {
     var pattern_buffer: [16]u8 = undefined;
     const pattern = try std.fmt.bufPrint(&pattern_buffer, "Goal #{s}", .{id});
-    const argv = [_][]const u8{ "git", "log", "--all", "--graph", "--decorate", "--oneline", "--grep", pattern };
+    const argv = [_][]const u8{ "git", "log", "--all", "--graph", "--decorate", "--color", "--oneline", "--grep", pattern };
     const res = try std.process.Child.run(.{ .allocator = allocator, .argv = &argv });
     defer {
         allocator.free(res.stdout);
@@ -113,7 +189,7 @@ pub fn logGrep(allocator: std.mem.Allocator, stdout: *std.io.Writer, id: []const
     }
 
     if (res.stdout.len > 0) {
-        try stdout.print("\n{s}", .{res.stdout});
+        try stdout.print("\nCommits:\n{s}", .{res.stdout});
     }
 }
 

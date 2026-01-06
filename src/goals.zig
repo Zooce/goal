@@ -290,12 +290,16 @@ pub const Goal = struct {
         }
     }
 
-    pub fn print(self: Goal, stdout: *std.io.Writer) !void {
-        try stdout.print(
+    pub fn tag(self: Goal, writer: *std.io.Writer) !void {
+        try writer.print(
             \\
             \\Goal #{s} - {s}
             \\
         , .{ self.id, self.title });
+    }
+
+    pub fn print(self: Goal, stdout: *std.io.Writer) !void {
+        try self.tag(stdout);
         if (self.description) |desc| {
             try stdout.print(
                 \\

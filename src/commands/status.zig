@@ -24,13 +24,15 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
     const meta = try goals.Meta.load(allocator, root);
 
     if (meta.active_id) |id| {
-        // show goal details
         var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{ .incl_desc = true });
         defer goal.deinit(allocator);
-        try goal.print(stdout);
 
-        // show goal git commits
+        try goal.tag(stdout);
         try git.logGrep(allocator, stdout, goal.id);
+
+        try git.staged(allocator, stdout);
+        try git.unstaged(allocator, stdout);
+        try git.untracked(allocator, stdout);
     } else {
         try stdout.writeAll("\nOh my... it looks like there's no active goal :). Bye now!\n");
     }
