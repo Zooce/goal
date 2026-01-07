@@ -34,6 +34,7 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
         \\    in the context of working on your goals.
         \\
         \\    stage                   Stage changes.
+        \\    unstage                 Unstage staged changes.
         \\    save (alias: commit)    Commit (save) staged changes while including the
         \\                            goal tag in the commit message.
         \\
@@ -374,6 +375,45 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\    For `git add` help (pipe this to `less`, trust me):
             \\
             \\        goal stage --git-help | less
+            \\
+            ,
+            .unstage =>
+            \\
+            \\The `unstage` Command
+            \\
+            \\
+            \\Untages changes with Git, just like `git restore --staged`. The
+            \\details below are abbreviated for your sanity. For more details see
+            \\https://git-scm.com/docs/git-restore.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal unstage [git restore options...] <git restore args..>
+            \\
+            \\Arguments:
+            \\
+            \\    <pathspec>...    Files to unstage. Use globs (e.g., *.c) for matching files,
+            \\                     or a directory (e.g., dir/) to unstage all changes in it
+            \\                     (modified, added, and removed files).
+            \\
+            \\Options:
+            \\
+            \\    There's a million of them and many are uncommon, so if
+            \\    you really want to more then see the Help section below or
+            \\    https://git-scm.com/docs/git-restore.
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal unstage [help | -h | --help]
+            \\    OR
+            \\        goal help unstage
+            \\
+            \\    For `git restore` help (pipe this to `less`, trust me):
+            \\
+            \\        goal unstage --git-help | less
             \\
             ,
             .save, .commit =>

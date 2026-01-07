@@ -232,6 +232,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
         // Git Commands
 
         .stage => try commands.stage.run(allocator, stdout, iter),
+        .unstage => try commands.unstage.run(allocator, stdout, iter),
         .save, .commit => try commands.save.run(allocator, stdout, iter),
 
         .batman => {
