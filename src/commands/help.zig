@@ -416,9 +416,9 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\        goal unstage --git-help | less
             \\
             ,
-            .save, .commit =>
+            .commit, .save =>
             \\
-            \\The `save` Command
+            \\The `commit` Command
             \\
             \\
             \\Commits (saves) all staged files with a goal tag in the commit message.
@@ -428,11 +428,11 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\and one must be chosen.
             \\
             \\
-            \\Alias: `commit`
+            \\Alias: `save`
             \\
             \\Usage:
             \\
-            \\    goal save [id | --pick] [--complete]
+            \\    goal commit [id | --pick] [--complete]
             \\
             \\Arguments:
             \\
@@ -447,9 +447,9 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\    To show this message use one of the following:
             \\
-            \\        goal save [help | -h | --help]
+            \\        goal commit [help | -h | --help]
             \\    OR
-            \\        goal help save
+            \\        goal help commit
             \\
             ,
 

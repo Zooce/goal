@@ -233,7 +233,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
         .stage => try commands.stage.run(allocator, stdout, iter),
         .unstage => try commands.unstage.run(allocator, stdout, iter),
-        .save, .commit => try commands.save.run(allocator, stdout, iter),
+        .commit, .save => try commands.commit.run(allocator, stdout, iter),
 
         .batman => {
             std.debug.print("\nWhat are you doing here?!\n", .{});

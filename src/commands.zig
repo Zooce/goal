@@ -3,7 +3,7 @@ const goals = @import("goals.zig");
 const git = @import("git.zig");
 
 // re-exports
-pub const save = @import("commands/save.zig");
+pub const commit = @import("commands/commit.zig");
 pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
 pub const stage = @import("commands/stage.zig");
