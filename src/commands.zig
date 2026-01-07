@@ -8,6 +8,7 @@ pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
 pub const stage = @import("commands/stage.zig");
 pub const unstage = @import("commands/unstage.zig");
+pub const discard = @import("commands/discard.zig");
 
 pub const Command = enum {
     help,
@@ -27,6 +28,7 @@ pub const Command = enum {
 
     stage,
     unstage,
+    discard,
 
     commitmsg, // just for scripting
 

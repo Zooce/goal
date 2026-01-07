@@ -233,6 +233,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
         .stage => try commands.stage.run(allocator, stdout, iter),
         .unstage => try commands.unstage.run(allocator, stdout, iter),
+        .discard => try commands.discard.run(allocator, stdout, iter),
         .commit, .save => try commands.commit.run(allocator, stdout, iter),
 
         .batman => {
