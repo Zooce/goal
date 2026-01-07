@@ -30,8 +30,6 @@ pub const Command = enum {
     unstage,
     discard,
 
-    commitmsg, // just for scripting
-
     batman, // just for development
 
     pub fn unexpectedArgument(self: Command, arg: []const u8) anyerror {
@@ -96,19 +94,6 @@ pub fn list(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     try root.listAll(allocator, stdout);
 }
 
-pub fn commitmsg(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var root = try goals.Root.init(allocator, .{});
-    defer root.deinit(allocator);
-
-    const meta = try goals.Meta.load(allocator, root);
-
-    if (meta.active_id) |id| {
-        var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{});
-        defer goal.deinit(allocator);
-        try goal.print(stdout);
-    }
-}
-
 pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{});
     defer root.deinit(allocator);
@@ -121,28 +106,9 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 
         // if there's a Git project then there's some Git stuff we want to do
         if (try git.isGitProject(allocator)) {
-            // notice that I'm stopping the active goal before git commits
-            // because I'm creating a temporary commit message file from it
-            // and if there's an active goal then the prepare-commit-msg hook
-            // will append the title again in the message -- obviously I don't
-            // want that -- so by stopping it, the output of `goal commitmsg`
-            // will be empty and I won't get the duplicate goal title
-            // ----
-            // also I'm deleting the goal file after the meta file stuff in
-            // case that stuff fails so we're not in a corrupted state where we
-            // still have an active goal but the file for it doesn't exist
             if (try git.hasChanges(allocator, .{ .staged = true })) {
                 if (try confirm("\nCommit staged changes as part of completing this goal?", stdout)) {
-                    var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = goal.id, .completed = true });
-                    defer commit_file.deinit(allocator);
-                    meta.active_id = null;
-                    try meta.store();
-                    git.commit(allocator, stdout, commit_file.path, .{ .empty = false }) catch |err| {
-                        try meta.restoreActive(goal.id);
-                        return err;
-                    };
-                    try root.dir.deleteFile(goal.id);
-                    // TODO: consider undoing the commit and restoring the active id
+                    try commit.run(allocator, stdout, .{ .id = goal.id, .complete = true });
                     try stdout.writeAll("\nCongrats! You did it.\n");
                 } else if (try confirm("\nComplete the goal anyways?", stdout)) {
                     meta.active_id = null;
@@ -165,16 +131,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
             }
 
             if (try confirm("\nWould you like to create an empty commit for completing this goal?", stdout)) {
-                var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = goal.id, .completed = true });
-                defer commit_file.deinit(allocator);
-                meta.active_id = null;
-                try meta.store();
-                git.commit(allocator, stdout, commit_file.path, .{ .empty = true }) catch |err| {
-                    try meta.restoreActive(goal.id);
-                    return err;
-                };
-                try root.dir.deleteFile(goal.id);
-                // TODO: consider undoing the commit and restoring the active id
+                try commit.run(allocator, stdout, .{ .id = goal.id, .complete = true, .empty = true });
                 try stdout.writeAll("\nWow! You crushed it!\n");
                 return;
             }
@@ -344,12 +301,12 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
     }
 }
 
-pub fn delete(allocator: std.mem.Allocator, ids: ?[]const []const u8, stdout: *std.io.Writer) !void {
+pub fn delete(allocator: std.mem.Allocator, ids: std.ArrayList([]const u8), stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
     defer root.deinit(allocator);
 
-    const choices = ids orelse try getGoalChoices(allocator, root, stdout);
-    defer if (ids == null) allocator.free(choices);
+    const choices = if (ids.items.len > 0) ids.items else try getGoalChoices(allocator, root, stdout);
+    defer if (ids.items.len == 0) allocator.free(choices);
 
     if (choices.len == 0) return Command.delete.missingArgument();
 

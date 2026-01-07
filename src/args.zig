@@ -135,17 +135,19 @@ pub fn optionalArgOrHelp(allocator: std.mem.Allocator, args: *ArgIter, cmd: comm
     return null;
 }
 
-pub const ArgsOrHelp = union(enum) {
-    args: []const []const u8,
-    help,
-};
+pub fn ArgsOrHelp(comptime T: type) type {
+    return union(enum) {
+        args: T,
+        help,
+    };
+}
 
-pub fn optionalArgsOrHelp(allocator: std.mem.Allocator, args: *ArgIter, cmd: commands.Command) !?ArgsOrHelp {
-    var arg_list: std.ArrayList([]const u8) = .empty;
+pub fn optionalArgsOrHelp(allocator: std.mem.Allocator, iter: *ArgIter, cmd: commands.Command) !ArgsOrHelp(std.ArrayList([]const u8)) {
+    var args: std.ArrayList([]const u8) = .empty;
 
-    while (args.next()) |arg| {
+    while (iter.next()) |arg| {
         if (optionalArgOrCommand(arg)) |x| switch (x) {
-            .arg => |a| try arg_list.append(allocator, std.mem.trim(u8, a, ", \t\r\n")),
+            .arg => |a| try args.append(allocator, std.mem.trim(u8, a, ", \t\r\n")),
             .command => |sub| switch (sub) {
                 .help => return .help,
                 else => return cmd.unexpectedSubcommand(sub),
@@ -153,5 +155,5 @@ pub fn optionalArgsOrHelp(allocator: std.mem.Allocator, args: *ArgIter, cmd: com
         };
     }
 
-    return if (arg_list.items.len > 0) ArgsOrHelp{ .args = try arg_list.toOwnedSlice(allocator) } else null;
+    return .{ .args = args };
 }

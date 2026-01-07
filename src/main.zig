@@ -159,14 +159,11 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal delete --help 3
             // goal delete 3 help
 
-            const ids = ids: {
-                if (try args.optionalArgsOrHelp(allocator, iter, cmd)) |x| switch (x) {
-                    .args => |arg| break :ids arg,
-                    .help => return try commands.help.run(cmd, stdout),
-                };
-                break :ids null;
+            var ids = switch (try args.optionalArgsOrHelp(allocator, iter, cmd)) {
+                .args => |ids| ids,
+                .help => return try commands.help.run(cmd, stdout),
             };
-            defer if (ids) |_ids| allocator.free(_ids);
+            defer ids.deinit(allocator);
 
             try commands.delete(allocator, ids, stdout);
         },
@@ -217,24 +214,20 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             try commands.start(allocator, id, stdout);
         },
 
-        .commitmsg => {
-            // goal commitmsg
-            // goal commitmsg -h
-            // goal commitmsg help
-
-            if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help.run(cmd, stdout);
-            }
-
-            try commands.commitmsg(allocator, stdout);
-        },
-
         // Git Commands
 
         .stage => try commands.stage.run(allocator, stdout, iter),
         .unstage => try commands.unstage.run(allocator, stdout, iter),
         .discard => try commands.discard.run(allocator, stdout, iter),
-        .commit, .save => try commands.commit.run(allocator, stdout, iter),
+        .commit, .save => {
+            const cmd_args = switch (try commands.commit.parseArgs(allocator, iter)) {
+                .help => return try commands.help.run(.commit, stdout),
+                .args => |cmd_args| cmd_args,
+            };
+            defer if (cmd_args.id) |id| allocator.free(id);
+            try commands.commit.run(allocator, stdout, cmd_args);
+            if (cmd_args.complete) try stdout.writeAll("\nNice work!\n");
+        },
 
         .batman => {
             std.debug.print("\nWhat are you doing here?!\n", .{});

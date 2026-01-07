@@ -33,11 +33,11 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
         \\    Most of these commands are simple wrappers around Git commands to keep you
         \\    in the context of working on your goals.
         \\
-        \\    stage                   Stage changes.
-        \\    unstage                 Unstage staged changes.
-        \\    discard                 Discard changes.
-        \\    save (alias: commit)    Commit (save) staged changes while including the
-        \\                            goal tag in the commit message.
+        \\    stage      Stage changes. (git add)
+        \\    unstage    Unstage staged changes. (git restore --staged)
+        \\    discard    Discard unstaged changes. (git restore)
+        \\    commit     Commit staged changes while including the
+        \\               goal tag in the commit message. (git commit)
         \\
         \\Help:
         \\
@@ -314,31 +314,6 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             ,
             .help => main_help_text,
 
-            // TODO: remove
-            .commitmsg =>
-            \\
-            \\The `commitmsg` Command
-            \\
-            \\
-            \\Shows the status of your active goal.
-            \\
-            \\This is meant for scripting, particularly in the `prepare-commit-msg` hook.
-            \\
-            \\
-            \\Usage:
-            \\
-            \\    goal commitmsg
-            \\
-            \\Help:
-            \\
-            \\    To show this message use one of the following:
-            \\
-            \\        goal commitmsg [help | -h | --help]
-            \\    OR
-            \\        goal help commitmsg
-            \\
-            ,
-
             // Git Commands
 
             .stage =>
@@ -362,8 +337,9 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\
             \\Options:
             \\
-            \\    There's a million of them and many are uncommon, so if you really want to
-            \\    more then see the Help section below or https://git-scm.com/docs/git-add.
+            \\    There's a million of them and many are uncommon, so if
+            \\    you really want to learn more then see the Help section
+            \\    below or go to https://git-scm.com/docs/git-add.
             \\
             \\Help:
             \\
@@ -401,8 +377,8 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\Options:
             \\
             \\    There's a million of them and many are uncommon, so if
-            \\    you really want to more then see the Help section below or
-            \\    https://git-scm.com/docs/git-restore.
+            \\    you really want to learn more then see the Help section
+            \\    below or go to https://git-scm.com/docs/git-restore.
             \\
             \\Help:
             \\
@@ -440,8 +416,8 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             \\Options:
             \\
             \\    There's a million of them and many are uncommon, so if
-            \\    you really want to more then see the Help section below or
-            \\    https://git-scm.com/docs/git-restore.
+            \\    you really want to learn more then see the Help section
+            \\    below or go to https://git-scm.com/docs/git-restore.
             \\
             \\Help:
             \\

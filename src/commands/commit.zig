@@ -1,6 +1,7 @@
 const std = @import("std");
 const ArgIter = @import("../args.zig").ArgIter;
 const stringToCommand = @import("../args.zig").stringToCommand;
+const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const Command = @import("../commands.zig").Command;
 const getGoalChoice = @import("../commands.zig").getGoalChoice;
 const help = @import("help.zig");
@@ -11,11 +12,9 @@ const Args = struct {
     id: ?[]const u8 = null,
     pick: bool = false,
     complete: bool = false,
-};
 
-const ArgsOrHelp = union(enum) {
-    args: Args,
-    help: void,
+    // for internal use
+    empty: bool = false,
 };
 
 /// Parses `goal commit` arguments.
@@ -31,8 +30,7 @@ const ArgsOrHelp = union(enum) {
 /// };
 /// defer if (cmd_args.id) |id| allocator.free(id);
 /// ```
-/// TODO: rename to `args` after the `args.zig` file becomes `ArgIter.zig`
-fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp {
+pub fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp(Args) {
     var args = Args{};
 
     var count: u8 = 0;
@@ -43,7 +41,7 @@ fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp {
         }
 
         if (stringToCommand(arg)) |sub| switch (sub) {
-            .help => return ArgsOrHelp.help,
+            .help => return .help,
             else => return Command.commit.unexpectedSubcommand(sub),
         };
 
@@ -78,24 +76,26 @@ fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp {
         args.id = try allocator.dupe(u8, arg); // has to be freed by caller
     }
 
-    return ArgsOrHelp{ .args = args };
+    return .{ .args = args };
 }
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter) !void {
-    const args = switch (try parseArgs(allocator, iter)) {
-        .help => return try help.run(.commit, stdout),
-        .args => |cmd_args| cmd_args,
-    };
-
+pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, args: Args) !void {
     try git.requireGitProject(allocator);
 
-    if (!try git.hasChanges(allocator, .{ .staged = true })) {
-        std.debug.print(
-            \\
-            \\Can't commit when there aren't any staged changes.
-            \\
-        , .{});
-        return error.NoStagedChanges;
+    // empty  staged  |  commit
+    //   NO     NO    |    NO
+    //   NO    YES    |   YES
+    //  YES     NO    |   YES
+    //  YES    YES    |    NO
+    const do_commit = args.empty != try git.hasChanges(allocator, .{ .staged = true });
+    if (!do_commit) {
+        if (args.empty) {
+            std.debug.print("\nCan't create an empty commit with staged changes.\n", .{});
+            return error.CannotEmptyCommit;
+        } else {
+            std.debug.print("\nCan't commit without staged changes.\n", .{});
+            return error.NoStagedChanges;
+        }
     }
 
     var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
@@ -117,7 +117,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
     var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = id, .completed = args.complete });
     defer commit_file.deinit(allocator);
 
-    try git.commit(allocator, stdout, commit_file.path, .{ .empty = false });
+    try git.commit(allocator, stdout, commit_file.path, .{ .empty = args.empty });
 
     if (args.complete) {
         meta.active_id = null;
@@ -131,6 +131,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
                 \\
             , .{id});
             try meta.restoreActive(id);
+            // TODO: consider undoing the commit and restoring the active id
             return err;
         };
     }
