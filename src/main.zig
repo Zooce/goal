@@ -54,7 +54,7 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
                 return try commands.help.run(cmd, stdout);
             }
 
-            try commands.init(allocator, stdout);
+            try commands.init.run(allocator, stdout);
         },
         .list => {
             // goal list
