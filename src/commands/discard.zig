@@ -34,6 +34,7 @@ fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp {
 }
 
 pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter) !void {
+    // TODO: make caller pass args in
     var args = switch (try parseArgs(allocator, iter)) {
         .help => return try help.run(.discard, stdout),
         .args => |cmd_args| cmd_args,

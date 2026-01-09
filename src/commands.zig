@@ -86,6 +86,7 @@ pub fn init(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     try stdout.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
 }
 
+// TODO: move to commands/list.zig
 /// List all goals showing their ID and title.
 pub fn list(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
@@ -94,6 +95,7 @@ pub fn list(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     try root.listAll(allocator, stdout);
 }
 
+// TODO: move to commands/complete.zig
 pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{});
     defer root.deinit(allocator);
@@ -155,6 +157,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     }
 }
 
+// TODO: move to commands/stop.zig
 pub fn stop(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{});
     defer root.deinit(allocator);
@@ -174,6 +177,7 @@ pub fn stop(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     }
 }
 
+// TODO: move to commands/new.zig
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.
 ///
@@ -234,6 +238,7 @@ pub fn new(allocator: std.mem.Allocator, title: ?[]const u8, stdout: *std.io.Wri
     return try allocator.dupe(u8, file_name);
 }
 
+// TODO: move to commands/show.zig
 /// Show the details of a goal. If an id isn't provided then all goals will be listed
 /// for one to be chosen.
 pub fn show(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
@@ -250,6 +255,7 @@ pub fn show(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
     try goal.print(stdout);
 }
 
+// TODO: move to commands/edit.zig
 pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
     defer root.deinit(allocator);
@@ -301,6 +307,7 @@ pub fn edit(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Write
     }
 }
 
+// TODO: move to commands/delete.zig
 pub fn delete(allocator: std.mem.Allocator, ids: std.ArrayList([]const u8), stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
     defer root.deinit(allocator);
@@ -336,6 +343,7 @@ pub fn delete(allocator: std.mem.Allocator, ids: std.ArrayList([]const u8), stdo
     try stdout.writeAll("\nAll done! Smell ya later!\n");
 }
 
+// TODO: move to commands/start.zig
 pub fn start(allocator: std.mem.Allocator, id: ?[]const u8, stdout: *std.io.Writer) !void {
     var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
     defer root.deinit(allocator);
