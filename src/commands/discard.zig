@@ -44,7 +44,7 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
 
     try git.requireGitProject(allocator);
 
-    if (!try git.hasChanges(allocator, .{ .staged = false })) {
+    if (!try git.hasChanges(allocator, .unstaged)) {
         std.debug.print("\nThere are no unstaged changes to discard.\n\nHint: You can only discard unstaged changes.\n", .{});
         return error.NoUnstagedChanges;
     }

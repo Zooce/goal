@@ -74,21 +74,24 @@ pub fn requireGitProject(allocator: std.mem.Allocator) !void {
     }
 }
 
-pub const DiffOptions = struct {
-    staged: bool,
+pub const ChangeType = enum {
+    staged,
+    unstaged,
+    untracked,
 };
 
-pub fn hasChanges(allocator: std.mem.Allocator, options: DiffOptions) !bool {
+pub fn hasChanges(allocator_: std.mem.Allocator, type_: ChangeType) !bool {
     const res = try std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = if (options.staged)
-            &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" }
-        else
-            &[_][]const u8{ "git", "diff", "--stat", "--color" },
+        .allocator = allocator_,
+        .argv = switch (type_) {
+            .staged => &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" },
+            .unstaged => &[_][]const u8{ "git", "diff", "--stat", "--color" },
+            .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
+        },
     });
     defer {
-        allocator.free(res.stdout);
-        allocator.free(res.stderr);
+        allocator_.free(res.stdout);
+        allocator_.free(res.stderr);
     }
 
     if (res.stderr.len > 0) {
@@ -98,6 +101,10 @@ pub fn hasChanges(allocator: std.mem.Allocator, options: DiffOptions) !bool {
 
     return res.stdout.len > 0;
 }
+
+pub const DiffOptions = struct {
+    staged: bool,
+};
 
 pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffOptions) !void {
     const res = try std.process.Child.run(.{

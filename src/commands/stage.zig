@@ -44,8 +44,8 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter)
 
     try git.requireGitProject(allocator);
 
-    if (!try git.hasChanges(allocator, .{ .staged = false })) {
-        std.debug.print("\nThere are no unstaged changes to stage.\n", .{});
+    if (!try git.hasChanges(allocator, .unstaged) and !try git.hasChanges(allocator, .untracked)) {
+        std.debug.print("\nThere are no changes to stage.\n", .{});
         return error.NoUnstagedChanges;
     }
 

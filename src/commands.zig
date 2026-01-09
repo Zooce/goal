@@ -92,7 +92,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
 
         // if there's a Git project then there's some Git stuff we want to do
         if (try git.isGitProject(allocator)) {
-            if (try git.hasChanges(allocator, .{ .staged = true })) {
+            if (try git.hasChanges(allocator, .staged)) {
                 if (try confirm("\nCommit staged changes as part of completing this goal?", stdout)) {
                     try commit.run(allocator, stdout, .{ .id = goal.id, .complete = true });
                     try stdout.writeAll("\nCongrats! You did it.\n");
@@ -108,7 +108,7 @@ pub fn complete(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
                     try stdout.writeAll("\nNo problem! Let the work continue!\n");
                 }
                 return;
-            } else if (try git.hasChanges(allocator, .{ .staged = false })) {
+            } else if (try git.hasChanges(allocator, .unstaged)) {
                 if (try confirm("\nDid you forget to stage/commit these changes?", stdout)) {
                     try stdout.writeAll("\nNo worries! Let me know when you're ready.\n");
                     return;
