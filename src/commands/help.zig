@@ -17,6 +17,7 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
         \\Commands:
         \\
         \\    help        Show this help message or the message for a command.
+        \\    setup       Setup `goal` for the first time.
         \\    init        Initialze `goal` in a project.
         \\    new         Create a new goal.
         \\    start       Start working on a goal (optionally create a new one).
@@ -53,6 +54,29 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
     // the next argument must be either a command or nothing
     if (command) |cmd| {
         help_msg = switch (cmd) {
+            .setup =>
+            \\
+            \\The `setup` Command
+            \\
+            \\
+            \\Does `goal`'s  initial setup on your system, creating the ~/.goal/ directory,
+            \\initializing it as a Git project, and walking you through configuration setup.
+            \\The ~/.goal/ directory is where all of your `goal` projects will live.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal setup
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal setup [help | -h | --help]
+            \\    OR
+            \\        goal help setup
+            \\
+            ,
             .init =>
             \\
             \\The `init` Command

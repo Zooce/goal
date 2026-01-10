@@ -14,9 +14,13 @@ const std = @import("std");
 ///     // use `root`
 /// }
 /// ```
-pub fn projectRoot(allocator: std.mem.Allocator) !?[]const u8 {
+pub fn projectRoot(allocator: std.mem.Allocator, cwd: ?[]const u8) !?[]const u8 {
     const argv = [_][]const u8{ "git", "rev-parse", "--show-toplevel" };
-    const res = try std.process.Child.run(.{ .allocator = allocator, .argv = &argv });
+    const res = try std.process.Child.run(.{
+        .allocator = allocator,
+        .cwd = cwd,
+        .argv = &argv,
+    });
     defer {
         allocator.free(res.stdout);
         allocator.free(res.stderr);
@@ -39,7 +43,7 @@ pub fn projectRoot(allocator: std.mem.Allocator) !?[]const u8 {
 
 test "getGitRoot - returns the parent of the .git/ directory" {
     var allocator = std.testing.allocator;
-    const git_root = try projectRoot(allocator);
+    const git_root = try projectRoot(allocator, null);
     defer if (git_root) |root| allocator.free(root);
 
     // NOTES
@@ -53,7 +57,7 @@ test "getGitRoot - returns the parent of the .git/ directory" {
 }
 
 pub fn isGitProject(allocator: std.mem.Allocator) !bool {
-    if (try projectRoot(allocator)) |root| {
+    if (try projectRoot(allocator, null)) |root| {
         allocator.free(root);
         return true;
     }
@@ -71,6 +75,24 @@ pub fn requireGitProject(allocator: std.mem.Allocator) !void {
             \\
         , .{});
         return error.NotAGitProject;
+    }
+}
+
+pub fn init(allocator_: std.mem.Allocator, cwd: ?[]const u8) !void {
+    const argv = [_][]const u8{ "git", "init" };
+    const res = try std.process.Child.run(.{
+        .allocator = allocator_,
+        .cwd = cwd,
+        .argv = &argv,
+    });
+    defer {
+        allocator_.free(res.stdout);
+        allocator_.free(res.stderr);
+    }
+
+    if (res.stderr.len > 0) {
+        std.debug.print("\n{s}", .{res.stderr});
+        return error.GitInitError;
     }
 }
 
@@ -129,7 +151,7 @@ pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffO
     }
 }
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime label: ?[]const u8, argv: []const []const u8) !void {
+pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, label: ?[]const u8, argv: []const []const u8) !void {
     const res = try std.process.Child.run(.{
         .allocator = allocator,
         .argv = argv,

@@ -35,7 +35,7 @@ pub const Root = struct {
         const goals_path = path: {
             // .goals/ should be at a project root so .git/ is our best case
             // IDEA: perhaps we could detect other root-level project files as well
-            const git_root = try git.projectRoot(allocator);
+            const git_root = try git.projectRoot(allocator, null);
             if (git_root) |root| {
                 defer allocator.free(root);
                 break :path try std.fs.path.join(allocator, &[_][]const u8{ root, ".goals" });

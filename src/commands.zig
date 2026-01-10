@@ -3,6 +3,7 @@ const goals = @import("goals.zig");
 const git = @import("git.zig");
 
 // re-exports
+pub const setup = @import("commands/setup.zig");
 pub const init = @import("commands/init.zig");
 pub const commit = @import("commands/commit.zig");
 pub const help = @import("commands/help.zig");
@@ -13,6 +14,7 @@ pub const discard = @import("commands/discard.zig");
 
 pub const Command = enum {
     help,
+    setup,
     init,
     list,
     status,

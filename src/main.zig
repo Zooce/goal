@@ -45,6 +45,17 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
 
         // zero argument commands...
 
+        .setup => {
+            // goal setup
+            // goal setup -h
+            // goal setup help
+
+            if (try args.optionalHelp(iter, cmd)) {
+                return try commands.help.run(cmd, stdout);
+            }
+
+            try commands.setup.run(allocator, stdout);
+        },
         .init => {
             // goal init
             // goal init -h
