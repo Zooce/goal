@@ -119,6 +119,8 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, args: Args) !vo
 
     try git.commit(allocator, stdout, commit_file.path, .{ .empty = args.empty });
 
+    // TODO: show `goal status` after commit ?? if not --complete
+
     if (args.complete) {
         meta.active_id = null;
         try meta.store();
