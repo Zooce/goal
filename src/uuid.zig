@@ -6,149 +6,39 @@
 
 const std = @import("std");
 const crypto = std.crypto;
-const fmt = std.fmt;
 const testing = std.testing;
 
-pub const Error = error{InvalidUUID};
-
-pub const BYTES_LEN = 16;
 pub const SLICE_LEN = 36;
 
-pub const UUID = struct {
-    bytes: [BYTES_LEN]u8,
+pub fn genUuidV4(buf: []u8) !void {
+    if (buf.len != SLICE_LEN) return error.InvalidUUIDv4BufferSize;
 
-    pub fn init() UUID {
-        var uuid = UUID{ .bytes = undefined };
+    var bytes: [16]u8 = undefined;
 
-        crypto.random.bytes(&uuid.bytes);
-        // Version 4
-        uuid.bytes[6] = (uuid.bytes[6] & 0x0f) | 0x40;
-        // Variant 1
-        uuid.bytes[8] = (uuid.bytes[8] & 0x3f) | 0x80;
-        return uuid;
-    }
+    crypto.random.bytes(&bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
 
-    pub fn toSlice(self: UUID) [36]u8 {
-        var buf: [SLICE_LEN]u8 = undefined;
-        buf[8] = '-';
-        buf[13] = '-';
-        buf[18] = '-';
-        buf[23] = '-';
-        inline for (encoded_pos, 0..) |i, j| {
-            buf[i + 0] = hex[self.bytes[j] >> 4];
-            buf[i + 1] = hex[self.bytes[j] & 0x0f];
-        }
-        return buf;
-    }
+    buf[8] = '-';
+    buf[13] = '-';
+    buf[18] = '-';
+    buf[23] = '-';
 
-    pub fn copy(self: UUID, dest: *[SLICE_LEN]u8) void {
-        const src = self.toSlice();
-        @memcpy(dest, &src);
-    }
-
-    // Indices in the UUID string representation for each byte.
-    const encoded_pos = [16]u8{ 0, 2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 28, 30, 32, 34 };
-
-    // Hex
+    const buf_indexes = [16]u8{ 0, 2, 4, 6, 9, 11, 14, 16, 19, 21, 24, 26, 28, 30, 32, 34 };
     const hex = "0123456789abcdef";
-
-    // Hex to nibble mapping.
-    const hex_to_nibble = [256]u8{
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
-        0x08, 0x09, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-        0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    };
-
-    pub fn format(self: UUID, writer: *std.io.Writer) std.io.Writer.Error!void {
-        const buf = self.toSlice();
-        try writer.writeAll(&buf);
-    }
-
-    pub fn isValid(s: []const u8) bool {
-        return s.len == SLICE_LEN and s[8] == '-' and s[13] == '-' and s[18] == '-' and s[23] == '-';
-    }
-
-    pub fn parse(s: []const u8) Error!UUID {
-        var buf: [BYTES_LEN]u8 = [_]u8{0} ** BYTES_LEN;
-
-        if (!isValid(s))
-            return Error.InvalidUUID;
-
-        inline for (encoded_pos, 0..) |i, j| {
-            const hi = hex_to_nibble[s[i + 0]];
-            const lo = hex_to_nibble[s[i + 1]];
-
-            if (hi == 0xff or lo == 0xff) {
-                return Error.InvalidUUID;
-            }
-            buf[j] = hi << 4 | lo;
-        }
-        return .{ .bytes = buf };
-    }
-};
-
-// Zero UUID
-pub const zero: UUID = .{ .bytes = .{0} ** BYTES_LEN };
-
-test "parse and format" {
-    const uuids = [_][]const u8{
-        "d0cd8041-0504-40cb-ac8e-d05960d205ec",
-        "3df6f0e4-f9b1-4e34-ad70-33206069b995",
-        "f982cf56-c4ab-4229-b23c-d17377d000be",
-        "6b9f53be-cf46-40e8-8627-6b60dc33def8",
-        "c282ec76-ac18-4d4a-8a29-3b94f5c74813",
-        "00000000-0000-0000-0000-000000000000",
-    };
-
-    for (uuids) |uuid| {
-        try testing.expectFmt(uuid, "{f}", .{try UUID.parse(uuid)});
+    inline for (buf_indexes, 0..) |i, j| {
+        buf[i + 0] = hex[bytes[j] >> 4];
+        buf[i + 1] = hex[bytes[j] & 0x0f];
     }
 }
 
-test "invalid UUID" {
-    const uuids = [_][]const u8{
-        "3df6f0e4-f9b1-4e34-ad70-33206069b99", // too short
-        "3df6f0e4-f9b1-4e34-ad70-33206069b9912", // too long
-        "3df6f0e4-f9b1-4e34-ad70_33206069b9912", // missing or invalid group separator
-        "zdf6f0e4-f9b1-4e34-ad70-33206069b995", // invalid character
-    };
-
-    for (uuids) |uuid| {
-        try testing.expectError(Error.InvalidUUID, UUID.parse(uuid));
-    }
+test genUuidV4 {
+    var buf: [SLICE_LEN]u8 = undefined;
+    try genUuidV4(&buf);
+    std.debug.print("{s}\n", .{buf});
 }
 
-test "UUID.copy()" {
-    const uuid = UUID.init();
-    var s: [36]u8 = undefined;
-    uuid.copy(&s);
+test "invalid buffer size" {
+    var buf: [SLICE_LEN - 1]u8 = undefined;
+    try testing.expectError(error.InvalidUUIDv4BufferSize, genUuidV4(&buf));
 }
