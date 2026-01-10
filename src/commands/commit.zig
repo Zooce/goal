@@ -6,7 +6,10 @@ const Command = @import("../commands.zig").Command;
 const getGoalChoice = @import("../commands.zig").getGoalChoice;
 const help = @import("help.zig");
 const git = @import("../git.zig");
-const goals = @import("../goals.zig");
+
+const Project = @import("../Project.zig");
+const Meta = @import("../Meta.zig");
+const CommitFile = @import("../CommitFile.zig");
 
 const Args = struct {
     id: ?[]const u8 = null,
@@ -30,11 +33,11 @@ const Args = struct {
 /// };
 /// defer if (cmd_args.id) |id| allocator.free(id);
 /// ```
-pub fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp(Args) {
+pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     var args = Args{};
 
     var count: u8 = 0;
-    while (iter.next()) |arg| : (count += 1) {
+    while (iter_.next()) |arg| : (count += 1) {
         if (count > 3) {
             std.debug.print("\nLooks like you've got too many arguments there, friend!\n", .{});
             return error.TooManyArguments;
@@ -73,23 +76,23 @@ pub fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp(Args)
             std.debug.print("\nYou can't give a goal ID and the `--pick` option together.\n", .{});
             return error.MutuallyExclusiveArguments;
         }
-        args.id = try allocator.dupe(u8, arg); // has to be freed by caller
+        args.id = try alloc_.dupe(u8, arg); // has to be freed by caller
     }
 
     return .{ .args = args };
 }
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, args: Args) !void {
-    try git.requireGitProject(allocator);
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !void {
+    try git.requireGitProject(alloc_);
 
     // empty  staged  |  commit
     //   NO     NO    |    NO
     //   NO    YES    |   YES
     //  YES     NO    |   YES
     //  YES    YES    |    NO
-    const do_commit = args.empty != try git.hasChanges(allocator, .staged);
+    const do_commit = args_.empty != try git.hasChanges(alloc_, .staged);
     if (!do_commit) {
-        if (args.empty) {
+        if (args_.empty) {
             std.debug.print("\nCan't create an empty commit with staged changes.\n", .{});
             return error.CannotEmptyCommit;
         } else {
@@ -98,33 +101,33 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, args: Args) !vo
         }
     }
 
-    var root = try goals.Root.init(allocator, .{ .options = .{ .iterate = true } });
-    defer root.deinit(allocator);
+    var proj = try Project.open(alloc_, .{ .iterate = true });
+    defer proj.close(alloc_);
 
-    var meta = try goals.Meta.load(allocator, root);
+    var meta = try Meta.load(alloc_, proj.dir);
 
-    const id = args.id orelse id: {
-        if (args.pick or meta.active_id == null) {
-            break :id try getGoalChoice(allocator, root, stdout);
+    const id = args_.id orelse id: {
+        if (args_.pick or meta.active_id == null) {
+            break :id try getGoalChoice(alloc_, stdout_, proj);
         }
         if (meta.active_id) |id| {
-            break :id try std.fmt.allocPrint(allocator, "{d}", .{id});
+            break :id try std.fmt.allocPrint(alloc_, "{d}", .{id});
         }
         return error.NoGoalIdForCommit;
     };
-    defer allocator.free(id);
+    defer alloc_.free(id);
 
-    var commit_file = try goals.CommitFile.init(allocator, root, .{ .goal_id = id, .completed = args.complete });
-    defer commit_file.deinit(allocator);
+    var commit_file = try CommitFile.create(alloc_, proj, .{ .goal_id = id, .completed = args_.complete });
+    defer commit_file.delete(alloc_);
 
-    try git.commit(allocator, stdout, commit_file.path, .{ .empty = args.empty });
+    try git.commit(alloc_, stdout_, .{ .file_path = commit_file.path, .empty = args_.empty });
 
     // TODO: show `goal status` after commit ?? if not --complete
 
-    if (args.complete) {
+    if (args_.complete) {
         meta.active_id = null;
         try meta.store();
-        root.dir.deleteFile(id) catch |err| {
+        proj.dir.deleteFile(id) catch |err| {
             std.debug.print(
                 \\
                 \\Unable to delete the goal file.

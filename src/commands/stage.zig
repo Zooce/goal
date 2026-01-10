@@ -4,7 +4,9 @@ const stringToCommand = @import("../args.zig").stringToCommand;
 const Command = @import("../commands.zig").Command;
 const git = @import("../git.zig");
 const help = @import("help.zig");
-const goals = @import("../goals.zig");
+
+const Project = @import("../Project.zig");
+const Meta = @import("../Meta.zig");
 
 const ArgsOrHelp = union(enum) {
     args: std.ArrayList([]const u8),
@@ -12,12 +14,12 @@ const ArgsOrHelp = union(enum) {
     git_help: void,
 };
 
-fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp {
+fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp {
     var args: std.ArrayList([]const u8) = .empty;
-    try args.append(allocator, "git");
-    try args.append(allocator, "add");
+    try args.append(alloc_, "git");
+    try args.append(alloc_, "add");
 
-    while (iter.next()) |arg| {
+    while (iter_.next()) |arg| {
         if (stringToCommand(arg)) |sub| switch (sub) {
             .help => return ArgsOrHelp.help,
             else => return Command.stage.unexpectedSubcommand(sub),
@@ -27,37 +29,37 @@ fn parseArgs(allocator: std.mem.Allocator, iter: *ArgIter) !ArgsOrHelp {
             return ArgsOrHelp.git_help;
         }
 
-        try args.append(allocator, try allocator.dupe(u8, arg));
+        try args.append(alloc_, try alloc_.dupe(u8, arg));
     }
 
     return ArgsOrHelp{ .args = args };
 }
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, iter: *ArgIter) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
     // TODO: make caller pass args in
-    var args = switch (try parseArgs(allocator, iter)) {
-        .help => return try help.run(.stage, stdout),
+    var args = switch (try parseArgs(alloc_, iter_)) {
+        .help => return try help.run(stdout_, .stage),
         .args => |cmd_args| cmd_args,
-        .git_help => return git.help(allocator, stdout, "add"),
+        .git_help => return git.help(alloc_, stdout_, "add"),
     };
-    defer args.deinit(allocator);
+    defer args.deinit(alloc_);
 
-    try git.requireGitProject(allocator);
+    try git.requireGitProject(alloc_);
 
-    if (!try git.hasChanges(allocator, .unstaged) and !try git.hasChanges(allocator, .untracked)) {
+    if (!try git.hasChanges(alloc_, .unstaged) and !try git.hasChanges(alloc_, .untracked)) {
         std.debug.print("\nThere are no changes to stage.\n", .{});
         return error.NoUnstagedChanges;
     }
 
-    var root = try goals.Root.init(allocator, .{});
-    defer root.deinit(allocator);
+    var proj = try Project.open(alloc_, .{});
+    defer proj.close(alloc_);
 
-    const meta = try goals.Meta.load(allocator, root);
+    const meta = try Meta.load(alloc_, proj.dir);
     if (meta.active_id == null) {
         std.debug.print("\nYou must start a goal to use this command!\n", .{});
         return error.NoActiveGoal;
     }
 
-    try git.run(allocator, stdout, null, args.items);
-    try git.staged(allocator, stdout);
+    try git.run(alloc_, stdout_, .{ .argv = args.items });
+    try git.staged(alloc_, stdout_);
 }

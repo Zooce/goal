@@ -1,7 +1,7 @@
 const std = @import("std");
 const Command = @import("../commands.zig").Command;
 
-pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
+pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
     const main_help_text =
         \\
         \\`goal` is a simple CLI to help you keep track of your goals, while focusing on
@@ -52,7 +52,7 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
     var help_msg: []const u8 = main_help_text;
 
     // the next argument must be either a command or nothing
-    if (command) |cmd| {
+    if (command_) |cmd| {
         help_msg = switch (cmd) {
             .setup =>
             \\
@@ -498,5 +498,5 @@ pub fn run(command: ?Command, stdout: *std.io.Writer) !void {
             else => "\n...no help message for that command bro!\n",
         };
     }
-    try stdout.writeAll(help_msg);
+    try stdout_.writeAll(help_msg);
 }

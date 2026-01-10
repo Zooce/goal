@@ -14,16 +14,16 @@ const std = @import("std");
 ///     // use `root`
 /// }
 /// ```
-pub fn projectRoot(allocator: std.mem.Allocator, cwd: ?[]const u8) !?[]const u8 {
+pub fn projectRoot(alloc_: std.mem.Allocator, cwd_: ?[]const u8) !?[]const u8 {
     const argv = [_][]const u8{ "git", "rev-parse", "--show-toplevel" };
     const res = try std.process.Child.run(.{
-        .allocator = allocator,
-        .cwd = cwd,
+        .allocator = alloc_,
+        .cwd = cwd_,
         .argv = &argv,
     });
     defer {
-        allocator.free(res.stdout);
-        allocator.free(res.stderr);
+        alloc_.free(res.stdout);
+        alloc_.free(res.stderr);
     }
 
     const git_root = root: switch (res.term) {
@@ -31,7 +31,7 @@ pub fn projectRoot(allocator: std.mem.Allocator, cwd: ?[]const u8) !?[]const u8 
             if (code == 0 and res.stdout.len > 0) {
                 const trimmed = std.mem.trim(u8, res.stdout, " \t\r\n");
                 // need to copy this so the caller owns the memory
-                break :root if (trimmed.len > 0) try allocator.dupe(u8, trimmed) else null;
+                break :root if (trimmed.len > 0) try alloc_.dupe(u8, trimmed) else null;
             }
             break :root null;
         },
@@ -56,16 +56,16 @@ test "getGitRoot - returns the parent of the .git/ directory" {
     try std.testing.expect(git_root != null);
 }
 
-pub fn isGitProject(allocator: std.mem.Allocator) !bool {
-    if (try projectRoot(allocator, null)) |root| {
-        allocator.free(root);
+pub fn isGitProject(alloc_: std.mem.Allocator) !bool {
+    if (try projectRoot(alloc_, null)) |root| {
+        alloc_.free(root);
         return true;
     }
     return false;
 }
 
-pub fn requireGitProject(allocator: std.mem.Allocator) !void {
-    if (!try isGitProject(allocator)) {
+pub fn requireGitProject(alloc_: std.mem.Allocator) !void {
+    if (!try isGitProject(alloc_)) {
         std.debug.print(
             \\
             \\Looks like this isn't a Git project.
@@ -78,16 +78,16 @@ pub fn requireGitProject(allocator: std.mem.Allocator) !void {
     }
 }
 
-pub fn init(allocator_: std.mem.Allocator, cwd: ?[]const u8) !void {
+pub fn init(alloc_: std.mem.Allocator, cwd_: ?[]const u8) !void {
     const argv = [_][]const u8{ "git", "init" };
     const res = try std.process.Child.run(.{
-        .allocator = allocator_,
-        .cwd = cwd,
+        .allocator = alloc_,
+        .cwd = cwd_,
         .argv = &argv,
     });
     defer {
-        allocator_.free(res.stdout);
-        allocator_.free(res.stderr);
+        alloc_.free(res.stdout);
+        alloc_.free(res.stderr);
     }
 
     if (res.stderr.len > 0) {
@@ -102,9 +102,9 @@ pub const ChangeType = enum {
     untracked,
 };
 
-pub fn hasChanges(allocator_: std.mem.Allocator, type_: ChangeType) !bool {
+pub fn hasChanges(alloc_: std.mem.Allocator, type_: ChangeType) !bool {
     const res = try std.process.Child.run(.{
-        .allocator = allocator_,
+        .allocator = alloc_,
         .argv = switch (type_) {
             .staged => &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" },
             .unstaged => &[_][]const u8{ "git", "diff", "--stat", "--color" },
@@ -112,8 +112,8 @@ pub fn hasChanges(allocator_: std.mem.Allocator, type_: ChangeType) !bool {
         },
     });
     defer {
-        allocator_.free(res.stdout);
-        allocator_.free(res.stderr);
+        alloc_.free(res.stdout);
+        alloc_.free(res.stderr);
     }
 
     if (res.stderr.len > 0) {
@@ -128,17 +128,17 @@ pub const DiffOptions = struct {
     staged: bool,
 };
 
-pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffOptions) !void {
+pub fn diff(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: DiffOptions) !void {
     const res = try std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = if (options.staged)
+        .allocator = alloc_,
+        .argv = if (opts_.staged)
             &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" }
         else
             &[_][]const u8{ "git", "diff", "--stat", "--color" },
     });
     defer {
-        allocator.free(res.stdout);
-        allocator.free(res.stderr);
+        alloc_.free(res.stdout);
+        alloc_.free(res.stderr);
     }
 
     if (res.stderr.len > 0) {
@@ -147,18 +147,23 @@ pub fn diff(allocator: std.mem.Allocator, stdout: *std.io.Writer, options: DiffO
     }
 
     if (res.stdout.len > 0) {
-        try stdout.print("\n{s}", .{res.stdout});
+        try stdout_.print("\n{s}", .{res.stdout});
     }
 }
 
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, label: ?[]const u8, argv: []const []const u8) !void {
+pub const RunOptions = struct {
+    label: ?[]const u8 = null,
+    argv: []const []const u8,
+};
+
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions) !void {
     const res = try std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = argv,
+        .allocator = alloc_,
+        .argv = opts_.argv,
     });
     defer {
-        allocator.free(res.stderr);
-        allocator.free(res.stdout);
+        alloc_.free(res.stderr);
+        alloc_.free(res.stdout);
     }
 
     if (res.stderr.len > 0) {
@@ -167,30 +172,36 @@ pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer, label: ?[]const
     }
 
     if (res.stdout.len > 0) {
-        if (label) |lbl| {
-            try stdout.print("\n{s}\n{s}", .{ lbl, res.stdout });
+        if (opts_.label) |lbl| {
+            try stdout_.print("\n{s}\n{s}", .{ lbl, res.stdout });
         } else {
-            try stdout.print("\n{s}", .{res.stdout});
+            try stdout_.print("\n{s}", .{res.stdout});
         }
     }
 }
 
-pub fn staged(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    try run(allocator, stdout, "Staged changes:", &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" });
+pub fn staged(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    try run(alloc_, stdout_, .{
+        .label = "Staged changes:",
+        .argv = &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" },
+    });
 }
 
-pub fn unstaged(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    try run(allocator, stdout, "Unstaged changes:", &[_][]const u8{ "git", "diff", "--stat", "--color" });
+pub fn unstaged(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    try run(alloc_, stdout_, .{
+        .label = "Unstaged changes:",
+        .argv = &[_][]const u8{ "git", "diff", "--stat", "--color" },
+    });
 }
 
-pub fn untracked(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
+pub fn untracked(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     const res = try std.process.Child.run(.{
-        .allocator = allocator,
+        .allocator = alloc_,
         .argv = &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
     });
     defer {
-        allocator.free(res.stderr);
-        allocator.free(res.stdout);
+        alloc_.free(res.stderr);
+        alloc_.free(res.stdout);
     }
 
     if (res.stderr.len > 0) {
@@ -199,17 +210,17 @@ pub fn untracked(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
     }
 
     if (res.stdout.len > 0) {
-        try stdout.writeAll("\nUntracked files:\n");
+        try stdout_.writeAll("\nUntracked files:\n");
         var iter = std.mem.splitAny(u8, res.stdout, "\n");
         while (iter.next()) |file| {
             if (file.len == 0) continue;
-            try stdout.print(" {s}\n", .{file});
+            try stdout_.print(" {s}\n", .{file});
         }
     }
 }
 
-pub fn help(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime cmd: []const u8) !void {
-    try run(allocator, stdout, null, &[_][]const u8{ "git", cmd, "--help" });
+pub fn help(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, comptime cmd_: []const u8) !void {
+    try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", cmd_, "--help" } });
 }
 
 /// Runs `git log --all --graph --decorate --oneline --grep "Goal #{id}"` showing
@@ -219,14 +230,14 @@ pub fn help(allocator: std.mem.Allocator, stdout: *std.io.Writer, comptime cmd: 
 /// ```zig
 /// try git.logGrep(allocator, stdout, "42");
 /// ```
-pub fn logGrep(allocator: std.mem.Allocator, stdout: *std.io.Writer, id: []const u8) !void {
+pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const u8) !void {
     var pattern_buffer: [16]u8 = undefined;
-    const pattern = try std.fmt.bufPrint(&pattern_buffer, "Goal #{s}", .{id});
+    const pattern = try std.fmt.bufPrint(&pattern_buffer, "Goal #{s}", .{id_});
     const argv = [_][]const u8{ "git", "log", "--all", "--graph", "--decorate", "--color", "--oneline", "--grep", pattern };
-    const res = try std.process.Child.run(.{ .allocator = allocator, .argv = &argv });
+    const res = try std.process.Child.run(.{ .allocator = alloc_, .argv = &argv });
     defer {
-        allocator.free(res.stdout);
-        allocator.free(res.stderr);
+        alloc_.free(res.stdout);
+        alloc_.free(res.stderr);
     }
 
     if (res.stderr.len > 0) {
@@ -235,21 +246,22 @@ pub fn logGrep(allocator: std.mem.Allocator, stdout: *std.io.Writer, id: []const
     }
 
     if (res.stdout.len > 0) {
-        try stdout.print("\nCommits:\n{s}", .{res.stdout});
+        try stdout_.print("\nCommits:\n{s}", .{res.stdout});
     }
 }
 
 pub const CommitOptions = struct {
-    empty: bool,
+    file_path: []const u8,
+    empty: bool = false,
 };
 
-pub fn commit(allocator: std.mem.Allocator, stdout: *std.io.Writer, filePath: []const u8, options: CommitOptions) !void {
-    try stdout.writeAll("\n"); // give some space for the git output
-    try stdout.flush();
-    var proc = if (options.empty)
-        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", filePath, "--edit", "--allow-empty" }, allocator)
+pub fn commit(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: CommitOptions) !void {
+    try stdout_.writeAll("\n"); // give some space for the git output
+    try stdout_.flush();
+    var proc = if (opts_.empty)
+        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", opts_.file_path, "--edit", "--allow-empty" }, alloc_)
     else
-        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", filePath, "--edit" }, allocator);
+        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", opts_.file_path, "--edit" }, alloc_);
 
     const term = try proc.spawnAndWait();
     switch (term) {

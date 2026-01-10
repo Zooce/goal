@@ -1,19 +1,21 @@
 const std = @import("std");
-const goals = @import("../goals.zig");
 
-/// Initializes `goal` by creating the `.goals/` directory at the root of a
-/// git project (or in the current directory if not a git project), and the
-/// metadata file `.goals/m`.
+const Project = @import("../Project.zig");
+const Meta = @import("../Meta.zig");
+
+/// Initializes a `goal` project by creating the `~/.goal/<uuid>/` directory
+/// and the `~/.goal/<uuid>/m` file.
 ///
-/// Returns error.GoalAlreadyInitialized if `goal` is already initialized.
-pub fn run(allocator: std.mem.Allocator, stdout: *std.io.Writer) !void {
-    var root = try goals.Root.init(allocator, .{ .create = true });
-    defer root.deinit(allocator);
+/// Returns error.GoalAlreadyInitialized if `goal` is already initialized for
+/// the project.
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    var proj = try Project.open(alloc_, .{ .create = true });
+    defer proj.close(alloc_);
 
-    goals.Meta.create(root.dir) catch |err| switch (err) {
-        error.PathAlreadyExists => return try stdout.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
+    Meta.create(proj.dir) catch |err| switch (err) {
+        error.PathAlreadyExists => return try stdout_.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
     };
 
-    try stdout.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
+    try stdout_.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
 }

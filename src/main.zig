@@ -22,25 +22,25 @@ pub fn main() !void {
     _ = iter.next();
 
     if (args.stringToCommand(iter.next())) |cmd| {
-        processCommand(allocator, cmd, &iter, stdout) catch |err| {
+        processCommand(allocator, stdout, cmd, &iter) catch |err| {
             std.debug.print("\nError: {t}\n", .{err});
             std.process.exit(1);
         };
     } else {
-        try commands.help.run(null, stdout);
+        try commands.help.run(stdout, null);
     }
 }
 
-fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *args.ArgIter, stdout: *std.io.Writer) !void {
-    switch (cmd) {
+fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
+    switch (cmd_) {
         .help => {
             // goal -h init
             // goal help init
 
             // TODO: move into help.zig
-            const command = try args.optionalCommand(iter, cmd);
+            const command = try args.optionalCommand(iter_, cmd_);
 
-            try commands.help.run(command, stdout);
+            try commands.help.run(stdout_, command);
         },
 
         // zero argument commands...
@@ -50,56 +50,56 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal setup -h
             // goal setup help
 
-            if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help.run(cmd, stdout);
+            if (try args.optionalHelp(iter_, cmd_)) {
+                return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.setup.run(allocator, stdout);
+            try commands.setup.run(alloc_, stdout_);
         },
         .init => {
             // goal init
             // goal init -h
             // goal init help
 
-            if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help.run(cmd, stdout);
+            if (try args.optionalHelp(iter_, cmd_)) {
+                return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.init.run(allocator, stdout);
+            try commands.init.run(alloc_, stdout_);
         },
         .list => {
             // goal list
             // goal list -h
             // goal list help
 
-            if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help.run(cmd, stdout);
+            if (try args.optionalHelp(iter_, cmd_)) {
+                return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.list(allocator, stdout);
+            try commands.list(alloc_, stdout_);
         },
-        .status => try commands.status.run(allocator, stdout, iter),
+        .status => try commands.status.run(alloc_, stdout_, iter_),
         .stop => {
             // goal stop
             // goal stop -h
             // goal stop help
 
-            if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help.run(cmd, stdout);
+            if (try args.optionalHelp(iter_, cmd_)) {
+                return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.stop(allocator, stdout);
+            try commands.stop(alloc_, stdout_);
         },
         .complete => {
             // goal complete
             // goal complete -h
             // goal complete help
 
-            if (try args.optionalHelp(iter, cmd)) {
-                return try commands.help.run(cmd, stdout);
+            if (try args.optionalHelp(iter_, cmd_)) {
+                return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.complete(allocator, stdout);
+            try commands.complete(alloc_, stdout_);
         },
 
         // single argument commands...
@@ -112,16 +112,16 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal new "fix the bug" help
 
             const title = title: {
-                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |res| switch (res) {
+                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |res| switch (res) {
                     .arg => |arg| break :title arg,
-                    .help => return try commands.help.run(cmd, stdout),
+                    .help => return try commands.help.run(stdout_, cmd_),
                 };
                 break :title null;
             };
-            defer if (title) |t| allocator.free(t);
+            defer if (title) |t| alloc_.free(t);
 
-            const file_name = try commands.new(allocator, title, stdout);
-            defer allocator.free(file_name);
+            const file_name = try commands.new(alloc_, stdout_, title);
+            defer alloc_.free(file_name);
         },
         .show => {
             // goal show
@@ -131,15 +131,15 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal show 3 help
 
             const id = id: {
-                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
+                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |x| switch (x) {
                     .arg => |arg| break :id arg,
-                    .help => return try commands.help.run(cmd, stdout),
+                    .help => return try commands.help.run(stdout_, cmd_),
                 };
                 break :id null;
             };
-            defer if (id) |_id| allocator.free(_id);
+            defer if (id) |_id| alloc_.free(_id);
 
-            try commands.show(allocator, id, stdout);
+            try commands.show(alloc_, stdout_, id);
         },
         .edit => {
             // goal edit
@@ -149,15 +149,15 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal edit 3 help
 
             const id = id: {
-                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |x| switch (x) {
+                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |x| switch (x) {
                     .arg => |arg| break :id arg,
-                    .help => return try commands.help.run(cmd, stdout),
+                    .help => return try commands.help.run(stdout_, cmd_),
                 };
                 break :id null;
             };
-            defer if (id) |_id| allocator.free(_id);
+            defer if (id) |_id| alloc_.free(_id);
 
-            try commands.edit(allocator, id, stdout);
+            try commands.edit(alloc_, stdout_, id);
         },
 
         // commands with multiple arguments
@@ -170,13 +170,13 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal delete --help 3
             // goal delete 3 help
 
-            var ids = switch (try args.optionalArgsOrHelp(allocator, iter, cmd)) {
+            var ids = switch (try args.optionalArgsOrHelp(alloc_, iter_, cmd_)) {
                 .args => |ids| ids,
-                .help => return try commands.help.run(cmd, stdout),
+                .help => return try commands.help.run(stdout_, cmd_),
             };
-            defer ids.deinit(allocator);
+            defer ids.deinit(alloc_);
 
-            try commands.delete(allocator, ids, stdout);
+            try commands.delete(alloc_, stdout_, ids);
         },
 
         // commands with subcommands...
@@ -188,23 +188,23 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal start new --help "fix the bug"
             // goal start new "fix the bug" help
 
-            if (args.stringToCommand(iter.peek())) |sub| switch (sub) {
+            if (args.stringToCommand(iter_.peek())) |sub| switch (sub) {
                 .new => {
-                    _ = iter.next();
+                    _ = iter_.next();
                     const title = title: {
-                        if (try args.optionalArgOrHelp(allocator, iter, .new)) |res| switch (res) {
+                        if (try args.optionalArgOrHelp(alloc_, iter_, .new)) |res| switch (res) {
                             .arg => |arg| break :title arg,
-                            .help => return try commands.help.run(cmd, stdout),
+                            .help => return try commands.help.run(stdout_, cmd_),
                         };
                         break :title null;
                     };
-                    defer if (title) |t| allocator.free(t);
-                    const id = try commands.new(allocator, title, stdout);
-                    defer allocator.free(id);
-                    return try commands.start(allocator, id, stdout);
+                    defer if (title) |t| alloc_.free(t);
+                    const id = try commands.new(alloc_, stdout_, title);
+                    defer alloc_.free(id);
+                    return try commands.start(alloc_, stdout_, id);
                 },
                 .help => {}, // handle this below
-                else => return cmd.unexpectedSubcommand(sub),
+                else => return cmd_.unexpectedSubcommand(sub),
             };
 
             // goal start
@@ -214,30 +214,30 @@ fn processCommand(allocator: std.mem.Allocator, cmd: commands.Command, iter: *ar
             // goal start 3 help
 
             const id = id: {
-                if (try args.optionalArgOrHelp(allocator, iter, cmd)) |res| switch (res) {
+                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |res| switch (res) {
                     .arg => |arg| break :id arg,
-                    .help => return try commands.help.run(cmd, stdout),
+                    .help => return try commands.help.run(stdout_, cmd_),
                 };
                 break :id null;
             };
-            defer if (id) |_id| allocator.free(_id);
+            defer if (id) |_id| alloc_.free(_id);
 
-            try commands.start(allocator, id, stdout);
+            try commands.start(alloc_, stdout_, id);
         },
 
         // Git Commands
 
-        .stage => try commands.stage.run(allocator, stdout, iter),
-        .unstage => try commands.unstage.run(allocator, stdout, iter),
-        .discard => try commands.discard.run(allocator, stdout, iter),
+        .stage => try commands.stage.run(alloc_, stdout_, iter_),
+        .unstage => try commands.unstage.run(alloc_, stdout_, iter_),
+        .discard => try commands.discard.run(alloc_, stdout_, iter_),
         .commit, .save => {
-            const cmd_args = switch (try commands.commit.parseArgs(allocator, iter)) {
-                .help => return try commands.help.run(.commit, stdout),
+            const cmd_args = switch (try commands.commit.parseArgs(alloc_, iter_)) {
+                .help => return try commands.help.run(stdout_, cmd_),
                 .args => |cmd_args| cmd_args,
             };
-            defer if (cmd_args.id) |id| allocator.free(id);
-            try commands.commit.run(allocator, stdout, cmd_args);
-            if (cmd_args.complete) try stdout.writeAll("\nNice work!\n");
+            defer if (cmd_args.id) |id| alloc_.free(id);
+            try commands.commit.run(alloc_, stdout_, cmd_args);
+            if (cmd_args.complete) try stdout_.writeAll("\nNice work!\n");
         },
 
         .batman => {
