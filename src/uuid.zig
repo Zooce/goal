@@ -10,7 +10,7 @@ const testing = std.testing;
 
 pub const SLICE_LEN = 36;
 
-pub fn genUuidV4(buf_: []u8) !void {
+pub fn v4(buf_: []u8) !void {
     if (buf_.len != SLICE_LEN) return error.InvalidUUIDv4BufferSize;
 
     var bytes: [16]u8 = undefined;
@@ -32,13 +32,13 @@ pub fn genUuidV4(buf_: []u8) !void {
     }
 }
 
-test genUuidV4 {
+test v4 {
     var buf: [SLICE_LEN]u8 = undefined;
-    try genUuidV4(&buf);
+    try v4(&buf);
     std.debug.print("{s}\n", .{buf});
 }
 
 test "invalid buffer size" {
     var buf: [SLICE_LEN - 1]u8 = undefined;
-    try testing.expectError(error.InvalidUUIDv4BufferSize, genUuidV4(&buf));
+    try testing.expectError(error.InvalidUUIDv4BufferSize, v4(&buf));
 }
