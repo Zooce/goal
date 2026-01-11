@@ -180,21 +180,18 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
     }
 }
 
-pub fn staged(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn status(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    // staged
     try run(alloc_, stdout_, .{
         .label = "Staged changes:",
         .argv = &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" },
     });
-}
-
-pub fn unstaged(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    // unstaged
     try run(alloc_, stdout_, .{
         .label = "Unstaged changes:",
         .argv = &[_][]const u8{ "git", "diff", "--stat", "--color" },
     });
-}
-
-pub fn untracked(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    // untracked
     const res = try std.process.Child.run(.{
         .allocator = alloc_,
         .argv = &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },

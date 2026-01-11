@@ -61,5 +61,5 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     }
 
     try git.run(alloc_, stdout_, .{ .argv = args.items });
-    try git.staged(alloc_, stdout_);
+    try git.status(alloc_, stdout_);
 }

@@ -35,9 +35,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
 
         if (try git.isGitProject(alloc_)) {
             try git.logGrep(alloc_, stdout_, goal.id);
-            try git.staged(alloc_, stdout_);
-            try git.unstaged(alloc_, stdout_);
-            try git.untracked(alloc_, stdout_);
+            try git.status(alloc_, stdout_);
         } else {
             try stdout_.writeAll("\nHint: You can get more info here if you `git init` :)\n");
         }
