@@ -152,28 +152,33 @@ pub fn diff(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: DiffOptio
 }
 
 pub const RunOptions = struct {
-    label: ?[]const u8 = null,
     argv: []const []const u8,
+    label: ?[]const u8 = null,
+    cwd: ?[]const u8 = null,
 };
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions) !void {
     const res = try std.process.Child.run(.{
         .allocator = alloc_,
         .argv = opts_.argv,
+        .cwd = opts_.cwd,
     });
     defer {
         alloc_.free(res.stderr);
         alloc_.free(res.stdout);
     }
 
-    if (res.stderr.len > 0) {
-        std.debug.print("\n{s}", .{res.stderr});
-        return error.GitError;
-    }
+    const err: ?anyerror = switch (res.term) {
+        .Exited => |code| if (code != 0) error.GitError else null,
+        else => error.GitError,
+    };
 
-    if (res.stdout.len > 0) {
-        if (opts_.label) |lbl| {
-            try stdout_.print("\n{s}\n{s}", .{ lbl, res.stdout });
+    if (err) |e| {
+        if (res.stderr.len > 0) std.debug.print("\n{s}", .{res.stderr});
+        return e;
+    } else if (res.stdout.len > 0) {
+        if (opts_.label) |label| {
+            try stdout_.print("\n{s}\n{s}", .{ label, res.stdout });
         } else {
             try stdout_.print("\n{s}", .{res.stdout});
         }
@@ -265,4 +270,10 @@ pub fn commit(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: CommitO
         .Exited => |code| if (code != 0) return error.EmptyGitCommitFailed,
         else => return error.EmptyGitCommitFailed,
     }
+}
+
+pub fn clone(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, repo_: []const u8, cwd_: []const u8) !void {
+    try stdout_.print("\nCloning: {s} -> {s}\n", .{ repo_, cwd_ });
+    try stdout_.flush();
+    try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", "clone", repo_, "--quiet", cwd_ } });
 }

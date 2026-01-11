@@ -1,11 +1,14 @@
 const std = @import("std");
+
+const help = @import("help.zig");
+
+const cli = @import("../cli.zig");
+const git = @import("../git.zig");
+
 const ArgIter = @import("../args.zig").ArgIter;
 const stringToCommand = @import("../args.zig").stringToCommand;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const Command = @import("../commands.zig").Command;
-const getGoalChoice = @import("../commands.zig").getGoalChoice;
-const help = @import("help.zig");
-const git = @import("../git.zig");
 
 const Project = @import("../Project.zig");
 const Meta = @import("../Meta.zig");
@@ -108,7 +111,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
 
     const id = args_.id orelse id: {
         if (args_.pick or meta.active_id == null) {
-            break :id try getGoalChoice(alloc_, stdout_, proj);
+            break :id try cli.getGoalChoice(alloc_, stdout_, proj);
         }
         if (meta.active_id) |id| {
             break :id try std.fmt.allocPrint(alloc_, "{d}", .{id});

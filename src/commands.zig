@@ -1,4 +1,6 @@
 const std = @import("std");
+
+const cli = @import("cli.zig");
 const git = @import("git.zig");
 
 const Project = @import("Project.zig");
@@ -98,10 +100,10 @@ pub fn complete(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
         // if there's a Git project then there's some Git stuff we want to do
         if (try git.isGitProject(alloc_)) {
             if (try git.hasChanges(alloc_, .staged)) {
-                if (try confirm(stdout_, "\nCommit staged changes as part of completing this goal?")) {
+                if (try cli.confirm(stdout_, "\nCommit staged changes as part of completing this goal?")) {
                     try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true });
                     try stdout_.writeAll("\nCongrats! You did it.\n");
-                } else if (try confirm(stdout_, "\nComplete the goal anyways?")) {
+                } else if (try cli.confirm(stdout_, "\nComplete the goal anyways?")) {
                     meta.active_id = null;
                     try meta.store();
                     proj.dir.deleteFile(goal.id) catch |err| {
@@ -114,21 +116,21 @@ pub fn complete(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
                 }
                 return;
             } else if (try git.hasChanges(alloc_, .unstaged)) {
-                if (try confirm(stdout_, "\nDid you forget to stage/commit these changes?")) {
+                if (try cli.confirm(stdout_, "\nDid you forget to stage/commit these changes?")) {
                     try stdout_.writeAll("\nNo worries! Let me know when you're ready.\n");
                     return;
                 }
                 try stdout_.writeAll("\nAlright, I'll leave those alone then.\n");
             }
 
-            if (try confirm(stdout_, "\nWould you like to create an empty commit for completing this goal?")) {
+            if (try cli.confirm(stdout_, "\nWould you like to create an empty commit for completing this goal?")) {
                 try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true, .empty = true });
                 try stdout_.writeAll("\nWow! You crushed it!\n");
                 return;
             }
         }
 
-        if (!try confirm(stdout_, "\nReady to complete this goal?")) {
+        if (!try cli.confirm(stdout_, "\nReady to complete this goal?")) {
             try stdout_.writeAll("\nWell let's keep working on it then!\n");
             return;
         }
@@ -238,7 +240,7 @@ pub fn show(
     var proj = try Project.open(alloc_, .{ .iterate = true });
     defer proj.close(alloc_);
 
-    const file_name = id_ orelse try getGoalChoice(alloc_, stdout_, proj);
+    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, proj);
     defer if (id_ == null) alloc_.free(file_name);
 
     if (file_name.len == 0) return Command.show.missingArgument();
@@ -253,7 +255,7 @@ pub fn edit(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8
     var proj = try Project.open(alloc_, .{ .iterate = true });
     defer proj.close(alloc_);
 
-    const file_name = id_ orelse try getGoalChoice(alloc_, stdout_, proj);
+    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, proj);
     defer if (id_ == null) alloc_.free(file_name);
 
     if (file_name.len == 0) return Command.edit.missingArgument();
@@ -305,7 +307,7 @@ pub fn delete(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, ids_: std.Arra
     var proj = try Project.open(alloc_, .{ .iterate = true });
     defer proj.close(alloc_);
 
-    const choices = if (ids_.items.len > 0) ids_.items else try getGoalChoices(alloc_, stdout_, proj);
+    const choices = if (ids_.items.len > 0) ids_.items else try cli.getGoalChoices(alloc_, stdout_, proj);
     defer if (ids_.items.len == 0) alloc_.free(choices);
 
     if (choices.len == 0) return Command.delete.missingArgument();
@@ -315,7 +317,7 @@ pub fn delete(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, ids_: std.Arra
     try stdout_.writeAll("\nHere's what I'm going to delete:\n");
     try proj.listSome(alloc_, stdout_, choices);
 
-    if (!try confirm(stdout_, "\nShould I proceed?")) {
+    if (!try cli.confirm(stdout_, "\nShould I proceed?")) {
         try stdout_.writeAll("\nMaybe next time then, friend!\n");
         return;
     }
@@ -342,7 +344,7 @@ pub fn start(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u
     defer proj.close(alloc_);
 
     var goal = goal: {
-        const file_name = id_ orelse try getGoalChoice(alloc_, stdout_, proj);
+        const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, proj);
         defer if (id_ == null) alloc_.free(file_name);
 
         if (file_name.len == 0) return Command.start.missingArgument();
@@ -357,75 +359,4 @@ pub fn start(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u
     try meta.store();
 
     try stdout_.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
-}
-
-//
-// HELPERS
-//
-
-// TODO: pick the default value (y/n) as a parameter
-// TODO: move to a `cli.zig` file (or maybe a different)
-fn confirm(stdout_: *std.io.Writer, prompt_: []const u8) !bool {
-    var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    try stdout_.print("{s} (y/N): ", .{prompt_});
-    try stdout_.flush();
-
-    const answer = try reader.takeDelimiterExclusive('\n');
-
-    if (std.mem.eql(u8, answer, "y") or std.mem.eql(u8, answer, "Y") or std.mem.eql(u8, answer, "yes") or std.mem.eql(u8, answer, "YES") or std.mem.eql(u8, answer, "yep")) {
-        return true;
-    }
-
-    if (answer.len == 0 or std.mem.eql(u8, answer, "n") or std.mem.eql(u8, answer, "N") or std.mem.eql(u8, answer, "no") or std.mem.eql(u8, answer, "NO") or std.mem.eql(u8, answer, "nope")) {
-        return false;
-    }
-
-    return false;
-}
-
-/// Ask the user to input a number from the list of goals. The caller is responsible for
-/// freeing the memory with `allocator.free(choice)`.
-/// TODO: move to a `cli.zig` file (or maybe a different)
-pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, proj_: Project) ![]const u8 {
-    try proj_.listAll(alloc_, stdout_);
-
-    var stdin_buffer: [8]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    try stdout_.writeAll("\nChoose a goal (type the number): ");
-    try stdout_.flush();
-
-    const answer = try reader.takeDelimiterExclusive('\n');
-
-    return try alloc_.dupe(u8, std.mem.trim(u8, answer, ", \t\r\n"));
-}
-
-// TODO: move to a `cli.zig` file (or maybe a different)
-fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, proj_: Project) ![]const []const u8 {
-    try proj_.listAll(alloc_, stdout_);
-
-    var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    try stdout_.writeAll("\nChoose goals (space or comma separated list of numbers): ");
-    try stdout_.flush();
-
-    const answer = try reader.takeDelimiterExclusive('\n');
-    var iter = std.mem.splitAny(u8, answer, ", \t");
-
-    var choices: std.ArrayList([]const u8) = .empty;
-
-    while (iter.next()) |choice| {
-        if (choice.len == 0) continue;
-        const trimmed = std.mem.trim(u8, choice, ", \t\r\n");
-        try choices.append(alloc_, try alloc_.dupe(u8, trimmed));
-    }
-
-    // TODO: consider just returning the array list
-    return try choices.toOwnedSlice(alloc_);
 }
