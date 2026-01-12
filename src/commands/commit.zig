@@ -93,7 +93,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     //   NO    YES    |   YES
     //  YES     NO    |   YES
     //  YES    YES    |    NO
-    const do_commit = args_.empty != try git.hasChanges(alloc_, .staged);
+    const do_commit = args_.empty != try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} });
     if (!do_commit) {
         if (args_.empty) {
             std.debug.print("\nCan't create an empty commit with staged changes.\n", .{});

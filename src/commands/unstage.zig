@@ -47,7 +47,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
 
     try git.requireGitProject(alloc_);
 
-    if (!try git.hasChanges(alloc_, .staged)) {
+    if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         std.debug.print("\nThere are no changes to unstage.\n", .{});
         return error.NoStagedChanges;
     }

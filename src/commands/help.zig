@@ -19,6 +19,7 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    help        Show this help message or the message for a command.
         \\    setup       Setup `goal` for the first time.
         \\    init        Initialze `goal` in a project.
+        \\    sync        Sync all your goal projects.
         \\    new         Create a new goal.
         \\    start       Start working on a goal (optionally create a new one).
         \\    status      Show your active goal's status.
@@ -100,6 +101,29 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\        goal init [help | -h | --help]
             \\    OR
             \\        goal help init
+            \\
+            ,
+            .sync =>
+            \\
+            \\The `sync` Command
+            \\
+            \\
+            \\Syncs your `~/.goal/` directory with its Git remote.
+            \\
+            \\This is for your convenience.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal sync
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal sync [help | -h | --help]
+            \\    OR
+            \\        goal help sync
             \\
             ,
             .list =>

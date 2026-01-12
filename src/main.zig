@@ -67,6 +67,17 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
             try commands.init.run(alloc_, stdout_);
         },
+        .sync => {
+            // goal sync
+            // goal sync -h
+            // goal sync help
+
+            if (try args.optionalHelp(iter_, cmd_)) {
+                return try commands.help.run(stdout_, cmd_);
+            }
+
+            try commands.sync.run(alloc_, stdout_);
+        },
         .list => {
             // goal list
             // goal list -h

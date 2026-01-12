@@ -96,32 +96,49 @@ pub fn init(alloc_: std.mem.Allocator, cwd_: ?[]const u8) !void {
     }
 }
 
-pub const ChangeType = enum {
+pub const ChangeKind = enum {
     staged,
     unstaged,
     untracked,
 };
 
-pub fn hasChanges(alloc_: std.mem.Allocator, type_: ChangeType) !bool {
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .argv = switch (type_) {
-            .staged => &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" },
-            .unstaged => &[_][]const u8{ "git", "diff", "--stat", "--color" },
-            .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
-        },
-    });
-    defer {
-        alloc_.free(res.stdout);
-        alloc_.free(res.stderr);
-    }
+pub const ChangeOptions = struct {
+    kinds: []const ChangeKind,
+    cwd: ?[]const u8 = null,
+};
 
-    if (res.stderr.len > 0) {
-        std.debug.print("\n{s}\n", .{res.stderr});
-        return error.GitDiffError;
-    }
+pub fn hasChanges(alloc_: std.mem.Allocator, opts_: ChangeOptions) !bool {
+    var found = false;
+    for (opts_.kinds) |kind| {
+        const res = try std.process.Child.run(.{
+            .allocator = alloc_,
+            .argv = switch (kind) {
+                .staged => &[_][]const u8{ "git", "diff", "--stat", "--staged" },
+                .unstaged => &[_][]const u8{ "git", "diff", "--stat" },
+                .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
+            },
+            .cwd = opts_.cwd,
+        });
+        defer {
+            alloc_.free(res.stdout);
+            alloc_.free(res.stderr);
+        }
 
-    return res.stdout.len > 0;
+        const err_code: ?u32 = switch (res.term) {
+            .Exited => |code| if (code != 0) code else null,
+            .Signal => |code| code,
+            .Stopped => |code| code,
+            .Unknown => std.math.maxInt(u32),
+        };
+
+        if (err_code) |err| {
+            if (res.stderr.len > 0) std.debug.print("\n{d}: {s}", .{ err, res.stderr });
+            return error.GitError;
+        }
+
+        found = found or res.stdout.len > 0;
+    }
+    return found;
 }
 
 pub const DiffOptions = struct {
@@ -168,14 +185,16 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
         alloc_.free(res.stdout);
     }
 
-    const err: ?anyerror = switch (res.term) {
-        .Exited => |code| if (code != 0) error.GitError else null,
-        else => error.GitError,
+    const err_code: ?u32 = switch (res.term) {
+        .Exited => |code| if (code != 0) code else null,
+        .Signal => |code| code,
+        .Stopped => |code| code,
+        .Unknown => std.math.maxInt(u32),
     };
 
-    if (err) |e| {
-        if (res.stderr.len > 0) std.debug.print("\n{s}", .{res.stderr});
-        return e;
+    if (err_code) |code| {
+        if (res.stderr.len > 0) std.debug.print("\n{d}: {s}", .{ code, res.stderr });
+        return error.GitError;
     } else if (res.stdout.len > 0) {
         if (opts_.label) |label| {
             try stdout_.print("\n{s}\n{s}", .{ label, res.stdout });
@@ -273,7 +292,7 @@ pub fn commit(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: CommitO
 }
 
 pub fn clone(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, repo_: []const u8, cwd_: []const u8) !void {
-    try stdout_.print("\nCloning: {s} -> {s}\n", .{ repo_, cwd_ });
+    try stdout_.print("\nCloning: {s} into {s}\n", .{ repo_, cwd_ });
     try stdout_.flush();
     try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", "clone", repo_, "--quiet", cwd_ } });
 }

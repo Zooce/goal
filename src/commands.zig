@@ -10,6 +10,7 @@ const Goal = @import("Goal.zig");
 // re-exports
 pub const setup = @import("commands/setup.zig");
 pub const init = @import("commands/init.zig");
+pub const sync = @import("commands/sync.zig");
 pub const commit = @import("commands/commit.zig");
 pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
@@ -19,8 +20,11 @@ pub const discard = @import("commands/discard.zig");
 
 pub const Command = enum {
     help,
+
     setup,
     init,
+    sync,
+
     list,
     status,
     complete,
@@ -99,7 +103,7 @@ pub fn complete(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
         // if there's a Git project then there's some Git stuff we want to do
         if (try git.isGitProject(alloc_)) {
-            if (try git.hasChanges(alloc_, .staged)) {
+            if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
                 if (try cli.confirm(stdout_, "\nCommit staged changes as part of completing this goal?")) {
                     try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true });
                     try stdout_.writeAll("\nCongrats! You did it.\n");
@@ -115,7 +119,7 @@ pub fn complete(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
                     try stdout_.writeAll("\nNo problem! Let the work continue!\n");
                 }
                 return;
-            } else if (try git.hasChanges(alloc_, .unstaged)) {
+            } else if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.unstaged} })) {
                 if (try cli.confirm(stdout_, "\nDid you forget to stage/commit these changes?")) {
                     try stdout_.writeAll("\nNo worries! Let me know when you're ready.\n");
                     return;
