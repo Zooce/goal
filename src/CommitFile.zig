@@ -12,10 +12,10 @@ pub const Options = struct {
     completed: bool = false,
 };
 
-/// The absolute path to the commit file `~/.goal/<uuid>/t`.
+/// The absolute path to the commit file `~/.goal/<goal_id>/t`.
 path: []const u8,
 
-/// Creates the commit file `~/.goal/<uuid>/t`.
+/// Creates the commit file `~/.goal/<goal_id>/t`.
 ///
 /// Caller is responsible for calling `delete` which will delete the `t`
 /// file and free the path string.
@@ -51,7 +51,7 @@ pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !Commit
     return .{ .path = try std.fs.path.join(alloc_, &[_][]const u8{ proj_.path, "t" }) };
 }
 
-/// Deletes the commit file at `~/.goal/<uuid>/t` and frees the path string memory.
+/// Deletes the commit file at `~/.goal/<goal_id>/t` and frees the path string memory.
 pub fn delete(self_: *CommitFile, alloc_: std.mem.Allocator) void {
     std.fs.deleteFileAbsolute(self_.path) catch {
         // doesn't matter

@@ -3,8 +3,8 @@ const std = @import("std");
 const Project = @import("../Project.zig");
 const Meta = @import("../Meta.zig");
 
-/// Initializes a `goal` project by creating the `~/.goal/<uuid>/` directory
-/// and the `~/.goal/<uuid>/m` file.
+/// Initializes a `goal` project by creating the `~/.goal/<goal_id>/` directory
+/// and the `~/.goal/<goal_id>/m` file.
 ///
 /// Returns error.GoalAlreadyInitialized if `goal` is already initialized for
 /// the project.

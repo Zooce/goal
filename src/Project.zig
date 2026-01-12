@@ -23,7 +23,7 @@ dir: std.fs.Dir,
 /// The absolute path to the project directory.
 path: []const u8,
 
-/// Opens the project directory ~/.goal/<uuid>.
+/// Opens the project directory ~/.goal/<goal_id>.
 ///
 /// Example:
 ///

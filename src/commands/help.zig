@@ -85,9 +85,9 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\Initializes `goal` in your project.
             \\
-            \\All `goal` files can be found in your project root under the .goals/ directory,
-            \\where the root is either the result of `git rev-parse --show-toplevel` or the
-            \\directory from which you run this `init` command.
+            \\All `goal` files can be found in the ~/.goal/<goal_id> directory, where the
+            \\.goal_id file is found in either the result of `git rev-parse --show-toplevel`
+            \\or the directory from which you run this `init` command.
             \\
             \\
             \\Usage:

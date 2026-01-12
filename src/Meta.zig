@@ -17,7 +17,7 @@ const M = struct {
     active_id: ?u8 = null,
 };
 
-/// Load the `~/.goal/<uuid>/m` file.
+/// Load the `~/.goal/<goal_id>/m` file.
 pub fn load(alloc_: std.mem.Allocator, proj_dir_: std.fs.Dir) !Meta {
     const meta_file = try proj_dir_.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0);
     defer alloc_.free(meta_file);
@@ -32,7 +32,7 @@ pub fn load(alloc_: std.mem.Allocator, proj_dir_: std.fs.Dir) !Meta {
     };
 }
 
-/// Store the `Meta` object as the `~/.goal/<uuid>/m` file.
+/// Store the `Meta` object as the `~/.goal/<goal_id>/m` file.
 pub fn store(self_: Meta) !void {
     const meta_file = try self_._proj_dir.createFile("~m", .{});
     defer meta_file.close();
@@ -52,7 +52,7 @@ pub fn store(self_: Meta) !void {
     try std.fs.rename(self_._proj_dir, "~m", self_._proj_dir, "m");
 }
 
-/// Creates the `~/.goals/<uuid>/m` file.
+/// Creates the `~/.goals/<goal_id>/m` file.
 pub fn create(proj_dir_: std.fs.Dir) !void {
     const meta_file = try proj_dir_.createFile("m", .{ .exclusive = true });
     defer meta_file.close();
