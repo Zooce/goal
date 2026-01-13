@@ -274,15 +274,22 @@ pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const 
 pub const CommitOptions = struct {
     file_path: []const u8,
     empty: bool = false,
+    template: bool = true,
 };
 
 pub fn commit(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: CommitOptions) !void {
     try stdout_.writeAll("\n"); // give some space for the git output
     try stdout_.flush();
-    var proc = if (opts_.empty)
-        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", opts_.file_path, "--edit", "--allow-empty" }, alloc_)
-    else
-        std.process.Child.init(&[_][]const u8{ "git", "commit", "--template", opts_.file_path, "--edit" }, alloc_);
+    var argv = [_][]const u8{
+        "git",
+        "commit",
+        if (opts_.template) "-t" else "-F",
+        opts_.file_path,
+        // `--status` because we need a string here and status is on by
+        // default so its a no-op if empty is false
+        if (opts_.empty) "--allow-empty" else "--status",
+    };
+    var proc = std.process.Child.init(&argv, alloc_);
 
     const term = try proc.spawnAndWait();
     switch (term) {

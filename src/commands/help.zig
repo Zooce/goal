@@ -500,12 +500,14 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\Arguments:
             \\
-            \\    [id]          The goal ID (optional).
+            \\    [id]            The goal ID (optional).
             \\
             \\Options:
             \\
-            \\    --pick        Pick a goal ID from the list of goals.
-            \\    --complete    Also complete the goal.
+            \\    --pick          Pick a goal ID from the list of goals.
+            \\    --complete      Also complete the goal.
+            \\    -m <message>    Like `git commit -m <message>`. Be careful of
+            \\                    the type of quotes you use around <message>.
             \\
             \\Help:
             \\

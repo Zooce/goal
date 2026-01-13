@@ -18,6 +18,7 @@ const Args = struct {
     id: ?[]const u8 = null,
     pick: bool = false,
     complete: bool = false,
+    message: ?[]const u8 = null,
 
     // for internal use
     empty: bool = false,
@@ -25,7 +26,8 @@ const Args = struct {
 
 /// Parses `goal commit` arguments.
 ///
-/// If a goal ID is given, the caller is responsible for freeing that memory.
+/// If a goal ID or message is given, the caller is responsible for freeing that
+/// memory.
 ///
 /// Example:
 ///
@@ -35,12 +37,14 @@ const Args = struct {
 ///     .args => |_args| _args,
 /// };
 /// defer if (cmd_args.id) |id| allocator.free(id);
+/// defer if (cmd_args.message) |msg| allocator.free(msg);
 /// ```
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     var args = Args{};
 
     var count: u8 = 0;
     while (iter_.next()) |arg| : (count += 1) {
+        // TODO: I'm not sure this is even possible to reach
         if (count > 3) {
             std.debug.print("\nLooks like you've got too many arguments there, friend!\n", .{});
             return error.TooManyArguments;
@@ -65,6 +69,19 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             if (args.complete) return error.DuplicateArgument;
             args.complete = true;
             continue;
+        }
+
+        if (std.mem.eql(u8, arg, "-m")) {
+            if (args.message != null) return error.DuplicateArgument;
+            if (iter_.next()) |message| {
+                const trimmed = std.mem.trim(u8, message, " \t\r\n");
+                if (trimmed.len == 0) return error.EmptyCommitMessage;
+                args.message = try alloc_.dupe(u8, trimmed);
+                continue;
+            } else {
+                std.debug.print("\nThe '-m' option requires an argument!\n", .{});
+                return error.MissingArgument;
+            }
         }
 
         _ = std.fmt.parseInt(u8, arg, 10) catch {
@@ -120,10 +137,10 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     };
     defer alloc_.free(id);
 
-    var commit_file = try CommitFile.create(alloc_, proj, .{ .goal_id = id, .completed = args_.complete });
+    var commit_file = try CommitFile.create(alloc_, proj, .{ .goal_id = id, .completed = args_.complete, .message = args_.message });
     defer commit_file.delete(alloc_);
 
-    try git.commit(alloc_, stdout_, .{ .file_path = commit_file.path, .empty = args_.empty });
+    try git.commit(alloc_, stdout_, .{ .file_path = commit_file.path, .empty = args_.empty, .template = args_.message == null });
 
     // TODO: show `goal status` after commit ?? if not --complete
 

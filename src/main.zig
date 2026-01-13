@@ -247,6 +247,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
                 .args => |cmd_args| cmd_args,
             };
             defer if (cmd_args.id) |id| alloc_.free(id);
+            defer if (cmd_args.message) |msg| alloc_.free(msg);
             try commands.commit.run(alloc_, stdout_, cmd_args);
             if (cmd_args.complete) try stdout_.writeAll("\nNice work!\n");
         },

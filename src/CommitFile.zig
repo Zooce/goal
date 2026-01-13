@@ -10,6 +10,7 @@ const Goal = @import("Goal.zig");
 pub const Options = struct {
     goal_id: []const u8,
     completed: bool = false,
+    message: ?[]const u8 = null,
 };
 
 /// The absolute path to the commit file `~/.goal/<goal_id>/t`.
@@ -28,9 +29,6 @@ path: []const u8,
 /// // use `commit_file.path`
 /// ```
 pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !CommitFile {
-    // use the goal file as the commit template
-    try proj_.dir.copyFile(opts_.goal_id, proj_.dir, "t", .{});
-
     var goal = try Goal.init(alloc_, proj_.dir, .{ .str = opts_.goal_id }, .{});
     defer goal.deinit(alloc_);
 
@@ -40,6 +38,10 @@ pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !Commit
     var buffer: [5 * 1024]u8 = undefined;
     var writer = t_file.writer(&buffer);
     var w = &writer.interface;
+
+    if (opts_.message) |msg| {
+        try w.writeAll(msg);
+    }
 
     try w.print("\n\nGoal #{s} - {s}{s}\n", .{ goal.id, goal.title, if (opts_.completed) " (completed)" else "" });
 
