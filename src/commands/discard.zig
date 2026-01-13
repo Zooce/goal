@@ -23,7 +23,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp {
         if (stringToCommand(arg)) |sub| switch (sub) {
             .help => return ArgsOrHelp.help,
             else => return Command.stage.unexpectedSubcommand(sub),
-        };
+        } else |_| {} // ignore error
 
         if (std.mem.eql(u8, arg, "--git-help")) {
             return ArgsOrHelp.git_help;

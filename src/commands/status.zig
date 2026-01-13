@@ -13,12 +13,14 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     // TODO: move arg parsing to main
     {
         while (iter_.next()) |arg| {
-            if (stringToCommand(arg)) |sub| switch (sub) {
+            const sub = stringToCommand(arg) catch {
+                std.debug.print("\n`{t}` doesn't take any arguments!\n", .{Command.status});
+                return error.UnexpectedArgument;
+            };
+            switch (sub) {
                 .help => return help.run(stdout_, .status),
                 else => return Command.status.unexpectedSubcommand(sub),
-            };
-            std.debug.print("\n`{t}` doesn't take any arguments!\n", .{Command.status});
-            return error.UnexpectedArgument;
+            }
         }
     }
 

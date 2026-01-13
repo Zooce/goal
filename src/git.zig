@@ -204,6 +204,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
     }
 }
 
+// TODO: if there are no changes - tell the user
 pub fn status(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     // staged
     try run(alloc_, stdout_, .{

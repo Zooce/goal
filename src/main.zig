@@ -21,14 +21,24 @@ pub fn main() !void {
 
     _ = iter.next();
 
-    if (args.stringToCommand(iter.next())) |cmd| {
-        processCommand(allocator, stdout, cmd, &iter) catch |err| {
+    if (iter.next()) |_arg| {
+        const cmd = args.stringToCommand(_arg) catch {
+            std.debug.print(
+                \\
+                \\'{s}' is not a valid command!
+                \\
+                \\Run `goal help` for the list of commands.
+                \\
+            , .{_arg});
+            std.process.exit(1);
+        };
+        return processCommand(allocator, stdout, cmd, &iter) catch |err| {
             std.debug.print("\nError: {t}\n", .{err});
             std.process.exit(1);
         };
-    } else {
-        try commands.help.run(stdout, null);
     }
+
+    try commands.help.run(stdout, null);
 }
 
 fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
@@ -199,7 +209,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             // goal start new --help "fix the bug"
             // goal start new "fix the bug" help
 
-            if (args.stringToCommand(iter_.peek())) |sub| switch (sub) {
+            if (iter_.peek()) |_arg| if (args.stringToCommand(_arg)) |sub| switch (sub) {
                 .new => {
                     _ = iter_.next();
                     const title = title: {
@@ -216,7 +226,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
                 },
                 .help => {}, // handle this below
                 else => return cmd_.unexpectedSubcommand(sub),
-            };
+            } else |_| {}; // ignore error
 
             // goal start
             // goal start 3

@@ -75,26 +75,21 @@ pub const ArgOrCommand = union(enum) {
 pub fn optionalArgOrCommand(arg_: ?[]const u8) ?ArgOrCommand {
     if (arg_) |_arg| {
         // parse as either an argument or a command
-        if (stringToCommand(_arg)) |command| {
-            return ArgOrCommand{ .command = command };
-        } else {
-            return ArgOrCommand{ .arg = _arg };
-        }
+        const cmd = stringToCommand(_arg) catch {
+            return .{ .arg = _arg };
+        };
+        return .{ .command = cmd };
     } else {
         return null;
     }
 }
 
 // TODO: move to a `cli.zig` file (or maybe a different)
-pub fn stringToCommand(arg_: ?[]const u8) ?commands.Command {
-    if (arg_) |_arg| {
-        if (std.mem.eql(u8, _arg, "-h") or std.mem.eql(u8, _arg, "--help")) {
-            return .help;
-        }
-        return std.meta.stringToEnum(commands.Command, _arg);
-    } else {
-        return null;
+pub fn stringToCommand(arg_: []const u8) !commands.Command {
+    if (std.mem.eql(u8, arg_, "-h") or std.mem.eql(u8, arg_, "--help")) {
+        return .help;
     }
+    return std.meta.stringToEnum(commands.Command, arg_) orelse error.NotACommand;
 }
 
 pub const ArgOrHelp = union(enum) {
