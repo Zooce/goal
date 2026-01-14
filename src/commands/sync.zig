@@ -18,6 +18,8 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     // TODO: show a spinner - some of these commands can take a few seconds
 
     if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{ .staged, .unstaged, .untracked }, .cwd = cwd })) {
+        // TODO: only add files from current project
+        // git add <goal_id>/
         try git.run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", "add", "-A" }, .cwd = cwd });
         try git.run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", "commit", "-m", "\"sync\"" }, .cwd = cwd });
     }

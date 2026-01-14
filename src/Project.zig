@@ -34,8 +34,10 @@ path: []const u8,
 /// // use `proj.dir` and `proj.path`
 /// ```
 pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
-    var uuid_val: [uuid.SLICE_LEN]u8 = undefined;
+    // step 1 - get the goal id
+    var goal_id: [uuid.SLICE_LEN]u8 = undefined;
     uuid_blk: {
+        // step 1a - get the path to the .goal_id file
         const goal_id_path = goal_id_blk: {
             // .goal_id should be at a project root so .git/ is our best case
             // IDEA: perhaps we could detect other root-level project files as well
@@ -52,16 +54,18 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
             break :goal_id_blk try std.fs.path.join(alloc_, &[_][]const u8{ cwd, ".goal_id" });
         };
 
+        // step 1b - open the goal id file
         const goal_id_file = std.fs.openFileAbsolute(goal_id_path, .{}) catch |err| switch (err) {
+            // step 1bi - if the file doesn't exist and we're allowed to create it, then do so
             error.FileNotFound => if (opts_.create) {
                 const goal_id_file = try std.fs.createFileAbsolute(goal_id_path, .{ .exclusive = true });
                 defer goal_id_file.close();
 
-                try uuid.v4(&uuid_val);
+                try uuid.v4(&goal_id);
 
                 var writer_buf: [uuid.SLICE_LEN]u8 = undefined;
                 var writer = goal_id_file.writer(&writer_buf);
-                try writer.interface.writeAll(&uuid_val);
+                try writer.interface.writeAll(&goal_id);
                 try writer.interface.flush();
 
                 break :uuid_blk;
@@ -72,9 +76,10 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
         };
         defer goal_id_file.close();
 
+        // step 1c - read the goal id from the file
         var reader_buf: [uuid.SLICE_LEN]u8 = undefined;
         var reader = goal_id_file.reader(&reader_buf);
-        _ = try reader.interface.readSliceAll(&uuid_val);
+        _ = try reader.interface.readSliceAll(&goal_id);
     }
 
     // <home>/.goal/uuid
@@ -82,7 +87,7 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
         // HOME or USERPROFILE
         const home_path = try std.process.getEnvVarOwned(alloc_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME");
         defer alloc_.free(home_path);
-        break :proj_path try std.fs.path.join(alloc_, &[_][]const u8{ home_path, ".goal", &uuid_val });
+        break :proj_path try std.fs.path.join(alloc_, &[_][]const u8{ home_path, ".goal", &goal_id });
     }; // don't free this - it will be freed in `close`
 
     if (opts_.create) {
