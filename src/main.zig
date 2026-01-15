@@ -97,7 +97,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
                 return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.list(alloc_, stdout_);
+            try commands.list.run(alloc_, stdout_);
         },
         .status => try commands.status.run(alloc_, stdout_, iter_),
         .stop => {
@@ -109,7 +109,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
                 return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.stop(alloc_, stdout_);
+            try commands.stop.run(alloc_, stdout_);
         },
         .complete => {
             // goal complete
@@ -120,7 +120,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
                 return try commands.help.run(stdout_, cmd_);
             }
 
-            try commands.complete(alloc_, stdout_);
+            try commands.complete.run(alloc_, stdout_);
         },
 
         // single argument commands...
@@ -141,7 +141,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             };
             defer if (title) |t| alloc_.free(t);
 
-            const file_name = try commands.new(alloc_, stdout_, title);
+            const file_name = try commands.new.run(alloc_, stdout_, title);
             defer alloc_.free(file_name);
         },
         .show => {
@@ -160,7 +160,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             };
             defer if (id) |_id| alloc_.free(_id);
 
-            try commands.show(alloc_, stdout_, id);
+            try commands.show.run(alloc_, stdout_, id);
         },
         .edit => {
             // goal edit
@@ -178,7 +178,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             };
             defer if (id) |_id| alloc_.free(_id);
 
-            try commands.edit(alloc_, stdout_, id);
+            try commands.edit.run(alloc_, stdout_, id);
         },
 
         // commands with multiple arguments
@@ -197,7 +197,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             };
             defer ids.deinit(alloc_);
 
-            try commands.delete(alloc_, stdout_, ids);
+            try commands.delete.run(alloc_, stdout_, ids);
         },
 
         // commands with subcommands...
@@ -220,9 +220,9 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
                         break :title null;
                     };
                     defer if (title) |t| alloc_.free(t);
-                    const id = try commands.new(alloc_, stdout_, title);
+                    const id = try commands.new.run(alloc_, stdout_, title);
                     defer alloc_.free(id);
-                    return try commands.start(alloc_, stdout_, id);
+                    return try commands.start.run(alloc_, stdout_, id);
                 },
                 .help => {}, // handle this below
                 else => return cmd_.unexpectedSubcommand(sub),
@@ -243,7 +243,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             };
             defer if (id) |_id| alloc_.free(_id);
 
-            try commands.start(alloc_, stdout_, id);
+            try commands.start.run(alloc_, stdout_, id);
         },
 
         // Git Commands
