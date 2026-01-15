@@ -70,6 +70,7 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
 
                 break :uuid_blk;
             } else {
+                std.debug.print("\nThere's no .goal_id file. Run `goal init`.\n", .{});
                 return err;
             },
             else => return err,
