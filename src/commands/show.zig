@@ -5,7 +5,6 @@ const Project = @import("../Project.zig");
 const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 
-// TODO: move to commands/show.zig
 /// Show the details of a goal. If an id isn't provided then all goals will be listed
 /// for one to be chosen.
 pub fn run(

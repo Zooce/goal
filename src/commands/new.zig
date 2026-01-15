@@ -5,7 +5,6 @@ const Project = @import("../Project.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 
-// TODO: move to commands/new.zig
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.
 ///

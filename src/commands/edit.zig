@@ -5,7 +5,6 @@ const Project = @import("../Project.zig");
 const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 
-// TODO: move to commands/edit.zig
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {
     var proj = try Project.open(alloc_, .{ .iterate = true });
     defer proj.close(alloc_);
