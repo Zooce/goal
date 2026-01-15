@@ -5,6 +5,7 @@ const builtin = @import("builtin");
 
 const git = @import("git.zig");
 const uuid = @import("uuid.zig");
+const config = @import("config.zig");
 
 const Meta = @import("Meta.zig");
 const Goal = @import("Goal.zig");
@@ -83,12 +84,11 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
         _ = try reader.interface.readSliceAll(&goal_id);
     }
 
-    // <home>/.goal/uuid
+    // <goal_base_dir>/uuid
     const proj_path = proj_path: {
-        // HOME or USERPROFILE
-        const home_path = try std.process.getEnvVarOwned(alloc_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME");
-        defer alloc_.free(home_path);
-        break :proj_path try std.fs.path.join(alloc_, &[_][]const u8{ home_path, ".goal", &goal_id });
+        const goal_base_dir = try config.getGoalBaseDir(alloc_);
+        defer alloc_.free(goal_base_dir);
+        break :proj_path try std.fs.path.join(alloc_, &[_][]const u8{ goal_base_dir, &goal_id });
     }; // don't free this - it will be freed in `close`
 
     if (opts_.create) {

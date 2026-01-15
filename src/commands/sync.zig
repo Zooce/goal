@@ -1,15 +1,12 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
+const config = @import("../config.zig");
 const git = @import("../git.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    // get HOME or USERPROFILE var
-    const home_path = try std.process.getEnvVarOwned(alloc_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME");
-    defer alloc_.free(home_path);
-
-    // <home>/.goal
-    const cwd = try std.fs.path.join(alloc_, &[_][]const u8{ home_path, ".goal" });
+    // get configurable goal base directory
+    const cwd = try config.getGoalBaseDir(alloc_);
     defer alloc_.free(cwd);
 
     try stdout_.print("\nSyncing {s} ... let me check a few things ...\n", .{cwd});

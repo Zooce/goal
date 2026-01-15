@@ -41,6 +41,12 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    commit     Commit staged changes while including the
         \\               goal tag in the commit message. (git commit)
         \\
+        \\Environment Variables:
+        \\
+        \\    GOAL_BASE_DIR
+        \\               Override the default goal storage directory (default: ~/.goal).
+        \\               This allows you to store your goals in a custom location.
+        \\
         \\Help:
         \\
         \\    To show this message use one of the following:
@@ -60,9 +66,11 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\The `setup` Command
             \\
             \\
-            \\Does `goal`'s  initial setup on your system, creating the ~/.goal/ directory,
+            \\Does `goal`'s  initial setup on your system, creating the goal base directory,
             \\initializing it as a Git project, and walking you through configuration setup.
-            \\The ~/.goal/ directory is where all of your `goal` projects will live.
+            \\The goal base directory (default: ~/.goal/) is where all of your `goal`
+            \\projects will live. Use the GOAL_BASE_DIR environment variable to customize the
+            \\storage location.
             \\
             \\
             \\Usage:
