@@ -2,16 +2,16 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const cli = @import("../cli.zig");
-const config = @import("../config.zig");
 const git = @import("../git.zig");
 
+const Config = @import("../Config.zig");
+
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    // get configurable goal base directory
-    const root_path = try config.getGoalBaseDir(alloc_);
-    defer alloc_.free(root_path);
+    var config = try Config.load(alloc_);
+    defer config.deinit();
 
     var needs_setup = false;
-    std.fs.accessAbsolute(root_path, .{}) catch {
+    std.fs.accessAbsolute(config.base_dir, .{}) catch {
         needs_setup = true;
     };
 
@@ -23,15 +23,15 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     // ask if they'd like to clone an existing .goal project
     if (try cli.getAnswer(alloc_, stdout_, "\nGot an existing .goal repo? (path or empty)")) |repo| {
         defer alloc_.free(repo);
-        try git.clone(alloc_, stdout_, repo, root_path);
+        try git.clone(alloc_, stdout_, repo, config.base_dir);
     } else {
-        std.fs.makeDirAbsolute(root_path) catch |err| switch (err) {
+        std.fs.makeDirAbsolute(config.base_dir) catch |err| switch (err) {
             error.PathAlreadyExists => {},
             else => return err,
         };
 
         // git init
-        try git.init(alloc_, root_path);
+        try git.init(alloc_, config.base_dir);
 
         try stdout_.writeAll("\nWhen you have a remote ready run `goal config`.\n");
     }

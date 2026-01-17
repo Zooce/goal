@@ -11,6 +11,7 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         }),
+        // .use_llvm = true, // uncomment and build to use lldb
     });
 
     b.installArtifact(exe);

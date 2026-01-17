@@ -262,6 +262,20 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             if (cmd_args.complete) try stdout_.writeAll("\nNice work!\n");
         },
 
+        .config => {
+            const cmd_args = try commands.config.parseArgs(alloc_, iter_);
+            switch (cmd_args) {
+                .help => return try commands.help.run(stdout_, cmd_),
+                .args => |config_args| {
+                    defer switch (config_args) {
+                        .setting => |setting| setting.deinit(alloc_),
+                        else => {},
+                    };
+                    try commands.config.run(alloc_, stdout_, config_args);
+                },
+            }
+        },
+
         .batman => {
             std.debug.print("\nWhat are you doing here?!\n", .{});
         },

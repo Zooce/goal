@@ -29,6 +29,7 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    show        Show a goal's details.
         \\    edit        Edit a goal.
         \\    delete      Delete a goal.
+        \\    config      Configure `goal`.
         \\
         \\Git Commands:
         \\
@@ -524,6 +525,42 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\        goal commit [help | -h | --help]
             \\    OR
             \\        goal help commit
+            \\
+            ,
+            .config =>
+            \\
+            \\The `config` Command
+            \\
+            \\
+            \\Manage configuration settings for goal.
+            \\
+            \\Configuration is stored in key=value format. Settings from the config file can be
+            \\overridden by environment variables.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal config [--list | -l]        Show all configuration values
+            \\    goal config <setting>            Show a specific configuration value
+            \\    goal config <setting> <value>    Set a configuration value
+            \\
+            \\Settings:
+            \\
+            \\    base-dir    Directory for goal storage
+            \\    editor      Default editor for goal editing
+            \\
+            \\Environment Variables:
+            \\
+            \\    GOAL_BASE_DIR    Override the base-dir setting
+            \\    GOAL_EDITOR      Override the editor setting
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal config [help | -h | --help]
+            \\    OR
+            \\        goal help config
             \\
             ,
 

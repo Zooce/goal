@@ -19,7 +19,13 @@ const M = struct {
 
 /// Load the `~/.goal/<goal_id>/m` file.
 pub fn load(alloc_: std.mem.Allocator, proj_dir_: std.fs.Dir) !Meta {
-    const meta_file = try proj_dir_.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0);
+    const meta_file = proj_dir_.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0) catch |err| switch (err) {
+        error.FileNotFound => {
+            std.debug.print("\nThe 'm' file doesn't exist! Run `goal init`.\n", .{});
+            return err;
+        },
+        else => return err,
+    };
     defer alloc_.free(meta_file);
 
     const m = try std.zon.parse.fromSlice(M, alloc_, meta_file, null, .{});

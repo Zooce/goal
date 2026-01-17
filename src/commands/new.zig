@@ -4,6 +4,7 @@ const cli = @import("../cli.zig");
 const Project = @import("../Project.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
+const Config = @import("../Config.zig");
 
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.
@@ -39,11 +40,10 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
         const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ proj.path, file_name });
         defer alloc_.free(file_path);
 
-        // TODO: editor should be configurable
-        // const cmd = [_][]const u8{ "nvim", filePath, "+startinsert" };
-        const cmd = [_][]const u8{ "helix", file_path };
-        // const cmd = [_][]const u8{ "code", filePath, "-w" };
+        var config = try Config.load(alloc_);
+        defer config.deinit();
 
+        const cmd = [_][]const u8{ config.editor, file_path };
         var editor = std.process.Child.init(&cmd, alloc_);
         _ = try editor.spawnAndWait();
 

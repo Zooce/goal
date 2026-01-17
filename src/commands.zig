@@ -25,6 +25,7 @@ pub const show = @import("commands/show.zig");
 pub const edit = @import("commands/edit.zig");
 pub const delete = @import("commands/delete.zig");
 pub const start = @import("commands/start.zig");
+pub const config = @import("commands/config.zig");
 
 pub const Command = enum {
     help,
@@ -51,6 +52,7 @@ pub const Command = enum {
     discard,
 
     batman, // just for development
+    config,
 
     pub fn unexpectedArgument(self: Command, arg: []const u8) anyerror {
         std.debug.print(
@@ -86,5 +88,23 @@ pub const Command = enum {
             \\
         , .{ id, self });
         return error.FileNotFound;
+    }
+
+    pub fn duplicateFlag(self: Command, flag: []const u8) anyerror {
+        std.debug.print(
+            \\
+            \\The `{t}` command was given the `{s}` flag multiple times.
+            \\
+        , .{ self, flag });
+        return error.DuplicateFlag;
+    }
+
+    pub fn tooManyArguments(self: Command) anyerror {
+        std.debug.print(
+            \\
+            \\The `{t}` command was given too many arguments.
+            \\
+        , .{self});
+        return error.TooManyArguments;
     }
 };

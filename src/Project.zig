@@ -5,7 +5,7 @@ const builtin = @import("builtin");
 
 const git = @import("git.zig");
 const uuid = @import("uuid.zig");
-const config = @import("config.zig");
+const Config = @import("Config.zig");
 
 const Meta = @import("Meta.zig");
 const Goal = @import("Goal.zig");
@@ -86,9 +86,9 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
 
     // <goal_base_dir>/uuid
     const proj_path = proj_path: {
-        const goal_base_dir = try config.getGoalBaseDir(alloc_);
-        defer alloc_.free(goal_base_dir);
-        break :proj_path try std.fs.path.join(alloc_, &[_][]const u8{ goal_base_dir, &goal_id });
+        var config = try Config.load(alloc_);
+        defer config.deinit();
+        break :proj_path try std.fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
     }; // don't free this - it will be freed in `close`
 
     if (opts_.create) {

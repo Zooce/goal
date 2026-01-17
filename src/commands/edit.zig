@@ -4,6 +4,7 @@ const cli = @import("../cli.zig");
 const Project = @import("../Project.zig");
 const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
+const Config = @import("../Config.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {
     var proj = try Project.open(alloc_, .{ .iterate = true });
@@ -25,11 +26,11 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ proj.path, file_name });
     defer alloc_.free(file_path);
 
-    // TODO: editor should be configurable
-    // const cmd = [_][]const u8{ "nvim", filePath, "+startinsert" };
-    const cmd = [_][]const u8{ "helix", file_path };
-    // const cmd = [_][]const u8{ "code", filePath, "-w" };
+    // Use configurable editor
+    var config = try Config.load(alloc_);
+    defer config.deinit();
 
+    const cmd = [_][]const u8{ config.editor, file_path };
     var editor = std.process.Child.init(&cmd, alloc_);
     _ = try editor.spawnAndWait();
 
