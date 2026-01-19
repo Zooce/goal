@@ -2,6 +2,7 @@
 
 A little CLI to help you track (and stay on track) with your project's goals.
 
+> [!WARNING]
 > THIS IS VERY MUCH AN ACTIVE WORK IN PROGRESS
 
 ## What problem does this solve?
@@ -16,7 +17,7 @@ body becaues I can't really remember the frame of mind I was in.
 $ goal new
 ```
 
-And it uses Git under the hood, adding a little tag in your commit messages:
+And it uses Git under the hood, adding a little tag in your commit messages so you can see where you are/were:
 
 ```bash
 $ goal status
