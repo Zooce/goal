@@ -79,9 +79,18 @@ pub fn optionalArgOrCommand(arg_: ?[]const u8) ?ArgOrCommand {
             return .{ .arg = _arg };
         };
         return .{ .command = cmd };
-    } else {
-        return null;
     }
+    return null;
+}
+
+pub fn optionalArgOrHelp2(arg_: ?[]const u8) ?ArgOrHelp {
+    if (arg_) |_arg| {
+        const cmd = stringToCommand(_arg) catch {
+            return .{ .arg = _arg };
+        };
+        if (cmd == .help) return .help;
+    }
+    return null;
 }
 
 // TODO: move to a `cli.zig` file (or maybe a different)
@@ -92,11 +101,21 @@ pub fn stringToCommand(arg_: []const u8) !commands.Command {
     return std.meta.stringToEnum(commands.Command, arg_) orelse error.NotACommand;
 }
 
+// TODO: clean this file up.... good god...
+
+pub fn stringToCommand2(arg_: []const u8) ?commands.Command {
+    if (std.mem.eql(u8, arg_, "-h") or std.mem.eql(u8, arg_, "--help")) {
+        return .help;
+    }
+    return std.meta.stringToEnum(commands.Command, arg_);
+}
+
 pub const ArgOrHelp = union(enum) {
     arg: []const u8,
     help,
 };
 
+// TODO: I don't like this one.....
 pub fn optionalArgOrHelp(alloc_: std.mem.Allocator, args_: *ArgIter, cmd_: commands.Command) !?ArgOrHelp {
     // arg and/or help
     const first = optionalArgOrCommand(args_.next());

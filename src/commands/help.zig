@@ -321,23 +321,32 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\The `start` Command
             \\
-            \\
-            \\Activates a goal.
+            \\Activates a goal with optional branch and worktree creation.
             \\
             \\If no goal ID is given you'll select from the list of goals.
             \\
-            \\If you're in a Git project, the ID and details of a this activated goal will be
+            \\If you're in a Git project, ID and details of this activated goal will be
             \\appended to commit messages as long as this goal is activated.
-            \\
             \\
             \\Usage:
             \\
-            \\    goal start [id | new [title]]
+            \\    goal start [id | new [title]] [-w <worktree>] [-b <branch>] [base_branch]
             \\
             \\Arguments:
             \\
-            \\    [id]             The goal ID (optional).
+            \\    [id]             The goal ID.
             \\    [new [title]]    Start a new goal. See `goal help new`.
+            \\    -w <worktree>    Create a new git worktree.
+            \\    -b <branch>      Create and switch to a new branch.
+            \\    [base_branch]    Base branch for new branch/worktree.
+            \\
+            \\Examples:
+            \\
+            \\    goal start 3
+            \\    goal start 3 -b feature/auth
+            \\    goal start 3 -b feature/auth develop
+            \\    goal start 3 -w ../feature-auth
+            \\    goal start 3 -w ../feature-auth -b feature/auth develop
             \\
             \\Help:
             \\

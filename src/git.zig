@@ -112,7 +112,7 @@ pub fn hasChanges(alloc_: std.mem.Allocator, opts_: ChangeOptions) !bool {
     for (opts_.kinds) |kind| {
         const res = try std.process.Child.run(.{
             .allocator = alloc_,
-            .argv = switch (kind) {
+            .argv = switch (kind) { // TODO: could be comptime
                 .staged => &[_][]const u8{ "git", "diff", "--stat", "--staged" },
                 .unstaged => &[_][]const u8{ "git", "diff", "--stat" },
                 .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
@@ -133,7 +133,7 @@ pub fn hasChanges(alloc_: std.mem.Allocator, opts_: ChangeOptions) !bool {
 
         if (err_code) |err| {
             if (res.stderr.len > 0) std.debug.print("\n{d}: {s}", .{ err, res.stderr });
-            return error.GitError;
+            return error.GitDiffError;
         }
 
         found = found or res.stdout.len > 0;
@@ -171,14 +171,22 @@ pub fn diff(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: DiffOptio
 pub const RunOptions = struct {
     argv: []const []const u8,
     label: ?[]const u8 = null,
+    /// The current working directory for the git command. If this is null
+    /// then the project root is used.
     cwd: ?[]const u8 = null,
 };
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions) !void {
+    // run all git operations in the project root by default
+    const cwd = opts_.cwd orelse
+        try projectRoot(alloc_, null) orelse
+        return error.NotAGitProject;
+    defer if (opts_.cwd == null) alloc_.free(cwd);
+
     const res = try std.process.Child.run(.{
         .allocator = alloc_,
         .argv = opts_.argv,
-        .cwd = opts_.cwd,
+        .cwd = cwd,
     });
     defer {
         alloc_.free(res.stderr);
@@ -194,6 +202,9 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
 
     if (err_code) |code| {
         if (res.stderr.len > 0) std.debug.print("\n{d}: {s}", .{ code, res.stderr });
+        const argv = try std.mem.join(alloc_, " ", opts_.argv);
+        defer alloc_.free(argv);
+        std.debug.print("\nCommand: {s}\n", .{argv});
         return error.GitError;
     } else if (res.stdout.len > 0) {
         if (opts_.label) |label| {
@@ -228,7 +239,7 @@ pub fn status(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
     if (res.stderr.len > 0) {
         std.debug.print("\n{s}", .{res.stderr});
-        return error.GitError;
+        return error.GitDiffError;
     }
 
     if (res.stdout.len > 0) {
@@ -269,33 +280,6 @@ pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const 
 
     if (res.stdout.len > 0) {
         try stdout_.print("\nCommits:\n{s}", .{res.stdout});
-    }
-}
-
-pub const CommitOptions = struct {
-    file_path: []const u8,
-    empty: bool = false,
-    template: bool = true,
-};
-
-pub fn commit(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: CommitOptions) !void {
-    try stdout_.writeAll("\n"); // give some space for the git output
-    try stdout_.flush();
-    var argv = [_][]const u8{
-        "git",
-        "commit",
-        if (opts_.template) "-t" else "-F",
-        opts_.file_path,
-        // `--status` because we need a string here and status is on by
-        // default so its a no-op if empty is false
-        if (opts_.empty) "--allow-empty" else "--status",
-    };
-    var proc = std.process.Child.init(&argv, alloc_);
-
-    const term = try proc.spawnAndWait();
-    switch (term) {
-        .Exited => |code| if (code != 0) return error.EmptyGitCommitFailed,
-        else => return error.EmptyGitCommitFailed,
     }
 }
 

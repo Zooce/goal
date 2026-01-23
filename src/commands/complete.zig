@@ -8,46 +8,56 @@ const Goal = @import("../Goal.zig");
 const commit = @import("commit.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    if (!try git.isGitProject(alloc_)) return error.NotAGitProject;
+
     var proj = try Project.open(alloc_, .{});
     defer proj.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir);
+    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
 
     if (meta.active_id) |id| {
         var goal = try Goal.init(alloc_, proj.dir, .{ .num = id }, .{});
         defer goal.deinit(alloc_);
 
-        // if there's a Git project then there's some Git stuff we want to do
-        if (try git.isGitProject(alloc_)) {
-            if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
-                if (try cli.confirm(stdout_, "\nCommit staged changes as part of completing this goal?")) {
-                    try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true });
-                    try stdout_.writeAll("\nCongrats! You did it.\n");
-                } else if (try cli.confirm(stdout_, "\nComplete the goal anyways?")) {
-                    meta.active_id = null;
-                    try meta.store();
-                    proj.dir.deleteFile(goal.id) catch |err| {
-                        try meta.restoreActive(goal.id);
-                        return err;
-                    };
-                    try stdout_.writeAll("\nGoal completed! Congrats!\n");
-                } else {
-                    try stdout_.writeAll("\nNo problem! Let the work continue!\n");
-                }
-                return;
-            } else if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.unstaged} })) {
-                if (try cli.confirm(stdout_, "\nDid you forget to stage/commit these changes?")) {
-                    try stdout_.writeAll("\nNo worries! Let me know when you're ready.\n");
-                    return;
-                }
-                try stdout_.writeAll("\nAlright, I'll leave those alone then.\n");
-            }
+        // TODO: there's something I don't like about all of this....consider reworking
 
-            if (try cli.confirm(stdout_, "\nWould you like to create an empty commit for completing this goal?")) {
-                try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true, .empty = true });
-                try stdout_.writeAll("\nWow! You crushed it!\n");
+        if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
+            if (try cli.confirm(stdout_, "\nCommit staged changes as part of completing this goal?")) {
+                try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true });
+                try stdout_.writeAll("\nCongrats! You did it.\n");
+            } else if (try cli.confirm(stdout_, "\nComplete the goal anyways?")) {
+                meta.active_id = null;
+                try meta.store();
+
+                try git.run(alloc_, stdout_, .{
+                    .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+                });
+
+                const commit_subject = try std.fmt.allocPrint(alloc_, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
+                defer alloc_.free(commit_subject);
+
+                try git.run(alloc_, stdout_, .{
+                    .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+                });
+
+                // delete the goal file after everything else is okay
+                proj.dir.deleteFile(goal.id) catch |err| {
+                    std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
+                    return err;
+                };
+
+                try stdout_.writeAll("\nGoal completed! Congrats!\n");
+            } else {
+                try stdout_.writeAll("\nNo problem! Let the work continue!\n");
+            }
+            return;
+        } else if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{ .unstaged, .untracked } })) {
+            try git.status(alloc_, stdout_);
+            if (try cli.confirm(stdout_, "\nDid you forget to stage/commit these changes?")) {
+                try stdout_.writeAll("\nNo worries! Let me know when you're ready.\n");
                 return;
             }
+            try stdout_.writeAll("\nAlright, I'll leave those alone then.\n");
         }
 
         if (!try cli.confirm(stdout_, "\nReady to complete this goal?")) {
@@ -57,8 +67,20 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
         meta.active_id = null;
         try meta.store();
+
+        try git.run(alloc_, stdout_, .{
+            .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+        });
+
+        const commit_subject = try std.fmt.allocPrint(alloc_, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
+        defer alloc_.free(commit_subject);
+
+        try git.run(alloc_, stdout_, .{
+            .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+        });
+
         proj.dir.deleteFile(goal.id) catch |err| {
-            try meta.restoreActive(goal.id);
+            std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
             return err;
         };
 

@@ -13,7 +13,7 @@ pub const Options = struct {
     message: ?[]const u8 = null,
 };
 
-/// The absolute path to the commit file `~/.goal/<goal_id>/t`.
+/// The absolute path to the commit file `.goal/t` in the local project directory.
 path: []const u8,
 
 /// Creates the commit file `~/.goal/<goal_id>/t`.
@@ -32,7 +32,10 @@ pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !Commit
     var goal = try Goal.init(alloc_, proj_.dir, .{ .str = opts_.goal_id }, .{});
     defer goal.deinit(alloc_);
 
-    const t_file = try proj_.dir.createFile("t", .{});
+    const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ proj_.local_path, "t" });
+    errdefer alloc_.free(template_path);
+
+    const t_file = try std.fs.createFileAbsolute(template_path, .{});
     defer t_file.close();
 
     var buffer: [5 * 1024]u8 = undefined;
@@ -50,7 +53,7 @@ pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !Commit
     try w.flush();
     try t_file.sync();
 
-    return .{ .path = try std.fs.path.join(alloc_, &[_][]const u8{ proj_.path, "t" }) };
+    return .{ .path = template_path };
 }
 
 /// Deletes the commit file at `~/.goal/<goal_id>/t` and frees the path string memory.

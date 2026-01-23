@@ -20,8 +20,8 @@ const Args = struct {
     complete: bool = false,
     message: ?[]const u8 = null,
 
-    // for internal use
-    empty: bool = false,
+    /// For internal use only.
+    _worktree_path: ?[]const u8 = null,
 };
 
 /// Parses `goal commit` arguments.
@@ -103,28 +103,18 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !void {
+    // TODO: consider requiring git for everything
     try git.requireGitProject(alloc_);
 
-    // empty  staged  |  commit
-    //   NO     NO    |    NO
-    //   NO    YES    |   YES
-    //  YES     NO    |   YES
-    //  YES    YES    |    NO
-    const do_commit = args_.empty != try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} });
-    if (!do_commit) {
-        if (args_.empty) {
-            std.debug.print("\nCan't create an empty commit with staged changes.\n", .{});
-            return error.CannotEmptyCommit;
-        } else {
-            std.debug.print("\nCan't commit without staged changes.\n", .{});
-            return error.NoStagedChanges;
-        }
+    if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
+        std.debug.print("\nCan't commit without staged changes.\n", .{});
+        return error.NoStagedChanges;
     }
 
     var proj = try Project.open(alloc_, .{ .iterate = true });
     defer proj.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir);
+    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
 
     const id = args_.id orelse id: {
         if (args_.pick or meta.active_id == null) {
@@ -137,26 +127,38 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     };
     defer alloc_.free(id);
 
+    if (args_.complete) {
+        meta.active_id = null;
+        try meta.store();
+
+        // stage active id deletion
+        try git.run(alloc_, stdout_, .{
+            .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+            .cwd = args_._worktree_path,
+        });
+    }
+
     var commit_file = try CommitFile.create(alloc_, proj, .{ .goal_id = id, .completed = args_.complete, .message = args_.message });
     defer commit_file.delete(alloc_);
 
-    try git.commit(alloc_, stdout_, .{ .file_path = commit_file.path, .empty = args_.empty, .template = args_.message == null });
+    if (args_.message == null) {
+        var proc = std.process.Child.init(&[_][]const u8{ "git", "commit", "-t", commit_file.path, "--edit" }, alloc_);
+        switch (try proc.spawnAndWait()) {
+            .Exited => |code| if (code != 0) return error.GitCommitError,
+            else => return error.GitCommitError,
+        }
+    } else {
+        try git.run(alloc_, stdout_, .{
+            .argv = &[_][]const u8{ "git", "commit", "-F", commit_file.path },
+        });
+    }
 
     // TODO: show `goal status` after commit ?? if not --complete
 
     if (args_.complete) {
-        meta.active_id = null;
-        try meta.store();
+        // delete the goal file after everything else is okay
         proj.dir.deleteFile(id) catch |err| {
-            std.debug.print(
-                \\
-                \\Unable to delete the goal file.
-                \\
-                \\Make sure the file isn't open in another program then run `goal complete {s}`.
-                \\
-            , .{id});
-            try meta.restoreActive(id);
-            // TODO: consider undoing the commit and restoring the active id
+            std.debug.print("\nUnable to delete Goal #{s}\n", .{id});
             return err;
         };
     }

@@ -27,7 +27,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     var proj = try Project.open(alloc_, .{});
     defer proj.close(alloc_);
 
-    const meta = try Meta.load(alloc_, proj.dir);
+    const meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
 
     if (meta.active_id) |id| {
         var goal = try Goal.init(alloc_, proj.dir, .{ .num = id }, .{ .incl_desc = true });

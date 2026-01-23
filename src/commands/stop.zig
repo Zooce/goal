@@ -4,12 +4,14 @@ const cli = @import("../cli.zig");
 const Project = @import("../Project.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
+const git = @import("../git.zig");
+const commit = @import("commit.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var proj = try Project.open(alloc_, .{});
     defer proj.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir);
+    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
 
     if (meta.active_id) |id| {
         var goal = try Goal.init(alloc_, proj.dir, .{ .num = id }, .{});
@@ -17,6 +19,13 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
         meta.active_id = null;
         try meta.store();
+
+        const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}", .{ goal.id, goal.title });
+        defer alloc_.free(commit_subject);
+
+        try git.run(alloc_, stdout_, .{
+            .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+        });
 
         try stdout_.print("\nTaking a break from working on goal #{s} - {s}\n", .{ goal.id, goal.title });
     } else {

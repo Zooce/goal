@@ -15,7 +15,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
     var proj = try Project.open(alloc_, .{});
     defer proj.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir);
+    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
 
     const file_name = file_name: {
         var buffer: [7]u8 = undefined; // 7 digits is overkill

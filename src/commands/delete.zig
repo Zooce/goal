@@ -14,7 +14,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, ids_: std.ArrayLi
 
     if (choices.len == 0) return Command.delete.missingArgument();
 
-    var meta = try Meta.load(alloc_, proj.dir);
+    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
 
     try stdout_.writeAll("\nHere's what I'm going to delete:\n");
     try proj.listSome(alloc_, stdout_, choices);

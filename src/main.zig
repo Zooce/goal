@@ -209,41 +209,24 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             // goal start new --help "fix the bug"
             // goal start new "fix the bug" help
 
-            if (iter_.peek()) |_arg| if (args.stringToCommand(_arg)) |sub| switch (sub) {
-                .new => {
-                    _ = iter_.next();
-                    const title = title: {
-                        if (try args.optionalArgOrHelp(alloc_, iter_, .new)) |res| switch (res) {
-                            .arg => |arg| break :title arg,
-                            .help => return try commands.help.run(stdout_, cmd_),
-                        };
-                        break :title null;
-                    };
-                    defer if (title) |t| alloc_.free(t);
-                    const id = try commands.new.run(alloc_, stdout_, title);
-                    defer alloc_.free(id);
-                    return try commands.start.run(alloc_, stdout_, id);
-                },
-                .help => {}, // handle this below
-                else => return cmd_.unexpectedSubcommand(sub),
-            } else |_| {}; // ignore error
-
             // goal start
             // goal start 3
+            // goal start 3 -b feature/new
+            // goal start 3 -w ../worktree
+            // goal start 3 -w ../worktree -b feature/new
             // goal start -h
             // goal start --help 3
             // goal start 3 help
 
-            const id = id: {
-                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |res| switch (res) {
-                    .arg => |arg| break :id arg,
-                    .help => return try commands.help.run(stdout_, cmd_),
-                };
-                break :id null;
-            };
-            defer if (id) |_id| alloc_.free(_id);
+            // goal start new -w ../worktree -b omg right-now
 
-            try commands.start.run(alloc_, stdout_, id);
+            const start_args = switch (try commands.start.parseArgs(alloc_, iter_)) {
+                .help => return try commands.help.run(stdout_, cmd_),
+                .args => |parsed_args| parsed_args,
+            };
+            defer start_args.deinit(alloc_);
+
+            try commands.start.run(alloc_, stdout_, start_args);
         },
 
         // Git Commands
