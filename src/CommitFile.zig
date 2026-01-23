@@ -46,7 +46,15 @@ pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !Commit
         try w.writeAll(msg);
     }
 
-    try w.print("\n\nGoal #{s} - {s}{s}\n", .{ goal.id, goal.title, if (opts_.completed) " (completed)" else "" });
+    const email = try git.email(alloc_);
+    defer if (email) |em| alloc_.free(em);
+
+    try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{
+        goal.id,
+        if (email) |em| std.mem.trim(u8, em, " \t\r\n") else "unknown",
+        goal.title,
+        if (opts_.completed) " (completed)" else "",
+    });
 
     // TODO: put goal description into commit file optionally
 

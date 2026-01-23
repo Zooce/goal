@@ -176,6 +176,8 @@ pub const RunOptions = struct {
     cwd: ?[]const u8 = null,
 };
 
+// TODO: the 'run' function has some good stuff in it - like it's error handling - there's a way to clean this all up though
+
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions) !void {
     // run all git operations in the project root by default
     const cwd = opts_.cwd orelse
@@ -287,4 +289,40 @@ pub fn clone(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, repo_: []const 
     try stdout_.print("\nCloning: {s} into {s}\n", .{ repo_, cwd_ });
     try stdout_.flush();
     try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", "clone", repo_, "--quiet", cwd_ } });
+}
+
+/// Get's the user email with `git config user.email`. Caller is responsible
+/// for freeing the memory returned.
+pub fn email(alloc_: std.mem.Allocator) !?[]const u8 {
+    // run all git operations in the project root by default
+    const cwd = try projectRoot(alloc_, null) orelse
+        return error.NotAGitProject;
+    defer alloc_.free(cwd);
+
+    const argv = [_][]const u8{ "git", "config", "user.email" };
+    const res = try std.process.Child.run(.{
+        .allocator = alloc_,
+        .argv = &argv,
+        .cwd = cwd,
+    });
+    defer alloc_.free(res.stderr);
+    errdefer alloc_.free(res.stdout); // we intend to return this
+
+    const err_code: ?u32 = switch (res.term) {
+        .Exited => |code| if (code != 0) code else null,
+        .Signal => |code| code,
+        .Stopped => |code| code,
+        .Unknown => std.math.maxInt(u32),
+    };
+
+    if (err_code) |code| {
+        if (res.stderr.len > 0) std.debug.print("\n{d}: {s}", .{ code, res.stderr });
+        const _argv = try std.mem.join(alloc_, " ", &argv);
+        defer alloc_.free(_argv);
+        std.debug.print("\nCommand: {s}\n", .{_argv});
+        return error.GitError;
+    } else if (res.stdout.len > 0) {
+        return res.stdout;
+    }
+    return null;
 }
