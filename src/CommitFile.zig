@@ -47,11 +47,11 @@ pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !Commit
     }
 
     const email = try git.email(alloc_);
-    defer if (email) |em| alloc_.free(em);
+    defer alloc_.free(email);
 
     try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{
         goal.id,
-        if (email) |em| std.mem.trim(u8, em, " \t\r\n") else "unknown",
+        email,
         goal.title,
         if (opts_.completed) " (completed)" else "",
     });

@@ -258,18 +258,36 @@ pub fn help(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, comptime cmd_: [
     try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", cmd_, "--help" } });
 }
 
-/// Runs `git log --all --graph --decorate --oneline --grep "Goal #{id}"` showing
-/// the output in stdout.
+/// Runs `git log --all --graph --decorate --oneline --grep 'Goal #{id}' --grep '{git user email}' --all-match`
+/// showing the output in stdout.
 ///
 /// Example:
 /// ```zig
 /// try git.logGrep(allocator, stdout, "42");
 /// ```
 pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const u8) !void {
-    var pattern_buffer: [16]u8 = undefined;
-    const pattern = try std.fmt.bufPrint(&pattern_buffer, "Goal #{s}", .{id_});
-    const argv = [_][]const u8{ "git", "log", "--all", "--graph", "--decorate", "--color", "--oneline", "--grep", pattern };
-    const res = try std.process.Child.run(.{ .allocator = alloc_, .argv = &argv });
+    const res = res: {
+        const _email = try email(alloc_);
+        defer alloc_.free(_email);
+        const tag_pattern = tag: {
+            var goal_tag_buf: [16]u8 = undefined;
+            break :tag try std.fmt.bufPrint(&goal_tag_buf, "Goal #{s}", .{id_});
+        };
+        break :res try std.process.Child.run(.{ .allocator = alloc_, .argv = &[_][]const u8{
+            "git",
+            "log",
+            "--all",
+            "--graph",
+            "--decorate",
+            "--color",
+            "--oneline",
+            "--grep",
+            tag_pattern,
+            "--grep",
+            _email,
+            "--all-match",
+        } });
+    };
     defer {
         alloc_.free(res.stdout);
         alloc_.free(res.stderr);
@@ -293,7 +311,9 @@ pub fn clone(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, repo_: []const 
 
 /// Get's the user email with `git config user.email`. Caller is responsible
 /// for freeing the memory returned.
-pub fn email(alloc_: std.mem.Allocator) !?[]const u8 {
+///
+/// If there's no email then the string "no email" is returned.
+pub fn email(alloc_: std.mem.Allocator) ![]const u8 {
     // run all git operations in the project root by default
     const cwd = try projectRoot(alloc_, null) orelse
         return error.NotAGitProject;
@@ -322,7 +342,8 @@ pub fn email(alloc_: std.mem.Allocator) !?[]const u8 {
         std.debug.print("\nCommand: {s}\n", .{_argv});
         return error.GitError;
     } else if (res.stdout.len > 0) {
-        return res.stdout;
+        const trimmed = std.mem.trim(u8, res.stdout, " \t\r\n");
+        return try alloc_.dupe(u8, trimmed);
     }
-    return null;
+    return try alloc_.dupe(u8, "no email");
 }
