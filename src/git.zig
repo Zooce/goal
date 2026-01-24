@@ -112,7 +112,7 @@ pub fn hasChanges(alloc_: std.mem.Allocator, opts_: ChangeOptions) !bool {
     for (opts_.kinds) |kind| {
         const res = try std.process.Child.run(.{
             .allocator = alloc_,
-            .argv = switch (kind) { // TODO: could be comptime
+            .argv = switch (kind) {
                 .staged => &[_][]const u8{ "git", "diff", "--stat", "--staged" },
                 .unstaged => &[_][]const u8{ "git", "diff", "--stat" },
                 .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
