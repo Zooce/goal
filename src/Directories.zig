@@ -58,7 +58,10 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
     if (opts_.create) {
         std.fs.makeDirAbsolute(local_path) catch |err| switch (err) {
             error.PathAlreadyExists => {},
-            else => return err,
+            else => {
+                std.debug.print("\nUnable to create local goal directory: {s}\n", .{local_path});
+                return err;
+            },
         };
     }
     // TODO: test access - fail with proper error message
@@ -88,7 +91,10 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
                 std.debug.print("\nThere's no .goal_id file. Run `goal init`.\n", .{});
                 return err;
             },
-            else => return err,
+            else => {
+                std.debug.print("\nUnable to open .goal_id file: {s}\n", .{goal_id_path});
+                return err;
+            },
         };
         defer goal_id_file.close();
 
@@ -111,19 +117,31 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
     if (opts_.create) {
         std.fs.makeDirAbsolute(base_path) catch |err| switch (err) {
             error.PathAlreadyExists => {},
-            else => return err,
+            else => {
+                std.debug.print("\nUnable to create base goal directory: {s}\n", .{base_path});
+                return err;
+            },
         };
     }
 
-    var base_dir = try std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate });
+    var base_dir = std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate }) catch |err| {
+        std.debug.print("\nUnable to open base directory: {s}\n", .{base_path});
+        return err;
+    };
     // only close this if some other error occurs - otherwise it will be freed in `close()`
     errdefer base_dir.close();
+
+    const local_dir = std.fs.openDirAbsolute(local_path, .{}) catch |err| {
+        std.debug.print("\nUnable to open local directory: {s}\n", .{local_path});
+        return err;
+    };
+    // last thing to fail - no need for errdefer close
 
     return .{
         .base_dir = base_dir,
         .base_path = base_path,
         .local_path = local_path,
-        .local_dir = try std.fs.openDirAbsolute(local_path, .{}), // last thing to fail - no need for errdefer close
+        .local_dir = local_dir,
     };
 }
 
@@ -153,7 +171,7 @@ pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.W
         var goal = try Goal.init(alloc_, self_.base_dir, .{ .str = entry.name }, .{});
         defer goal.deinit(alloc_);
 
-        const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
+        const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10); // TODO: can `goal.id` just be an int instead of a string?
         found_active = found_active or active;
 
         try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });

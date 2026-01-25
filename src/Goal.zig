@@ -51,13 +51,25 @@ description: ?[]const u8,
 /// ```
 pub fn init(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, id_: Id, opts_: Options) !Goal {
     // id_ is the file name
-    const goal_file_name = switch (id_) {
-        .num => |num| try std.fmt.allocPrint(alloc_, "{d}", .{num}),
-        .str => |str| try alloc_.dupe(u8, str),
-    };
-    errdefer alloc_.free(goal_file_name);
+    const goal_id = id: {
+        switch (id_) {
+            .num => |num| break :id try std.fmt.allocPrint(alloc_, "{d}", .{num}),
+            .str => |str| {
+                _ = std.fmt.parseInt(u8, str, 10) catch |err| {
+                    std.debug.print("\nInvalid goal file name: {s}\n", .{str});
+                    return err;
+                };
 
-    const goal_file = try base_dir_.openFile(goal_file_name, .{});
+                break :id try alloc_.dupe(u8, str);
+            },
+        }
+    };
+    errdefer alloc_.free(goal_id);
+
+    const goal_file = base_dir_.openFile(goal_id, .{}) catch |err| {
+        std.debug.print("\nUnable to open goal file: {s}\n", .{goal_id});
+        return err;
+    };
     defer goal_file.close();
 
     var read_buffer: [1024]u8 = undefined;
@@ -88,7 +100,7 @@ pub fn init(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, id_: Id, opts_: Op
     }
 
     return .{
-        .id = goal_file_name,
+        .id = goal_id,
         .title = title,
         .description = description,
     };

@@ -29,11 +29,17 @@ pub fn load(alloc_: std.mem.Allocator, dirs_: Directories) !Meta {
             std.debug.print("\nThe 'm' file doesn't exist! Run `goal init`.\n", .{});
             return err;
         },
-        else => return err,
+        else => {
+            std.debug.print("\nUnable to read m file!\n", .{});
+            return err;
+        },
     };
     defer alloc_.free(meta_file);
 
-    const m = try std.zon.parse.fromSlice(M, alloc_, meta_file, null, .{});
+    const m = std.zon.parse.fromSlice(M, alloc_, meta_file, null, .{}) catch |err| {
+        std.debug.print("\nUnable to parse m file!\n", .{});
+        return err;
+    };
     defer std.zon.parse.free(alloc_, m);
 
     // TODO: consider making this it's own file ActiveGoal.load()
@@ -124,5 +130,12 @@ fn loadActiveId(local_dir_: std.fs.Dir) !?u8 {
     if (active_id.len == 0) return error.EmptyActiveIdFile;
 
     const trimmed = std.mem.trim(u8, active_id, " \t\r\n");
-    return try std.fmt.parseInt(u8, trimmed, 10);
+    return std.fmt.parseInt(u8, trimmed, 10) catch |err| {
+        if (trimmed.len == 0) {
+            std.debug.print("\nNo id found in .active_id!\n", .{});
+        } else {
+            std.debug.print("\nInvalid id found in .active_id: {s}\n", .{trimmed});
+        }
+        return err;
+    };
 }
