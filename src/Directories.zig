@@ -103,7 +103,9 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
         var config = try Config.load(alloc_);
         defer config.deinit();
         break :base_path try std.fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
-    }; // don't free this - it will be freed in `close`
+    };
+    // only free this if some other error occurs - otherwise it will be freed in `close()`
+    errdefer alloc_.free(base_path);
 
     // create <base-dir>/<goal_id>/
     if (opts_.create) {
@@ -112,13 +114,16 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
             else => return err,
         };
     }
-    // TODO: test access - fail with proper error message
+
+    var base_dir = try std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate });
+    // only close this if some other error occurs - otherwise it will be freed in `close()`
+    errdefer base_dir.close();
 
     return .{
-        .base_dir = try std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate }),
+        .base_dir = base_dir,
         .base_path = base_path,
         .local_path = local_path,
-        .local_dir = try std.fs.openDirAbsolute(local_path, .{}),
+        .local_dir = try std.fs.openDirAbsolute(local_path, .{}), // last thing to fail - no need for errdefer close
     };
 }
 
