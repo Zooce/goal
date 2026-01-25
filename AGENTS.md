@@ -169,10 +169,10 @@ pub const Id = union(enum) {
 /// Public API documentation with examples
 /// Example:
 /// ```zig
-/// const proj = try Project.open(allocator, .{});
-/// defer proj.close(allocator);
+/// const dirs = try Directories.open(allocator, .{});
+/// defer dirs.close(allocator);
 /// ```
-pub fn open(alloc_: std.mem.Allocator, opts_: OpenOptions) !Project {
+pub fn open(alloc_: std.mem.Allocator, opts_: OpenOptions) !Directories {
 
 // TODO comments for future work
 // TODO: editor should be configurable

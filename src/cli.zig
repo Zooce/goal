@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Project = @import("Project.zig");
+const Directories = @import("Directories.zig");
 
 // TODO: pick the default value (y/n) as a parameter
 pub fn confirm(stdout_: *std.io.Writer, prompt_: []const u8) !bool {
@@ -39,8 +39,8 @@ pub fn getAnswer(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, prompt_: []
 
 /// Ask the user to input a number from the list of goals. The caller is responsible for
 /// freeing the memory with `allocator.free(choice)`.
-pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, proj_: Project) ![]const u8 {
-    try proj_.listAll(alloc_, stdout_);
+pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories) ![]const u8 {
+    try dirs_.listAll(alloc_, stdout_);
 
     var stdin_buffer: [8]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
@@ -55,8 +55,8 @@ pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, proj_: 
 }
 
 // TODO: move to a `cli.zig` file (or maybe a different)
-pub fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, proj_: Project) ![]const []const u8 {
-    try proj_.listAll(alloc_, stdout_);
+pub fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories) ![]const []const u8 {
+    try dirs_.listAll(alloc_, stdout_);
 
     var stdin_buffer: [64]u8 = undefined;
     var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);

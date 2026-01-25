@@ -10,7 +10,7 @@ const stringToCommand = @import("../args.zig").stringToCommand;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const Command = @import("../commands.zig").Command;
 
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const CommitFile = @import("../CommitFile.zig");
 
@@ -111,14 +111,14 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
         return error.NoStagedChanges;
     }
 
-    var proj = try Project.open(alloc_, .{ .iterate = true });
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{ .iterate = true });
+    defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
+    var meta = try Meta.load(alloc_, dirs);
 
     const id = args_.id orelse id: {
         if (args_.pick or meta.active_id == null) {
-            break :id try cli.getGoalChoice(alloc_, stdout_, proj);
+            break :id try cli.getGoalChoice(alloc_, stdout_, dirs);
         }
         if (meta.active_id) |id| {
             break :id try std.fmt.allocPrint(alloc_, "{d}", .{id});
@@ -138,7 +138,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
         });
     }
 
-    var commit_file = try CommitFile.create(alloc_, proj, .{ .goal_id = id, .completed = args_.complete, .message = args_.message });
+    var commit_file = try CommitFile.create(alloc_, dirs, .{ .goal_id = id, .completed = args_.complete, .message = args_.message });
     defer commit_file.delete(alloc_);
 
     if (args_.message == null) {
@@ -157,7 +157,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
 
     if (args_.complete) {
         // delete the goal file after everything else is okay
-        proj.dir.deleteFile(id) catch |err| {
+        dirs.base_dir.deleteFile(id) catch |err| {
             std.debug.print("\nUnable to delete Goal #{s}\n", .{id});
             return err;
         };

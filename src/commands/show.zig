@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const cli = @import("../cli.zig");
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 
@@ -12,15 +12,15 @@ pub fn run(
     stdout_: *std.io.Writer,
     id_: ?[]const u8,
 ) !void {
-    var proj = try Project.open(alloc_, .{ .iterate = true });
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{ .iterate = true });
+    defer dirs.close(alloc_);
 
-    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, proj);
+    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, dirs);
     defer if (id_ == null) alloc_.free(file_name);
 
     if (file_name.len == 0) return Command.show.missingArgument();
 
-    var goal = try Goal.init(alloc_, proj.dir, .{ .str = file_name }, .{ .incl_desc = true });
+    var goal = try Goal.init(alloc_, dirs.base_dir, .{ .str = file_name }, .{ .incl_desc = true });
     defer goal.deinit(alloc_);
     try goal.print(stdout_);
 }

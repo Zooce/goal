@@ -2,7 +2,7 @@ const std = @import("std");
 
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 const commit = @import("commit.zig");
@@ -10,13 +10,13 @@ const commit = @import("commit.zig");
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     if (!try git.isGitProject(alloc_)) return error.NotAGitProject;
 
-    var proj = try Project.open(alloc_, .{});
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{});
+    defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
+    var meta = try Meta.load(alloc_, dirs);
 
     if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, proj.dir, .{ .num = id }, .{});
+        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{});
         defer goal.deinit(alloc_);
 
         // TODO: there's something I don't like about all of this....consider reworking
@@ -41,7 +41,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
                 });
 
                 // delete the goal file after everything else is okay
-                proj.dir.deleteFile(goal.id) catch |err| {
+                dirs.base_dir.deleteFile(goal.id) catch |err| {
                     std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
                     return err;
                 };
@@ -79,7 +79,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
             .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
         });
 
-        proj.dir.deleteFile(goal.id) catch |err| {
+        dirs.base_dir.deleteFile(goal.id) catch |err| {
             std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
             return err;
         };

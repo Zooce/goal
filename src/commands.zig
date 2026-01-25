@@ -1,12 +1,5 @@
 const std = @import("std");
 
-const cli = @import("cli.zig");
-const git = @import("git.zig");
-
-const Project = @import("Project.zig");
-const Meta = @import("Meta.zig");
-const Goal = @import("Goal.zig");
-
 // re-exports
 pub const setup = @import("commands/setup.zig");
 pub const init = @import("commands/init.zig");

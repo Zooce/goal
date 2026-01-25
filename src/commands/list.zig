@@ -1,12 +1,12 @@
 const std = @import("std");
 
 const cli = @import("../cli.zig");
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 
 /// List all goals showing their ID and title.
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    var proj = try Project.open(alloc_, .{ .iterate = true });
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{ .iterate = true });
+    defer dirs.close(alloc_);
 
-    try proj.listAll(alloc_, stdout_);
+    try dirs.listAll(alloc_, stdout_);
 }

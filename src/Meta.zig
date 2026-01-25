@@ -2,23 +2,19 @@ const Meta = @This();
 
 const std = @import("std");
 
+const Directories = @import("Directories.zig");
+
 /// The next goal ID. Increment this and call `store` when creating a new goal.
 next_id: u8 = 1,
 
 /// The active goal ID. Set this and call `store` when modifying the active goal.
 active_id: ?u8 = null,
 
-/// An open handle to the project directory. The Meta object is not responsible
-/// for closing this handle.
+/// The Directories struct which has open handles to base and local .goal/
+/// directories. The Meta object is not responsible for clearing its memory.
 ///
 /// (This is for use internally by the Meta functions.)
-_base_dir: std.fs.Dir,
-
-/// An open handle to local .goal/ directory. The Meta object is not responsible
-/// for closing this handle.
-///
-/// (This is for use internally by the Meta functions.)
-_local_dir: std.fs.Dir,
+_dirs: Directories,
 
 // TODO: now this is just the next id so maybe just make it a text file
 const M = struct {
@@ -26,9 +22,9 @@ const M = struct {
 };
 
 /// Load the `~/.goal/<goal_id>/m` file and local `.goal/.active_id` file.
-pub fn load(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, local_dir_: std.fs.Dir) !Meta {
+pub fn load(alloc_: std.mem.Allocator, dirs_: Directories) !Meta {
     // Load global metadata from m file
-    const meta_file = base_dir_.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0) catch |err| switch (err) {
+    const meta_file = dirs_.base_dir.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0) catch |err| switch (err) {
         error.FileNotFound => {
             std.debug.print("\nThe 'm' file doesn't exist! Run `goal init`.\n", .{});
             return err;
@@ -41,13 +37,12 @@ pub fn load(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, local_dir_: std.fs
     defer std.zon.parse.free(alloc_, m);
 
     // TODO: consider making this it's own file ActiveGoal.load()
-    const active_id = try loadActiveId(local_dir_);
+    const active_id = try loadActiveId(dirs_.local_dir);
 
     return .{
         .next_id = m.next_id,
         .active_id = active_id,
-        ._base_dir = base_dir_,
-        ._local_dir = local_dir_,
+        ._dirs = dirs_,
     };
 }
 
@@ -55,7 +50,7 @@ pub fn load(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, local_dir_: std.fs
 pub fn store(self_: Meta) !void {
     {
         // Store global metadata (next_id only)
-        const meta_file = try self_._base_dir.createFile("~m", .{});
+        const meta_file = try self_._dirs.base_dir.createFile("~m", .{});
         defer meta_file.close();
 
         var write_buffer: [64]u8 = undefined;
@@ -69,15 +64,15 @@ pub fn store(self_: Meta) !void {
         try writer.interface.flush();
         try meta_file.sync();
 
-        try std.fs.rename(self_._base_dir, "~m", self_._base_dir, "m");
+        try std.fs.rename(self_._dirs.base_dir, "~m", self_._dirs.base_dir, "m");
     }
 
-    const prev_active_id = try loadActiveId(self_._local_dir);
+    const prev_active_id = try loadActiveId(self_._dirs.local_dir);
     if (self_.active_id == prev_active_id) return;
 
     // Store active_id in local .goal/.active_id file
     if (self_.active_id) |active_id| {
-        const active_file = try self_._local_dir.createFile("~.active_id", .{});
+        const active_file = try self_._dirs.local_dir.createFile("~.active_id", .{});
         defer active_file.close();
 
         var active_buffer: [8]u8 = undefined;
@@ -89,10 +84,10 @@ pub fn store(self_: Meta) !void {
         try writer.interface.flush();
         try active_file.sync();
 
-        try std.fs.rename(self_._local_dir, "~.active_id", self_._local_dir, ".active_id");
+        try std.fs.rename(self_._dirs.local_dir, "~.active_id", self_._dirs.local_dir, ".active_id");
     } else {
         // Remove .active_id file if no active goal
-        self_._local_dir.deleteFile(".active_id") catch |err| switch (err) {
+        self_._dirs.local_dir.deleteFile(".active_id") catch |err| switch (err) {
             error.FileNotFound => {}, // ignore
             else => {
                 std.debug.print("Unable to delete .active_id!", .{});

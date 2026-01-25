@@ -5,7 +5,7 @@ const stringToCommand = @import("../args.zig").stringToCommand;
 const help = @import("help.zig");
 const Command = @import("../commands.zig").Command;
 
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 
@@ -24,13 +24,13 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
         }
     }
 
-    var proj = try Project.open(alloc_, .{});
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{});
+    defer dirs.close(alloc_);
 
-    const meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
+    const meta = try Meta.load(alloc_, dirs);
 
     if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, proj.dir, .{ .num = id }, .{ .incl_desc = true });
+        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{ .incl_desc = true });
         defer goal.deinit(alloc_);
 
         try goal.tag(stdout_);

@@ -5,7 +5,7 @@ const Command = @import("../commands.zig").Command;
 const git = @import("../git.zig");
 const help = @import("help.zig");
 
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 
 const ArgsOrHelp = union(enum) {
@@ -52,10 +52,10 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
         return error.NoStagedChanges;
     }
 
-    var proj = try Project.open(alloc_, .{});
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{});
+    defer dirs.close(alloc_);
 
-    const meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
+    const meta = try Meta.load(alloc_, dirs);
     if (meta.active_id == null) {
         std.debug.print("\nYou must start a goal to use this command!\n", .{});
         return error.NoActiveGoal;

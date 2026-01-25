@@ -11,7 +11,7 @@ const CommitFile = @import("../CommitFile.zig");
 const git = @import("../git.zig");
 const Goal = @import("../Goal.zig");
 const Meta = @import("../Meta.zig");
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const new = @import("new.zig");
 
 pub const Args = struct {
@@ -186,23 +186,23 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
-    var proj = try Project.open(alloc_, .{ .iterate = true });
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{ .iterate = true });
+    defer dirs.close(alloc_);
 
     var goal = goal: {
         const file_name = if (args.id_type) |id_type| switch (id_type) {
             .id => |_id| _id,
             .new => |_new| try new.run(alloc_, stdout_, _new.title),
-        } else try cli.getGoalChoice(alloc_, stdout_, proj);
+        } else try cli.getGoalChoice(alloc_, stdout_, dirs);
 
         defer if (args.id_type) |id_type| if (id_type != .id) alloc_.free(file_name);
 
         if (file_name.len == 0) return Command.start.missingArgument();
-        break :goal try Goal.init(alloc_, proj.dir, .{ .str = file_name }, .{});
+        break :goal try Goal.init(alloc_, dirs.base_dir, .{ .str = file_name }, .{});
     };
     defer goal.deinit(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
+    var meta = try Meta.load(alloc_, dirs);
 
     // Handle branch/worktree creation before setting active goal
     if (args.worktree) |worktree_path| {
@@ -253,7 +253,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
 
                 // don't forget about the .goal_id file too
 
-                const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ proj.local_path, ".goal_id" });
+                const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.local_path, ".goal_id" });
                 defer alloc_.free(goal_id_path);
 
                 const worktree_goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".goal_id" });
@@ -285,7 +285,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
             const commit_subject = try std.fmt.allocPrint(alloc_, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
             defer alloc_.free(commit_subject);
 
-            break :file try CommitFile.create(alloc_, proj, .{ .goal_id = goal.id, .message = commit_subject });
+            break :file try CommitFile.create(alloc_, dirs, .{ .goal_id = goal.id, .message = commit_subject });
         };
         defer commit_file.delete(alloc_);
 
@@ -335,7 +335,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
         var commit_file = file: {
             const commit_subject = try std.fmt.allocPrint(alloc_, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
             defer alloc_.free(commit_subject);
-            break :file try CommitFile.create(alloc_, proj, .{ .goal_id = goal.id, .message = commit_subject });
+            break :file try CommitFile.create(alloc_, dirs, .{ .goal_id = goal.id, .message = commit_subject });
         };
         defer commit_file.delete(alloc_);
 

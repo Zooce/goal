@@ -3,7 +3,7 @@ const CommitFile = @This();
 const std = @import("std");
 const git = @import("git.zig");
 
-const Project = @import("Project.zig");
+const Directories = @import("Directories.zig");
 const Goal = @import("Goal.zig");
 
 /// Options for creating the commit file.
@@ -24,15 +24,15 @@ path: []const u8,
 /// Example:
 ///
 /// ```zig
-/// var commit_file = try CommitFile.create(allocator, proj, .{ .goal_id = "42" });
+/// var commit_file = try CommitFile.create(allocator, dirs, .{ .goal_id = "42" });
 /// defer commit_file.delete(allocator);
 /// // use `commit_file.path`
 /// ```
-pub fn create(alloc_: std.mem.Allocator, proj_: Project, opts_: Options) !CommitFile {
-    var goal = try Goal.init(alloc_, proj_.dir, .{ .str = opts_.goal_id }, .{});
+pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !CommitFile {
+    var goal = try Goal.init(alloc_, dirs_.base_dir, .{ .str = opts_.goal_id }, .{});
     defer goal.deinit(alloc_);
 
-    const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ proj_.local_path, "t" });
+    const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs_.local_path, "t" });
     errdefer alloc_.free(template_path);
 
     const t_file = try std.fs.createFileAbsolute(template_path, .{});

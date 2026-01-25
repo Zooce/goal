@@ -1,21 +1,21 @@
 const std = @import("std");
 
 const cli = @import("../cli.zig");
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const Config = @import("../Config.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {
-    var proj = try Project.open(alloc_, .{ .iterate = true });
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{ .iterate = true });
+    defer dirs.close(alloc_);
 
-    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, proj);
+    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, dirs);
     defer if (id_ == null) alloc_.free(file_name);
 
     if (file_name.len == 0) return Command.edit.missingArgument();
 
-    proj.dir.access(file_name, .{}) catch |err| switch (err) {
+    dirs.base_dir.access(file_name, .{}) catch |err| switch (err) {
         error.FileNotFound => return Command.edit.fileNotFound(file_name),
         else => return err,
     };
@@ -23,7 +23,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     // TODO: from here........
 
     // open the new goal file in an editor
-    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ proj.path, file_name });
+    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.base_path, file_name });
     defer alloc_.free(file_path);
 
     // Use configurable editor
@@ -35,7 +35,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     _ = try editor.spawnAndWait();
 
     // empty file check
-    var goal = try Goal.init(alloc_, proj.dir, .{ .str = file_name }, .{});
+    var goal = try Goal.init(alloc_, dirs.base_dir, .{ .str = file_name }, .{});
     defer goal.deinit(alloc_);
 
     // TODO: ........to here the code is basically the same as in `new`

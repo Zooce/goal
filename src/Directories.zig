@@ -1,4 +1,4 @@
-const Project = @This();
+const Directories = @This();
 
 const std = @import("std");
 const builtin = @import("builtin");
@@ -19,10 +19,10 @@ pub const Options = struct {
 };
 
 /// An open `std.fs.Dir` handle to the base <base-dir>/.goal/<goal_id>/ directory.
-dir: std.fs.Dir,
+base_dir: std.fs.Dir,
 
 /// The absolute path to base <base-dir>/.goal/<goal_id>/ directory.
-path: []const u8,
+base_path: []const u8,
 
 /// The absolute path to local .goal/ directory.
 local_path: []const u8,
@@ -35,14 +35,10 @@ local_dir: std.fs.Dir,
 /// Example:
 ///
 /// ```zig
-/// const proj = try Project.open(allocator, .{});
-/// defer proj.close(allocator);
-///
-/// // use `proj.dir` and `proj.path`
-///
-/// TODO: rename to Direcotires and use like dirs.base and dirs.local
+/// const dirs = try Directories.open(allocator, .{});
+/// defer dirs.close(allocator);
 /// ```
-pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
+pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
     // get local dir
     const local_path = local_path: {
         // local .goal/ should be at a project root so .git/ is our best case
@@ -119,37 +115,37 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Project {
     // TODO: test access - fail with proper error message
 
     return .{
-        .dir = try std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate }),
-        .path = base_path,
+        .base_dir = try std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate }),
+        .base_path = base_path,
         .local_path = local_path,
         .local_dir = try std.fs.openDirAbsolute(local_path, .{}),
     };
 }
 
 /// Close the project directory.
-pub fn close(self_: *Project, alloc_: std.mem.Allocator) void {
-    self_.dir.close();
+pub fn close(self_: *Directories, alloc_: std.mem.Allocator) void {
+    self_.base_dir.close();
     self_.local_dir.close();
-    alloc_.free(self_.path);
+    alloc_.free(self_.base_path);
     alloc_.free(self_.local_path);
 }
 
 /// List all goals in the project directory.
-pub fn listAll(self_: Project, alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    const meta = try Meta.load(alloc_, self_.dir, self_.local_dir);
+pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+    const meta = try Meta.load(alloc_, self_);
 
     try stdout_.writeAll("\n");
 
     var count: u8 = 0;
     var found_active = false;
-    var iter = self_.dir.iterate();
+    var iter = self_.base_dir.iterate();
     while (try iter.next()) |entry| {
         if (std.mem.eql(u8, "m", entry.name) or std.mem.eql(u8, "t", entry.name)) continue;
 
         // only count if we're not looking at m or t files
         count += 1;
 
-        var goal = try Goal.init(alloc_, self_.dir, .{ .str = entry.name }, .{});
+        var goal = try Goal.init(alloc_, self_.base_dir, .{ .str = entry.name }, .{});
         defer goal.deinit(alloc_);
 
         const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
@@ -166,14 +162,14 @@ pub fn listAll(self_: Project, alloc_: std.mem.Allocator, stdout_: *std.io.Write
 }
 
 /// List the given set of goals in the project directory.
-pub fn listSome(self_: Project, alloc_: std.mem.Allocator, stdout_: *std.io.Writer, goals_: []const []const u8) !void {
-    const meta = try Meta.load(alloc_, self_.dir, self_.local_dir);
+pub fn listSome(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.Writer, goals_: []const []const u8) !void {
+    const meta = try Meta.load(alloc_, self_);
 
     try stdout_.writeAll("\n");
 
     var found_active = false;
     for (goals_) |id| {
-        var goal = try Goal.init(alloc_, self_.dir, .{ .str = id }, .{});
+        var goal = try Goal.init(alloc_, self_.base_dir, .{ .str = id }, .{});
         defer goal.deinit(alloc_);
 
         const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);

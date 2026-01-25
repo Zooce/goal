@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const Project = @import("../Project.zig");
 const Meta = @import("../Meta.zig");
 const Config = @import("../Config.zig");
 const git = @import("../git.zig");

@@ -1,20 +1,20 @@
 const std = @import("std");
 
 const cli = @import("../cli.zig");
-const Project = @import("../Project.zig");
+const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 const git = @import("../git.zig");
 const commit = @import("commit.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    var proj = try Project.open(alloc_, .{});
-    defer proj.close(alloc_);
+    var dirs = try Directories.open(alloc_, .{});
+    defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, proj.dir, proj.local_dir);
+    var meta = try Meta.load(alloc_, dirs);
 
     if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, proj.dir, .{ .num = id }, .{});
+        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{});
         defer goal.deinit(alloc_);
 
         meta.active_id = null;
