@@ -31,13 +31,13 @@ description: ?[]const u8,
 /// Example:
 ///
 /// ```zig
-/// const root = goals.Root.open(allocator, .{});
-/// defer root.close(allocator);
+/// const dirs = Directories.open(allocator, .{});
+/// defer dirs.close(allocator);
 ///
 /// // .num example
 /// {
 ///     const id: u8 = 5;
-///     var goal = try goals.Goal.init(allocator, root.dir, .{ .num = id }, .{});
+///     var goal = try Goal.init(allocator, dirs.base_dir, .{ .num = id }, .{});
 ///     defer goal.deinit(allocator);
 /// }
 ///
@@ -45,18 +45,19 @@ description: ?[]const u8,
 /// {
 ///     const id = try std.fmt.allocPrint(allocator, "{d}", .{5});
 ///     defer allocator.free(id); // Goal.init does NOT take ownership of this
-///     var goal = try goals.Goal.init(allocator, root.dir, .{ .str = id }, .{});
+///     var goal = try Goal.init(allocator, dirs.base_dir, .{ .str = id }, .{});
 ///     defer goal.deinit(allocator);
 /// }
 /// ```
-pub fn init(alloc_: std.mem.Allocator, proj_dir_: std.fs.Dir, id_: Id, opts_: Options) !Goal {
+pub fn init(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, id_: Id, opts_: Options) !Goal {
     // id_ is the file name
     const goal_file_name = switch (id_) {
         .num => |num| try std.fmt.allocPrint(alloc_, "{d}", .{num}),
         .str => |str| try alloc_.dupe(u8, str),
     };
+    errdefer alloc_.free(goal_file_name);
 
-    const goal_file = try proj_dir_.openFile(goal_file_name, .{});
+    const goal_file = try base_dir_.openFile(goal_file_name, .{});
     defer goal_file.close();
 
     var read_buffer: [1024]u8 = undefined;
@@ -72,6 +73,7 @@ pub fn init(alloc_: std.mem.Allocator, proj_dir_: std.fs.Dir, id_: Id, opts_: Op
     };
 
     const title = try alloc_.dupe(u8, std.mem.trim(u8, stream_writer.written(), " \t\r\n"));
+    errdefer alloc_.free(title);
 
     var description: ?[]const u8 = null;
     if (opts_.incl_desc and get_desc) {
