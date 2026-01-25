@@ -1,6 +1,8 @@
 const std = @import("std");
 const commands = @import("commands.zig");
 const args = @import("args.zig");
+const cli = @import("cli.zig");
+const Directories = @import("Directories.zig");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -183,22 +185,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
         // commands with multiple arguments
 
-        .delete => {
-            // goal delete
-            // goal delete 3
-            // goal delete 3 4 5, 6
-            // goal delete -h
-            // goal delete --help 3
-            // goal delete 3 help
-
-            var ids = switch (try args.optionalArgsOrHelp(alloc_, iter_, cmd_)) {
-                .args => |ids| ids,
-                .help => return try commands.help.run(stdout_, cmd_),
-            };
-            defer ids.deinit(alloc_);
-
-            try commands.delete.run(alloc_, stdout_, ids);
-        },
+        .delete => try commands.delete.main(alloc_, stdout_, iter_),
 
         // commands with subcommands...
 

@@ -2,7 +2,6 @@ const std = @import("std");
 
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const optionalArgOrCommand = @import("../args.zig").optionalArgOrCommand;
 const optionalArgOrHelp2 = @import("../args.zig").optionalArgOrHelp;
 const stringToCommand2 = @import("../args.zig").stringToCommand2;
 const cli = @import("../cli.zig");

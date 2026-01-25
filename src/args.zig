@@ -156,18 +156,19 @@ pub fn ArgsOrHelp(comptime T: type) type {
     };
 }
 
-pub fn optionalArgsOrHelp(alloc_: std.mem.Allocator, iter_: *ArgIter, cmd_: commands.Command) !ArgsOrHelp(std.ArrayList([]const u8)) {
-    var args: std.ArrayList([]const u8) = .empty;
+// pub fn optionalArgsOrHelp(alloc_: std.mem.Allocator, iter_: *ArgIter, cmd_: commands.Command) !ArgsOrHelp(std.ArrayList([]const u8)) {
+//     var args: std.ArrayList([]const u8) = .empty;
+//     errdefer args.deinit(alloc_);
 
-    while (iter_.next()) |arg| {
-        if (optionalArgOrCommand(arg)) |x| switch (x) {
-            .arg => |a| try args.append(alloc_, std.mem.trim(u8, a, ", \t\r\n")),
-            .command => |sub| switch (sub) {
-                .help => return .help,
-                else => return cmd_.unexpectedSubcommand(sub),
-            },
-        };
-    }
+//     while (iter_.next()) |arg| {
+//         if (optionalArgOrCommand(arg)) |x| switch (x) {
+//             .arg => |a| try args.append(alloc_, std.mem.trim(u8, a, ", \t\r\n")),
+//             .command => |sub| switch (sub) {
+//                 .help => return .help,
+//                 else => return cmd_.unexpectedSubcommand(sub),
+//             },
+//         };
+//     }
 
-    return .{ .args = args };
-}
+//     return .{ .args = args };
+// }

@@ -54,8 +54,7 @@ pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: 
     return try alloc_.dupe(u8, std.mem.trim(u8, answer, ", \t\r\n"));
 }
 
-// TODO: move to a `cli.zig` file (or maybe a different)
-pub fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories) ![]const []const u8 {
+pub fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories, choices: *std.ArrayList([]const u8)) !void {
     try dirs_.listAll(alloc_, stdout_);
 
     var stdin_buffer: [64]u8 = undefined;
@@ -68,14 +67,13 @@ pub fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_:
     const answer = try reader.takeDelimiterExclusive('\n');
     var iter = std.mem.splitAny(u8, answer, ", \t");
 
-    var choices: std.ArrayList([]const u8) = .empty;
+    // var choices: std.ArrayList([]const u8) = .empty;
+    // errdefer choices.deinit(alloc_);
 
     while (iter.next()) |choice| {
         if (choice.len == 0) continue;
-        const trimmed = std.mem.trim(u8, choice, ", \t\r\n");
-        try choices.append(alloc_, try alloc_.dupe(u8, trimmed));
+        try choices.append(alloc_, std.mem.trim(u8, choice, ", \t\r\n"));
     }
 
-    // TODO: consider just returning the array list
-    return try choices.toOwnedSlice(alloc_);
+    // return choices;
 }
