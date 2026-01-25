@@ -98,8 +98,8 @@ pub fn store(self_: Meta) !void {
 }
 
 /// Creates the `~/.goals/<goal_id>/m` file.
-pub fn create(proj_dir_: std.fs.Dir) !void {
-    const meta_file = try proj_dir_.createFile("m", .{ .exclusive = true });
+pub fn create(base_dir_: std.fs.Dir) !void {
+    const meta_file = try base_dir_.createFile("m", .{ .exclusive = true });
     defer meta_file.close();
 
     var write_buffer: [64]u8 = undefined;
