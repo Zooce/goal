@@ -29,7 +29,7 @@ path: []const u8,
 /// // use `commit_file.path`
 /// ```
 pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !CommitFile {
-    const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs_.local_path, "t" });
+    const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs_.local.path, "t" });
     errdefer alloc_.free(template_path);
 
     const t_file = try std.fs.createFileAbsolute(template_path, .{});

@@ -14,7 +14,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var meta = try Meta.load(alloc_, dirs);
 
     if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{});
+        var goal = try Goal.init(alloc_, dirs.base.dir, .{ .num = id }, .{});
         defer goal.deinit(alloc_);
 
         meta.active_id = null;

@@ -16,7 +16,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var meta = try Meta.load(alloc_, dirs);
 
     if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{});
+        var goal = try Goal.init(alloc_, dirs.base.dir, .{ .num = id }, .{});
         defer goal.deinit(alloc_);
 
         // TODO: there's something I don't like about all of this....consider reworking
@@ -41,7 +41,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
                 });
 
                 // delete the goal file after everything else is okay
-                dirs.base_dir.deleteFile(goal.id) catch |err| {
+                dirs.base.dir.deleteFile(goal.id) catch |err| {
                     std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
                     return err;
                 };
@@ -79,7 +79,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
             .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
         });
 
-        dirs.base_dir.deleteFile(goal.id) catch |err| {
+        dirs.base.dir.deleteFile(goal.id) catch |err| {
             std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
             return err;
         };

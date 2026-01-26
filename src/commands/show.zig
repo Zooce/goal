@@ -20,7 +20,7 @@ pub fn run(
 
     if (file_name.len == 0) return Command.show.missingArgument();
 
-    var goal = try Goal.init(alloc_, dirs.base_dir, .{ .str = file_name }, .{ .incl_desc = true });
+    var goal = try Goal.init(alloc_, dirs.base.dir, .{ .str = file_name }, .{ .incl_desc = true });
     defer goal.deinit(alloc_);
     try goal.print(stdout_);
 }

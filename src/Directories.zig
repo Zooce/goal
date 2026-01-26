@@ -18,17 +18,20 @@ pub const Options = struct {
     iterate: bool = false,
 };
 
-/// An open `std.fs.Dir` handle to the base <base-dir>/.goal/<goal_id>/ directory.
-base_dir: std.fs.Dir,
+/// <base-dir>/.goal/<goal_id>/
+base: Dir,
 
-/// The absolute path to base <base-dir>/.goal/<goal_id>/ directory.
-base_path: []const u8,
+/// <base-dir>/.goal/<goal_id>/a/
+active: Dir,
 
-/// The absolute path to local .goal/ directory.
-local_path: []const u8,
+/// <base-dir>/.goal/<goal_id>/i/
+inactive: Dir,
 
-/// An open `std.fs.Dir` handle to the local .goal/ directory.
-local_dir: std.fs.Dir,
+/// <base-dir/.goal/<goal_id>/d/
+deleted: Dir,
+
+/// <project>/.goal/
+local: Dir,
 
 /// Opens the project directories <base-dir>/.goal/<goal_id>/ and <project>/.goal/.
 ///
@@ -39,37 +42,25 @@ local_dir: std.fs.Dir,
 /// defer dirs.close(allocator);
 /// ```
 pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
-    // get local dir
-    const local_path = local_path: {
+    // <project>/.goal/
+    var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
         // IDEA: perhaps we could detect other root-level project files as well
         const git_root = try git.projectRoot(alloc_, null);
         if (git_root) |root| {
             defer alloc_.free(root);
-            break :local_path try std.fs.path.join(alloc_, &[_][]const u8{ root, ".goal" });
+            const path = try std.fs.path.join(alloc_, &[_][]const u8{ root, ".goal" });
+            break :local try Dir.open(alloc_, path, opts_);
         }
         // `goal` only works in Git projects (for now)
         return error.NotAGitProject;
     };
-    // only free this if some other error occurs - otherwise it will be freed in `close()`
-    errdefer alloc_.free(local_path);
-
-    // create local dir
-    if (opts_.create) {
-        std.fs.makeDirAbsolute(local_path) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => {
-                std.debug.print("\nUnable to create local goal directory: {s}\n", .{local_path});
-                return err;
-            },
-        };
-    }
-    // TODO: test access - fail with proper error message
+    errdefer local.close(alloc_);
 
     // get the goal id
     var goal_id: [uuid.SLICE_LEN]u8 = undefined;
     uuid_blk: {
-        const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ local_path, ".goal_id" });
+        const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ local.path, ".goal_id" });
         defer alloc_.free(goal_id_path);
 
         // open the goal id file
@@ -104,53 +95,53 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
         _ = try reader.interface.readSliceAll(&goal_id);
     }
 
-    // get <base-dir>/<goal_id>/
-    const base_path = base_path: {
+    // <base-dir>/.goal/<goal_id>/
+    var base = base: {
         var config = try Config.load(alloc_);
         defer config.deinit();
-        break :base_path try std.fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
+        const path = try std.fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
+        break :base try Dir.open(alloc_, path, opts_);
     };
-    // only free this if some other error occurs - otherwise it will be freed in `close()`
-    errdefer alloc_.free(base_path);
+    errdefer base.close(alloc_);
 
-    // create <base-dir>/<goal_id>/
-    if (opts_.create) {
-        std.fs.makeDirAbsolute(base_path) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => {
-                std.debug.print("\nUnable to create base goal directory: {s}\n", .{base_path});
-                return err;
-            },
-        };
-    }
-
-    var base_dir = std.fs.openDirAbsolute(base_path, .{ .iterate = opts_.iterate }) catch |err| {
-        std.debug.print("\nUnable to open base directory: {s}\n", .{base_path});
-        return err;
+    // <base-dir>/.goal/<goal_id>/a/
+    var active = active: {
+        const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "a" });
+        break :active try Dir.open(alloc_, path, opts_);
     };
-    // only close this if some other error occurs - otherwise it will be freed in `close()`
-    errdefer base_dir.close();
+    errdefer active.close(alloc_);
 
-    const local_dir = std.fs.openDirAbsolute(local_path, .{}) catch |err| {
-        std.debug.print("\nUnable to open local directory: {s}\n", .{local_path});
-        return err;
+    // <base-dir>/.goal/<goal_id>/i/
+    var inactive = inactive: {
+        const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "i" });
+        break :inactive try Dir.open(alloc_, path, opts_);
     };
+    errdefer inactive.close(alloc_);
+
+    // <base-dir>/.goal/<goal_id>/d/
+    const deleted = deleted: {
+        const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "d" });
+        break :deleted try Dir.open(alloc_, path, opts_);
+    };
+    // errdefer deleted.deinit(alloc_);
     // last thing to fail - no need for errdefer close
 
     return .{
-        .base_dir = base_dir,
-        .base_path = base_path,
-        .local_path = local_path,
-        .local_dir = local_dir,
+        .base = base,
+        .active = active,
+        .inactive = inactive,
+        .deleted = deleted,
+        .local = local,
     };
 }
 
 /// Close the project directory.
 pub fn close(self_: *Directories, alloc_: std.mem.Allocator) void {
-    self_.base_dir.close();
-    self_.local_dir.close();
-    alloc_.free(self_.base_path);
-    alloc_.free(self_.local_path);
+    self_.base.close(alloc_);
+    self_.active.close(alloc_);
+    self_.inactive.close(alloc_);
+    self_.deleted.close(alloc_);
+    self_.local.close(alloc_);
 }
 
 /// List all goals in the project directory.
@@ -161,14 +152,16 @@ pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.W
 
     var count: u8 = 0;
     var found_active = false;
-    var iter = self_.base_dir.iterate();
+    var iter = self_.base.dir.iterate();
     while (try iter.next()) |entry| {
+        //TEMP
+        if (entry.kind == .directory) continue;
         if (std.mem.eql(u8, "m", entry.name) or std.mem.eql(u8, "t", entry.name)) continue;
 
         // only count if we're not looking at m or t files
         count += 1;
 
-        var goal = try Goal.init(alloc_, self_.base_dir, .{ .str = entry.name }, .{});
+        var goal = try Goal.init(alloc_, self_.base.dir, .{ .str = entry.name }, .{});
         defer goal.deinit(alloc_);
 
         const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10); // TODO: can `goal.id` just be an int instead of a string?
@@ -192,7 +185,7 @@ pub fn listSome(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.
 
     var found_active = false;
     for (goals_) |id| {
-        var goal = try Goal.init(alloc_, self_.base_dir, .{ .str = id }, .{});
+        var goal = try Goal.init(alloc_, self_.base.dir, .{ .str = id }, .{});
         defer goal.deinit(alloc_);
 
         const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
@@ -207,3 +200,39 @@ pub fn listSome(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.
         try stdout_.writeAll("\n(* marks the active goal)\n");
     }
 }
+
+pub const Dir = struct {
+    dir: std.fs.Dir,
+    path: []const u8,
+
+    /// Takes ownership of `path_` memory.
+    pub fn open(alloc_: std.mem.Allocator, path_: []const u8, opts_: Options) !Dir {
+        errdefer alloc_.free(path_);
+
+        const dir = dir: {
+            if (opts_.create) {
+                std.fs.makeDirAbsolute(path_) catch |err| switch (err) {
+                    error.PathAlreadyExists => {},
+                    else => {
+                        std.debug.print("\nUnable to create directory: {s}\n", .{path_});
+                        return err;
+                    },
+                };
+            }
+            break :dir std.fs.openDirAbsolute(path_, .{ .iterate = opts_.iterate }) catch |err| {
+                std.debug.print("\nUnable to open directory: {s}\n", .{path_});
+                return err;
+            };
+        };
+
+        return .{
+            .dir = dir,
+            .path = path_,
+        };
+    }
+
+    pub fn close(self_: *Dir, alloc_: std.mem.Allocator) void {
+        self_.dir.close();
+        alloc_.free(self_.path);
+    }
+};

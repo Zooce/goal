@@ -78,7 +78,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directorie
         // delete the file but do this after the "active goal" stuff in case that
         // stuff fails so we're not in a corrupted state where we still have an
         // active goal but the file for it doesn't exist
-        try dirs_.base_dir.deleteFile(id);
+        try dirs_.base.dir.deleteFile(id);
     }
 
     try stdout_.writeAll("\nAll done! Smell ya later!\n");

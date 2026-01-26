@@ -111,7 +111,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
         });
     }
 
-    var goal = args_._goal orelse try Goal.init(alloc_, dirs.base_dir, .{ .str = id }, .{});
+    var goal = args_._goal orelse try Goal.init(alloc_, dirs.base.dir, .{ .str = id }, .{});
     defer if (args_._goal == null) goal.deinit(alloc_);
     var commit_file = try CommitFile.create(alloc_, dirs, .{ .goal = goal, .completed = args_.complete, .message = args_.message });
     defer commit_file.delete(alloc_);
@@ -132,7 +132,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
 
     if (args_.complete) {
         // delete the goal file after everything else is okay
-        dirs.base_dir.deleteFile(id) catch |err| {
+        dirs.base.dir.deleteFile(id) catch |err| {
             std.debug.print("\nUnable to delete Goal #{s}\n", .{id});
             return err;
         };

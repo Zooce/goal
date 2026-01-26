@@ -15,7 +15,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
 
     if (file_name.len == 0) return Command.edit.missingArgument();
 
-    dirs.base_dir.access(file_name, .{}) catch |err| switch (err) {
+    dirs.base.dir.access(file_name, .{}) catch |err| switch (err) {
         error.FileNotFound => return Command.edit.fileNotFound(file_name),
         else => return err,
     };
@@ -23,7 +23,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     // TODO: from here........
 
     // open the new goal file in an editor
-    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.base_path, file_name });
+    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.base.path, file_name });
     defer alloc_.free(file_path);
 
     // Use configurable editor
@@ -35,7 +35,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     _ = try editor.spawnAndWait();
 
     // empty file check
-    var goal = try Goal.init(alloc_, dirs.base_dir, .{ .str = file_name }, .{});
+    var goal = try Goal.init(alloc_, dirs.base.dir, .{ .str = file_name }, .{});
     defer goal.deinit(alloc_);
 
     // TODO: ........to here the code is basically the same as in `new`

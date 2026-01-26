@@ -197,7 +197,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
         defer if (args.id_type) |id_type| if (id_type != .id) alloc_.free(file_name);
 
         if (file_name.len == 0) return Command.start.missingArgument();
-        break :goal try Goal.init(alloc_, dirs.base_dir, .{ .str = file_name }, .{});
+        break :goal try Goal.init(alloc_, dirs.base.dir, .{ .str = file_name }, .{});
     };
     defer goal.deinit(alloc_);
 
@@ -252,7 +252,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
 
                 // don't forget about the .goal_id file too
 
-                const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.local_path, ".goal_id" });
+                const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.local.path, ".goal_id" });
                 defer alloc_.free(goal_id_path);
 
                 const worktree_goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".goal_id" });

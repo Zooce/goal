@@ -24,7 +24,7 @@ const M = struct {
 /// Load the `~/.goal/<goal_id>/m` file and local `.goal/.active_id` file.
 pub fn load(alloc_: std.mem.Allocator, dirs_: Directories) !Meta {
     // Load global metadata from m file
-    const meta_file = dirs_.base_dir.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0) catch |err| switch (err) {
+    const meta_file = dirs_.base.dir.readFileAllocOptions(alloc_, "m", std.math.maxInt(usize), null, .of(u8), 0) catch |err| switch (err) {
         error.FileNotFound => {
             std.debug.print("\nThe 'm' file doesn't exist! Run `goal init`.\n", .{});
             return err;
@@ -43,7 +43,7 @@ pub fn load(alloc_: std.mem.Allocator, dirs_: Directories) !Meta {
     defer std.zon.parse.free(alloc_, m);
 
     // TODO: consider making this it's own file ActiveGoal.load()
-    const active_id = try loadActiveId(dirs_.local_dir);
+    const active_id = try loadActiveId(dirs_.local.dir);
 
     return .{
         .next_id = m.next_id,
@@ -56,7 +56,7 @@ pub fn load(alloc_: std.mem.Allocator, dirs_: Directories) !Meta {
 pub fn store(self_: Meta) !void {
     {
         // Store global metadata (next_id only)
-        const meta_file = try self_._dirs.base_dir.createFile("~m", .{});
+        const meta_file = try self_._dirs.base.dir.createFile("~m", .{});
         defer meta_file.close();
 
         var write_buffer: [64]u8 = undefined;
@@ -70,15 +70,15 @@ pub fn store(self_: Meta) !void {
         try writer.interface.flush();
         try meta_file.sync();
 
-        try std.fs.rename(self_._dirs.base_dir, "~m", self_._dirs.base_dir, "m");
+        try std.fs.rename(self_._dirs.base.dir, "~m", self_._dirs.base.dir, "m");
     }
 
-    const prev_active_id = try loadActiveId(self_._dirs.local_dir);
+    const prev_active_id = try loadActiveId(self_._dirs.local.dir);
     if (self_.active_id == prev_active_id) return;
 
     // Store active_id in local .goal/.active_id file
     if (self_.active_id) |active_id| {
-        const active_file = try self_._dirs.local_dir.createFile("~.active_id", .{});
+        const active_file = try self_._dirs.local.dir.createFile("~.active_id", .{});
         defer active_file.close();
 
         var active_buffer: [8]u8 = undefined;
@@ -90,10 +90,10 @@ pub fn store(self_: Meta) !void {
         try writer.interface.flush();
         try active_file.sync();
 
-        try std.fs.rename(self_._dirs.local_dir, "~.active_id", self_._dirs.local_dir, ".active_id");
+        try std.fs.rename(self_._dirs.local.dir, "~.active_id", self_._dirs.local.dir, ".active_id");
     } else {
         // Remove .active_id file if no active goal
-        self_._dirs.local_dir.deleteFile(".active_id") catch |err| switch (err) {
+        self_._dirs.local.dir.deleteFile(".active_id") catch |err| switch (err) {
             error.FileNotFound => {}, // ignore
             else => {
                 std.debug.print("Unable to delete .active_id!", .{});
