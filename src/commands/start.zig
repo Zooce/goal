@@ -284,7 +284,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
             const commit_subject = try std.fmt.allocPrint(alloc_, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
             defer alloc_.free(commit_subject);
 
-            break :file try CommitFile.create(alloc_, dirs, .{ .goal_id = goal.id, .message = commit_subject });
+            break :file try CommitFile.create(alloc_, dirs, .{ .goal = goal, .message = commit_subject });
         };
         defer commit_file.delete(alloc_);
 
@@ -334,7 +334,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
         var commit_file = file: {
             const commit_subject = try std.fmt.allocPrint(alloc_, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
             defer alloc_.free(commit_subject);
-            break :file try CommitFile.create(alloc_, dirs, .{ .goal_id = goal.id, .message = commit_subject });
+            break :file try CommitFile.create(alloc_, dirs, .{ .goal = goal, .message = commit_subject });
         };
         defer commit_file.delete(alloc_);
 

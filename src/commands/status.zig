@@ -30,7 +30,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     const meta = try Meta.load(alloc_, dirs);
 
     if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{ .incl_desc = true });
+        var goal = try Goal.init(alloc_, dirs.base_dir, .{ .num = id }, .{});
         defer goal.deinit(alloc_);
 
         try goal.tag(stdout_);

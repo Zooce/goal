@@ -8,7 +8,7 @@ const Goal = @import("Goal.zig");
 
 /// Options for creating the commit file.
 pub const Options = struct {
-    goal_id: []const u8,
+    goal: Goal,
     completed: bool = false,
     message: ?[]const u8 = null,
 };
@@ -24,14 +24,11 @@ path: []const u8,
 /// Example:
 ///
 /// ```zig
-/// var commit_file = try CommitFile.create(allocator, dirs, .{ .goal_id = "42" });
+/// var commit_file = try CommitFile.create(allocator, dirs, .{ .goal = goal });
 /// defer commit_file.delete(allocator);
 /// // use `commit_file.path`
 /// ```
 pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !CommitFile {
-    var goal = try Goal.init(alloc_, dirs_.base_dir, .{ .str = opts_.goal_id }, .{});
-    defer goal.deinit(alloc_);
-
     const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs_.local_path, "t" });
     errdefer alloc_.free(template_path);
 
@@ -50,9 +47,9 @@ pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !Co
     defer alloc_.free(email);
 
     try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{
-        goal.id,
+        opts_.goal.id,
         email,
-        goal.title,
+        opts_.goal.title,
         if (opts_.completed) " (completed)" else "",
     });
 

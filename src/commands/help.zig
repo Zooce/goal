@@ -503,26 +503,17 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\The `commit` Command
             \\
             \\
-            \\Commits (saves) all staged files with a goal tag in the commit message.
-            \\
-            \\If neither a goal ID or the `--pick` option is given then the active goal is
-            \\chosen by default. If there is no active goal then the list of goals is shown
-            \\and one must be chosen.
+            \\Commits (saves) all staged files with the active goal tag in the commit message.
             \\
             \\
             \\Alias: `save`
             \\
             \\Usage:
             \\
-            \\    goal commit [id | --pick] [--complete]
-            \\
-            \\Arguments:
-            \\
-            \\    [id]            The goal ID (optional).
+            \\    goal commit [--complete] [-m <message>]
             \\
             \\Options:
             \\
-            \\    --pick          Pick a goal ID from the list of goals.
             \\    --complete      Also complete the goal.
             \\    -m <message>    Like `git commit -m <message>`. Be careful of
             \\                    the type of quotes you use around <message>.

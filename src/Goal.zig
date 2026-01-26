@@ -49,7 +49,7 @@ description: ?[]const u8,
 ///     defer goal.deinit(allocator);
 /// }
 /// ```
-pub fn init(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, id_: Id, opts_: Options) !Goal {
+pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: Id, opts_: Options) !Goal {
     // id_ is the file name
     const goal_id = id: {
         switch (id_) {
@@ -66,7 +66,7 @@ pub fn init(alloc_: std.mem.Allocator, base_dir_: std.fs.Dir, id_: Id, opts_: Op
     };
     errdefer alloc_.free(goal_id);
 
-    const goal_file = base_dir_.openFile(goal_id, .{}) catch |err| {
+    const goal_file = dir_.openFile(goal_id, .{}) catch |err| {
         std.debug.print("\nUnable to open goal file: {s}\n", .{goal_id});
         return err;
     };

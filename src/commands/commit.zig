@@ -13,21 +13,22 @@ const Command = @import("../commands.zig").Command;
 const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const CommitFile = @import("../CommitFile.zig");
+const Goal = @import("../Goal.zig");
 
 const Args = struct {
-    id: ?[]const u8 = null,
-    pick: bool = false,
     complete: bool = false,
     message: ?[]const u8 = null,
 
     /// For internal use only.
     _worktree_path: ?[]const u8 = null,
+
+    /// For internal use only.
+    _goal: ?Goal = null,
 };
 
 /// Parses `goal commit` arguments.
 ///
-/// If a goal ID or message is given, the caller is responsible for freeing that
-/// memory.
+/// If a message is given, the caller is responsible for freeing that memory.
 ///
 /// Example:
 ///
@@ -36,7 +37,6 @@ const Args = struct {
 ///     .help => return try help.run(.commit, stdout),
 ///     .args => |_args| _args,
 /// };
-/// defer if (cmd_args.id) |id| allocator.free(id);
 /// defer if (cmd_args.message) |msg| allocator.free(msg);
 /// ```
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
@@ -54,16 +54,6 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             .help => return .help,
             else => return Command.commit.unexpectedSubcommand(sub),
         } else |_| {} // ignore error
-
-        if (std.mem.eql(u8, arg, "--pick")) {
-            if (args.pick) return error.DuplicateArgument;
-            if (args.id != null) {
-                std.debug.print("\nYou can't give a goal ID and the `--pick` option together.\n", .{});
-                return error.MutuallyExclusiveArguments;
-            }
-            args.pick = true;
-            continue;
-        }
 
         if (std.mem.eql(u8, arg, "--complete")) {
             if (args.complete) return error.DuplicateArgument;
@@ -83,20 +73,6 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                 return error.MissingArgument;
             }
         }
-
-        _ = std.fmt.parseInt(u8, arg, 10) catch {
-            std.debug.print("\n\"{s}\" is not a valid goal ID\n", .{arg});
-            return error.InvalidGoalId;
-        };
-        if (args.id != null) {
-            std.debug.print("\nThere's too many goal IDs!\n", .{});
-            return error.TooManyGoalIds;
-        }
-        if (args.pick) {
-            std.debug.print("\nYou can't give a goal ID and the `--pick` option together.\n", .{});
-            return error.MutuallyExclusiveArguments;
-        }
-        args.id = try alloc_.dupe(u8, arg); // has to be freed by caller
     }
 
     return .{ .args = args };
@@ -116,14 +92,11 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
 
     var meta = try Meta.load(alloc_, dirs);
 
-    const id = args_.id orelse id: {
-        if (args_.pick or meta.active_id == null) {
-            break :id try cli.getGoalChoice(alloc_, stdout_, dirs);
-        }
+    const id = id: {
         if (meta.active_id) |id| {
             break :id try std.fmt.allocPrint(alloc_, "{d}", .{id});
         }
-        return error.NoGoalIdForCommit;
+        return error.NoActiveGoal;
     };
     defer alloc_.free(id);
 
@@ -138,7 +111,9 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
         });
     }
 
-    var commit_file = try CommitFile.create(alloc_, dirs, .{ .goal_id = id, .completed = args_.complete, .message = args_.message });
+    var goal = args_._goal orelse try Goal.init(alloc_, dirs.base_dir, .{ .str = id }, .{});
+    defer if (args_._goal == null) goal.deinit(alloc_);
+    var commit_file = try CommitFile.create(alloc_, dirs, .{ .goal = goal, .completed = args_.complete, .message = args_.message });
     defer commit_file.delete(alloc_);
 
     if (args_.message == null) {

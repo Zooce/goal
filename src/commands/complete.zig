@@ -23,7 +23,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
         if (try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
             if (try cli.confirm(stdout_, "\nCommit staged changes as part of completing this goal?")) {
-                try commit.run(alloc_, stdout_, .{ .id = goal.id, .complete = true });
+                try commit.run(alloc_, stdout_, .{ ._goal = goal, .complete = true });
                 try stdout_.writeAll("\nCongrats! You did it.\n");
             } else if (try cli.confirm(stdout_, "\nComplete the goal anyways?")) {
                 meta.active_id = null;
