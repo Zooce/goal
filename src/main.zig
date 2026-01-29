@@ -1,8 +1,6 @@
 const std = @import("std");
 const commands = @import("commands.zig");
 const args = @import("args.zig");
-const cli = @import("cli.zig");
-const Directories = @import("Directories.zig");
 
 pub fn main() !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
@@ -146,25 +144,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
             const file_name = try commands.new.run(alloc_, stdout_, title);
             defer alloc_.free(file_name);
         },
-        .show => {
-            // goal show
-            // goal show 3
-            // goal show -h
-            // goal show --help 3
-            // goal show 3 help
-
-            const id = id: {
-                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |x| switch (x) {
-                    .arg => |arg| break :id arg,
-                    .help => return try commands.help.run(stdout_, cmd_),
-                };
-                break :id null;
-            };
-            defer if (id) |_id| alloc_.free(_id);
-
-            try commands.show.run(alloc_, stdout_, id);
-        },
-        .edit => {
+        .edit, .open => {
             // goal edit
             // goal edit 3
             // goal edit -h

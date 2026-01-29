@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const cli = @import("../cli.zig");
 const Directories = @import("../Directories.zig");
 
 /// List all goals showing their ID and title.

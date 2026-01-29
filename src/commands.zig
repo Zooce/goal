@@ -14,7 +14,6 @@ pub const list = @import("commands/list.zig");
 pub const complete = @import("commands/complete.zig");
 pub const stop = @import("commands/stop.zig");
 pub const new = @import("commands/new.zig");
-pub const show = @import("commands/show.zig");
 pub const edit = @import("commands/edit.zig");
 pub const delete = @import("commands/delete.zig");
 pub const start = @import("commands/start.zig");
@@ -31,8 +30,10 @@ pub const Command = enum {
     status,
     complete,
     new,
-    show,
+
     edit,
+    open,
+
     delete,
     start,
     stop,

@@ -5,8 +5,8 @@ const Command = @import("../commands.zig").Command;
 const git = @import("../git.zig");
 const help = @import("help.zig");
 
+const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
-const Meta = @import("../Meta.zig");
 
 const ArgsOrHelp = union(enum) {
     args: std.ArrayList([]const u8),
@@ -44,8 +44,6 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     };
     defer args.deinit(alloc_);
 
-    try git.requireGitProject(alloc_);
-
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.unstaged} })) {
         std.debug.print("\nThere are no unstaged changes to discard.\n\nHint: You can only discard unstaged changes.\n", .{});
         return error.NoUnstagedChanges;
@@ -54,12 +52,14 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
-    const meta = try Meta.load(alloc_, dirs);
-    if (meta.active_id == null) {
-        std.debug.print("\nYou must start a goal to use this command!\n", .{});
-        return error.NoActiveGoal;
+    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    if (active_id) |id| {
+        alloc_.free(id); // don't need it
+        try git.run(alloc_, stdout_, .{ .argv = args.items });
+        try git.status(alloc_, stdout_);
+        return;
     }
 
-    try git.run(alloc_, stdout_, .{ .argv = args.items });
-    try git.status(alloc_, stdout_);
+    std.debug.print("\nYou must start a goal to use this command!\n", .{});
+    return error.NoActiveGoal;
 }

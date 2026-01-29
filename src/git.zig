@@ -56,28 +56,6 @@ test "getGitRoot - returns the parent of the .git/ directory" {
     try std.testing.expect(git_root != null);
 }
 
-pub fn isGitProject(alloc_: std.mem.Allocator) !bool {
-    if (try projectRoot(alloc_, null)) |root| {
-        alloc_.free(root);
-        return true;
-    }
-    return false;
-}
-
-pub fn requireGitProject(alloc_: std.mem.Allocator) !void {
-    if (!try isGitProject(alloc_)) {
-        std.debug.print(
-            \\
-            \\Looks like this isn't a Git project.
-            \\
-            \\To use this command you'll need to install Git (https://git-scm.com) and run
-            \\`git init`.
-            \\
-        , .{});
-        return error.NotAGitProject;
-    }
-}
-
 pub fn init(alloc_: std.mem.Allocator, cwd_: ?[]const u8) !void {
     const argv = [_][]const u8{ "git", "init" };
     const res = try std.process.Child.run(.{

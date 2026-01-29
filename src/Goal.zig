@@ -5,12 +5,9 @@ const std = @import("std");
 /// Options for initializing a goal.
 pub const Options = struct {
     incl_desc: bool = false,
-};
 
-/// The ID as either a u8 or []const u8.
-pub const Id = union(enum) {
-    num: u8,
-    str: []const u8,
+    // Don't print error messages.
+    quiet: bool = false,
 };
 
 /// The goal ID.
@@ -24,9 +21,8 @@ description: ?[]const u8,
 
 /// Initializes a `Goal` by reading in it's file contents.
 ///
-/// The `id` will allocate it's own memory so if `.str` is given and memory
-/// for it was allocated outside this function, then the caller is still
-/// responsible for freeing it on their own.
+/// A copy of the given id is made, so the caller is still responsible for
+/// freeing its memory.
 ///
 /// Example:
 ///
@@ -34,40 +30,16 @@ description: ?[]const u8,
 /// const dirs = Directories.open(allocator, .{});
 /// defer dirs.close(allocator);
 ///
-/// // .num example
-/// {
-///     const id: u8 = 5;
-///     var goal = try Goal.init(allocator, dirs.base_dir, .{ .num = id }, .{});
-///     defer goal.deinit(allocator);
-/// }
-///
-/// // .str example
 /// {
 ///     const id = try std.fmt.allocPrint(allocator, "{d}", .{5});
 ///     defer allocator.free(id); // Goal.init does NOT take ownership of this
-///     var goal = try Goal.init(allocator, dirs.base_dir, .{ .str = id }, .{});
+///     var goal = try Goal.init(allocator, dirs.base_dir, id, .{});
 ///     defer goal.deinit(allocator);
 /// }
 /// ```
-pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: Id, opts_: Options) !Goal {
-    // id_ is the file name
-    const goal_id = id: {
-        switch (id_) {
-            .num => |num| break :id try std.fmt.allocPrint(alloc_, "{d}", .{num}),
-            .str => |str| {
-                _ = std.fmt.parseInt(u8, str, 10) catch |err| {
-                    std.debug.print("\nInvalid goal file name: {s}\n", .{str});
-                    return err;
-                };
-
-                break :id try alloc_.dupe(u8, str);
-            },
-        }
-    };
-    errdefer alloc_.free(goal_id);
-
-    const goal_file = dir_.openFile(goal_id, .{}) catch |err| {
-        std.debug.print("\nUnable to open goal file: {s}\n", .{goal_id});
+pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: []const u8, opts_: Options) !Goal {
+    const goal_file = dir_.openFile(id_, .{}) catch |err| {
+        if (!opts_.quiet) std.debug.print("\nUnable to open goal file: {s}\n", .{id_});
         return err;
     };
     defer goal_file.close();
@@ -75,6 +47,7 @@ pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: Id, opts_: Options
     var read_buffer: [1024]u8 = undefined;
     var file_reader = goal_file.reader(&read_buffer);
 
+    // TODO: I think I can use takeDelimiterExclusive('\n') instead of all this streaming stuff
     var stream_writer = std.io.Writer.Allocating.init(alloc_);
     defer stream_writer.deinit();
 
@@ -100,7 +73,7 @@ pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: Id, opts_: Options
     }
 
     return .{
-        .id = goal_id,
+        .id = try alloc_.dupe(u8, id_),
         .title = title,
         .description = description,
     };

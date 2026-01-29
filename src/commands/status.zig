@@ -5,8 +5,8 @@ const stringToCommand = @import("../args.zig").stringToCommand;
 const help = @import("help.zig");
 const Command = @import("../commands.zig").Command;
 
+const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
-const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
@@ -27,20 +27,17 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
-    const meta = try Meta.load(alloc_, dirs);
+    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    defer if (active_id) |id| alloc_.free(id);
 
-    if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.base.dir, .{ .num = id }, .{});
+    if (active_id) |id| {
+        var goal = try Goal.init(alloc_, dirs.active.dir, id, .{});
         defer goal.deinit(alloc_);
 
         try goal.tag(stdout_);
 
-        if (try git.isGitProject(alloc_)) {
-            try git.logGrep(alloc_, stdout_, goal.id);
-            try git.status(alloc_, stdout_);
-        } else {
-            try stdout_.writeAll("\nHint: You can get more info here if you `git init` :)\n");
-        }
+        try git.logGrep(alloc_, stdout_, goal.id);
+        try git.status(alloc_, stdout_);
     } else {
         try stdout_.writeAll("\nOh my... it looks like there's no active goal :). Bye now!\n");
     }

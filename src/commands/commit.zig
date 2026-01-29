@@ -1,8 +1,5 @@
 const std = @import("std");
 
-const help = @import("help.zig");
-
-const cli = @import("../cli.zig");
 const git = @import("../git.zig");
 
 const ArgIter = @import("../args.zig").ArgIter;
@@ -10,8 +7,8 @@ const stringToCommand = @import("../args.zig").stringToCommand;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const Command = @import("../commands.zig").Command;
 
+const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
-const Meta = @import("../Meta.zig");
 const CommitFile = @import("../CommitFile.zig");
 const Goal = @import("../Goal.zig");
 
@@ -79,9 +76,6 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !void {
-    // TODO: consider requiring git for everything
-    try git.requireGitProject(alloc_);
-
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         std.debug.print("\nCan't commit without staged changes.\n", .{});
         return error.NoStagedChanges;
@@ -90,19 +84,21 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, dirs);
+    var goal = args_._goal orelse goal: {
+        const id = id: {
+            if (try ActiveId.load(alloc_, dirs.local.dir)) |id| {
+                break :id id;
+            }
+            return error.NoActiveGoal;
+        };
+        defer alloc_.free(id);
 
-    const id = id: {
-        if (meta.active_id) |id| {
-            break :id try std.fmt.allocPrint(alloc_, "{d}", .{id});
-        }
-        return error.NoActiveGoal;
+        break :goal try Goal.init(alloc_, dirs.active.dir, id, .{});
     };
-    defer alloc_.free(id);
+    defer if (args_._goal == null) goal.deinit(alloc_);
 
     if (args_.complete) {
-        meta.active_id = null;
-        try meta.store();
+        try ActiveId.clear(dirs.local.dir);
 
         // stage active id deletion
         try git.run(alloc_, stdout_, .{
@@ -111,12 +107,13 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
         });
     }
 
-    var goal = args_._goal orelse try Goal.init(alloc_, dirs.base.dir, .{ .str = id }, .{});
-    defer if (args_._goal == null) goal.deinit(alloc_);
     var commit_file = try CommitFile.create(alloc_, dirs, .{ .goal = goal, .completed = args_.complete, .message = args_.message });
     defer commit_file.delete(alloc_);
 
     if (args_.message == null) {
+        try stdout_.writeAll("\n");
+        try stdout_.flush();
+
         var proc = std.process.Child.init(&[_][]const u8{ "git", "commit", "-t", commit_file.path, "--edit" }, alloc_);
         switch (try proc.spawnAndWait()) {
             .Exited => |code| if (code != 0) return error.GitCommitError,
@@ -131,9 +128,8 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     // TODO: show `goal status` after commit ?? if not --complete
 
     if (args_.complete) {
-        // delete the goal file after everything else is okay
-        dirs.base.dir.deleteFile(id) catch |err| {
-            std.debug.print("\nUnable to delete Goal #{s}\n", .{id});
+        std.fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id) catch |err| {
+            std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
             return err;
         };
     }

@@ -1,8 +1,9 @@
 const std = @import("std");
 
 const cli = @import("../cli.zig");
+const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
-const Meta = @import("../Meta.zig");
+const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const ArgIter = @import("../args.zig").ArgIter;
@@ -49,19 +50,79 @@ fn parseArgs(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter
     }
 
     if (ids.items.len == 0) {
-        try cli.getGoalChoices(alloc_, stdout_, dirs_, &ids);
-    }
+        if (try dirs_.inactive.list(alloc_, stdout_) == 0) {
+            std.debug.print(
+                \\
+                \\Sorry, but you can only delete goals that are currently
+                \\inactive and it turns out ther earen't any right now.
+                \\
+                \\Run `goal list` to see the set of goals.
+                \\
+            , .{});
+            return error.NoInactiveGoalsToDelete;
+        }
+        if (try cli.getAnswer(alloc_, stdout_, "\nChoose goals (space or comma separated list of numbers)")) |answer| {
+            var choices = std.mem.splitAny(u8, answer, ", \t");
 
-    if (ids.items.len == 0) return Self.missingArgument();
+            var count: u8 = 0;
+            while (choices.next()) |choice| {
+                if (choice.len == 0) continue;
+                count += 1;
+                dirs_.inactive.dir.access(choice, .{}) catch |err| {
+                    std.debug.print(
+                        \\
+                        \\Hold on there buddy! '{s}' isn't in the list, so get it together and try again.
+                        \\
+                        \\(I'm not even going to try the rest...)
+                        \\
+                    , .{choice});
+                    return err;
+                };
+                try ids.append(alloc_, choice);
+            }
+
+            if (count == 0) {
+                std.debug.print("\nOkay... cool bro...\n", .{});
+                return error.NoGoalChosen;
+            }
+        } else {
+            std.debug.print("\nI guess no choice is as good as any. See ya!\n", .{});
+            return error.NoGoalChosen;
+        }
+    } else {
+        // make sure the ids are inactive
+        const active_id = try ActiveId.load(alloc_, dirs_.local.dir);
+        defer if (active_id) |id| alloc_.free(id);
+        for (ids.items) |id| {
+            if (active_id) |active| if (std.mem.eql(u8, active, id)) {
+                std.debug.print(
+                    \\
+                    \\Goal #{s} is active in your current branch!
+                    \\
+                    \\Either stop or complete the goal first.
+                    \\
+                , .{active});
+                return error.CannotDeleteActiveGoal;
+            };
+            dirs_.inactive.dir.access(id, .{}) catch |err| {
+                dirs_.active.dir.access(id, .{}) catch return err;
+                std.debug.print("\nGoal #{s} is already active in another branch!\n", .{id});
+                return error.CannotDeleteActiveGoal;
+            };
+        }
+    }
 
     return .{ .args = ids };
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories, ids_: std.ArrayList([]const u8)) !void {
-    var meta = try Meta.load(alloc_, dirs_);
+    try stdout_.writeAll("\nHere's what I'm going to delete:\n\n");
 
-    try stdout_.writeAll("\nHere's what I'm going to delete:\n");
-    try dirs_.listSome(alloc_, stdout_, ids_.items);
+    for (ids_.items) |id| {
+        var goal = try Goal.init(alloc_, dirs_.inactive.dir, id, .{});
+        defer goal.deinit(alloc_);
+        try stdout_.print("  {s}. {s}\n", .{ goal.id, goal.title });
+    }
 
     if (!try cli.confirm(stdout_, "\nShould I proceed?")) {
         try stdout_.writeAll("\nMaybe next time then, friend!\n");
@@ -69,16 +130,22 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directorie
     }
 
     for (ids_.items) |id| {
-        // we might de deleting the active goal
-        if (meta.active_id) |active| if (active == try std.fmt.parseInt(u8, id, 10)) {
-            meta.active_id = null;
-            try meta.store();
+        std.fs.rename(dirs_.inactive.dir, id, dirs_.deleted.dir, id) catch |err| {
+            std.debug.print("\nUnable to delete goal {s}.\n", .{id});
+            return err;
         };
+    }
 
-        // delete the file but do this after the "active goal" stuff in case that
-        // stuff fails so we're not in a corrupted state where we still have an
-        // active goal but the file for it doesn't exist
-        try dirs_.base.dir.deleteFile(id);
+    // we might de deleting the active goal
+    const active_id = try ActiveId.load(alloc_, dirs_.local.dir);
+    if (active_id) |active| {
+        defer alloc_.free(active);
+        for (ids_.items) |deleted| {
+            if (std.mem.eql(u8, active, deleted)) {
+                try ActiveId.clear(dirs_.local.dir);
+                break;
+            }
+        }
     }
 
     try stdout_.writeAll("\nAll done! Smell ya later!\n");

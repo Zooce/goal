@@ -2,14 +2,13 @@ const std = @import("std");
 
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const optionalArgOrHelp2 = @import("../args.zig").optionalArgOrHelp;
 const stringToCommand2 = @import("../args.zig").stringToCommand2;
 const cli = @import("../cli.zig");
 const Command = @import("../commands.zig").Command;
 const CommitFile = @import("../CommitFile.zig");
 const git = @import("../git.zig");
 const Goal = @import("../Goal.zig");
-const Meta = @import("../Meta.zig");
+const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const new = @import("new.zig");
 
@@ -189,19 +188,54 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
     defer dirs.close(alloc_);
 
     var goal = goal: {
-        const file_name = if (args.id_type) |id_type| switch (id_type) {
-            .id => |_id| _id,
-            .new => |_new| try new.run(alloc_, stdout_, _new.title),
-        } else try cli.getGoalChoice(alloc_, stdout_, dirs);
+        const file_name = file_name: {
+            if (args.id_type) |id_type| {
+                break :file_name switch (id_type) {
+                    .id => |_id| _id,
+                    .new => |_new| try new.run(alloc_, stdout_, _new.title),
+                };
+            } else {
+                if (try dirs.inactive.list(alloc_, stdout_) == 0) {
+                    std.debug.print(
+                        \\
+                        \\Sorry, but you can only start goals that are currently
+                        \\inactive and it turns out there aren't any right now.
+                        \\
+                        \\Run `goal list` to see the set of goals.
+                        \\
+                    , .{});
+                    return error.NoInactiveGoalsToStart;
+                }
+                if (try cli.getAnswer(alloc_, stdout_, "\nChoose a goal (type the number)")) |choice| {
+                    dirs.inactive.dir.access(choice, .{}) catch |err| {
+                        std.debug.print(
+                            \\
+                            \\So... either that goal isn't in the list or something crazy happened.
+                            \\
+                            \\Try again my friend!
+                            \\
+                        , .{});
+                        return err;
+                    };
+                    break :file_name choice;
+                }
+                std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
+                return error.NoGoalChosen;
+            }
+        };
 
         defer if (args.id_type) |id_type| if (id_type != .id) alloc_.free(file_name);
 
         if (file_name.len == 0) return Command.start.missingArgument();
-        break :goal try Goal.init(alloc_, dirs.base.dir, .{ .str = file_name }, .{});
+
+        break :goal try Goal.init(alloc_, dirs.inactive.dir, file_name, .{});
     };
     defer goal.deinit(alloc_);
 
-    var meta = try Meta.load(alloc_, dirs);
+    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    defer if (active_id) |id| alloc_.free(id);
+
+    // TODO: record undo git command in case errdefer
 
     // Handle branch/worktree creation before setting active goal
     if (args.worktree) |worktree_path| {
@@ -213,12 +247,14 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
                 try git.run(alloc_, stdout_, .{
                     .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, "-b", branch_name, base },
                 });
+                // UNDO: git worktree remove worktree_path + git branch -D branch_name ??
             } else {
                 // worktree + branch
                 try stdout_.print("\nCreating worktree at {s} with new branch '{s}'...\n", .{ worktree_path, branch_name });
                 try git.run(alloc_, stdout_, .{
                     .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, "-b", branch_name },
                 });
+                // UNDO: git worktree remove worktree_path + git branch -D branch_name ??
             }
         } else if (args.base_branch) |base| {
             // worktree + base
@@ -226,12 +262,14 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
             try git.run(alloc_, stdout_, .{
                 .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, base },
             });
+            // UNDO: git worktree remove worktree path
         } else {
             // worktree only
             try stdout_.print("\nCreating worktree at {s}...\n", .{worktree_path});
             try git.run(alloc_, stdout_, .{
                 .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path },
             });
+            // UNDO: git worktree remove worktree path
         }
 
         // update the active goal in the new worktree
@@ -260,6 +298,8 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
 
                 try std.fs.copyFileAbsolute(goal_id_path, worktree_goal_id_path, .{});
             }
+
+            try std.fs.rename(dirs.inactive.dir, goal.id, dirs.active.dir, goal.id);
 
             const active_id_file = file: {
                 const active_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".active_id" });
@@ -305,26 +345,32 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void
                 try git.run(alloc_, stdout_, .{
                     .argv = &[_][]const u8{ "git", "checkout", "-b", branch_name, base },
                 });
+                // UNDO: git branch -D branch_name ??
             } else {
                 // branch only
                 try stdout_.print("\nCreating branch {s}...\n", .{branch_name});
                 try git.run(alloc_, stdout_, .{
                     .argv = &[_][]const u8{ "git", "checkout", "-b", branch_name },
                 });
+                // UNDO: git branch -D branch_name ??
             }
 
             try stdout_.print("\nBranch created successfully!\n", .{});
         }
 
-        const new_active_id = try std.fmt.parseInt(u8, goal.id, 10);
-        if (new_active_id == meta.active_id) {
-            try stdout_.print("\nLooks like we're already working on Goal #{s}. Enjoy!\n", .{goal.id});
-            return;
+        // TODO: ensure id isn't already in a/ dir
+        if (active_id) |old_active_id| {
+            if (std.mem.eql(u8, goal.id, old_active_id)) {
+                try stdout_.print("\nLooks like we're already working on Goal #{s}. Enjoy!\n", .{goal.id});
+                return;
+            }
         }
 
+        try std.fs.rename(dirs.inactive.dir, goal.id, dirs.active.dir, goal.id);
+
         // Set active goal in current repo
-        meta.active_id = new_active_id;
-        try meta.store();
+        try ActiveId.store(dirs.local.dir, goal.id);
+        // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 
         // Commit in current repo
         try git.run(alloc_, stdout_, .{

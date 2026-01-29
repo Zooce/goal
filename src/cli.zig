@@ -34,7 +34,8 @@ pub fn getAnswer(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, prompt_: []
     try stdout_.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');
-    return if (answer.len > 0) try alloc_.dupe(u8, answer) else null;
+    const trimmed = std.mem.trim(u8, answer, " \t\r\n");
+    return if (trimmed.len > 0) try alloc_.dupe(u8, trimmed) else null;
 }
 
 /// Ask the user to input a number from the list of goals. The caller is responsible for
@@ -52,28 +53,4 @@ pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: 
     const answer = try reader.takeDelimiterExclusive('\n');
 
     return try alloc_.dupe(u8, std.mem.trim(u8, answer, ", \t\r\n"));
-}
-
-pub fn getGoalChoices(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories, choices: *std.ArrayList([]const u8)) !void {
-    try dirs_.listAll(alloc_, stdout_);
-
-    var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    try stdout_.writeAll("\nChoose goals (space or comma separated list of numbers): ");
-    try stdout_.flush();
-
-    const answer = try reader.takeDelimiterExclusive('\n');
-    var iter = std.mem.splitAny(u8, answer, ", \t");
-
-    // var choices: std.ArrayList([]const u8) = .empty;
-    // errdefer choices.deinit(alloc_);
-
-    while (iter.next()) |choice| {
-        if (choice.len == 0) continue;
-        try choices.append(alloc_, std.mem.trim(u8, choice, ", \t\r\n"));
-    }
-
-    // return choices;
 }

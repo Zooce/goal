@@ -1,5 +1,4 @@
 const std = @import("std");
-const builtin = @import("builtin");
 
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");

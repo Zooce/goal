@@ -1,24 +1,25 @@
 const std = @import("std");
 
-const cli = @import("../cli.zig");
-const Directories = @import("../Directories.zig");
-const Meta = @import("../Meta.zig");
-const Goal = @import("../Goal.zig");
 const git = @import("../git.zig");
-const commit = @import("commit.zig");
+
+const ActiveId = @import("../ActiveId.zig");
+const Directories = @import("../Directories.zig");
+const Goal = @import("../Goal.zig");
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, dirs);
+    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    defer if (active_id) |id| alloc_.free(id);
 
-    if (meta.active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.base.dir, .{ .num = id }, .{});
+    if (active_id) |id| {
+        var goal = try Goal.init(alloc_, dirs.active.dir, id, .{});
         defer goal.deinit(alloc_);
 
-        meta.active_id = null;
-        try meta.store();
+        try ActiveId.clear(dirs.local.dir);
+
+        try std.fs.rename(dirs.active.dir, id, dirs.inactive.dir, id);
 
         const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}", .{ goal.id, goal.title });
         defer alloc_.free(commit_subject);

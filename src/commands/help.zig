@@ -26,7 +26,6 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    stop        Stop working on the active goal.
         \\    complete    Complete the active goal.
         \\    list        List all goals.
-        \\    show        Show a goal's details.
         \\    edit        Edit a goal.
         \\    delete      Delete a goal.
         \\    config      Configure `goal`.
@@ -237,40 +236,15 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\        goal help new
             \\
             ,
-            .show =>
-            \\
-            \\The `show` Command
-            \\
-            \\
-            \\Shows the details of a goal.
-            \\
-            \\If no goal ID is given you'll select from the list of goals.
-            \\
-            \\
-            \\Usage:
-            \\
-            \\    goal show [id]
-            \\
-            \\Arguments:
-            \\
-            \\    [id]    The goal ID (optional).
-            \\
-            \\Help:
-            \\
-            \\    To show this message use one of the following:
-            \\
-            \\        goal show [help | -h | --help]
-            \\    OR
-            \\        goal help show
-            \\
-            ,
-            .edit =>
+            .edit, .open =>
             \\
             \\The `edit` Command
             \\
             \\
             \\Opens your editor to edit the details of a goal.
             \\
+            \\
+            \\Alias: open
             \\
             \\Usage:
             \\

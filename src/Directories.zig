@@ -1,13 +1,12 @@
 const Directories = @This();
 
 const std = @import("std");
-const builtin = @import("builtin");
 
 const git = @import("git.zig");
 const uuid = @import("uuid.zig");
-const Config = @import("Config.zig");
 
-const Meta = @import("Meta.zig");
+const ActiveId = @import("ActiveId.zig");
+const Config = @import("Config.zig");
 const Goal = @import("Goal.zig");
 
 pub const Options = struct {
@@ -146,58 +145,43 @@ pub fn close(self_: *Directories, alloc_: std.mem.Allocator) void {
 
 /// List all goals in the project directory.
 pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    const meta = try Meta.load(alloc_, self_);
+    const active_id = try ActiveId.load(alloc_, self_.local.dir);
+    defer if (active_id) |id| alloc_.free(id);
 
-    try stdout_.writeAll("\n");
-
-    var count: u8 = 0;
     var found_active = false;
-    var iter = self_.base.dir.iterate();
-    while (try iter.next()) |entry| {
-        //TEMP
-        if (entry.kind == .directory) continue;
-        if (std.mem.eql(u8, "m", entry.name) or std.mem.eql(u8, "t", entry.name)) continue;
 
-        // only count if we're not looking at m or t files
-        count += 1;
+    var active_count: u8 = 0;
+    var iter = self_.active.dir.iterate();
+    while (try iter.next()) |entry| : (active_count += 1) {
+        if (active_count == 0) try stdout_.writeAll("\nActive Goals:\n\n");
 
-        var goal = try Goal.init(alloc_, self_.base.dir, .{ .str = entry.name }, .{});
+        var goal = try Goal.init(alloc_, self_.active.dir, entry.name, .{});
         defer goal.deinit(alloc_);
 
-        const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10); // TODO: can `goal.id` just be an int instead of a string?
+        const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
         found_active = found_active or active;
 
         try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
     }
 
-    if (count == 0) {
-        try stdout_.writeAll("No goals to list.\n");
-    } else if (found_active) {
-        try stdout_.writeAll("\n(* marks the active goal)\n");
-    }
-}
+    var inactive_count: u8 = 0;
+    iter = self_.inactive.dir.iterate();
+    while (try iter.next()) |entry| : (inactive_count += 1) {
+        if (inactive_count == 0) try stdout_.writeAll("\nInactive Goals:\n\n");
 
-/// List the given set of goals in the project directory.
-pub fn listSome(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.Writer, goals_: []const []const u8) !void {
-    const meta = try Meta.load(alloc_, self_);
-
-    try stdout_.writeAll("\n");
-
-    var found_active = false;
-    for (goals_) |id| {
-        var goal = try Goal.init(alloc_, self_.base.dir, .{ .str = id }, .{});
+        var goal = try Goal.init(alloc_, self_.inactive.dir, entry.name, .{});
         defer goal.deinit(alloc_);
 
-        const active = meta.active_id == try std.fmt.parseInt(u8, goal.id, 10);
+        const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
         found_active = found_active or active;
 
         try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
     }
 
-    if (goals_.len == 0) {
-        try stdout_.writeAll("No goals to list.\n");
+    if ((active_count + inactive_count) == 0) {
+        try stdout_.writeAll("You've got no goals. Use `goal new` to create one.\n");
     } else if (found_active) {
-        try stdout_.writeAll("\n(* marks the active goal)\n");
+        try stdout_.writeAll("\n(* marks the active goal in your current branch)\n");
     }
 }
 
@@ -234,5 +218,17 @@ pub const Dir = struct {
     pub fn close(self_: *Dir, alloc_: std.mem.Allocator) void {
         self_.dir.close();
         alloc_.free(self_.path);
+    }
+
+    pub fn list(self_: Dir, alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !u8 {
+        try stdout_.writeAll("\n");
+        var count: u8 = 0;
+        var iter = self_.dir.iterate();
+        while (try iter.next()) |entry| : (count += 1) {
+            var goal = try Goal.init(alloc_, self_.dir, entry.name, .{});
+            defer goal.deinit(alloc_);
+            try stdout_.print("  {s}. {s}\n", .{ goal.id, goal.title });
+        }
+        return count;
     }
 };

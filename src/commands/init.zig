@@ -4,7 +4,6 @@ const Meta = @import("../Meta.zig");
 const Config = @import("../Config.zig");
 const Directories = @import("../Directories.zig");
 const git = @import("../git.zig");
-const uuid = @import("../uuid.zig");
 
 /// Initializes a `goal` project by creating local `.goal/` directory and global `~/.goal/<goal_id>/` directory.
 ///
