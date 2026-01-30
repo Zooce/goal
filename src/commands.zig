@@ -48,6 +48,13 @@ pub const Command = enum {
     batman, // just for development
     config,
 
+    pub fn fromString(str_: []const u8) ?Command {
+        if (std.mem.eql(u8, str_, "-h") or std.mem.eql(u8, str_, "--help")) {
+            return .help;
+        }
+        return std.meta.stringToEnum(Command, str_);
+    }
+
     pub fn unexpectedArgument(self: Command, arg: []const u8) anyerror {
         std.debug.print(
             \\

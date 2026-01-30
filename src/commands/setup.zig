@@ -3,7 +3,41 @@ const std = @import("std");
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
 
+const Command = @import("../commands.zig").Command;
 const Config = @import("../Config.zig");
+const ArgIter = @import("../args.zig").ArgIter;
+const stringToCommand2 = @import("../args.zig").stringToCommand2;
+
+const help = @import("help.zig");
+
+const Self = Command.setup;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(iter_)) {
+        .help => try help.run(stdout_, Self),
+        .run => try run(alloc_, stdout_),
+    }
+}
+
+const Args = union(enum) {
+    help: void,
+    run: void,
+};
+
+pub fn parseArgs(iter_: *ArgIter) !Args {
+    // goal setup
+    // goal setup -h
+    // goal setup help
+
+    while (iter_.next()) |arg| {
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(cmd),
+        };
+    }
+
+    return Args.run;
+}
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var config = try Config.load(alloc_);
