@@ -1,5 +1,28 @@
 const std = @import("std");
 const Command = @import("../commands.zig").Command;
+const ArgIter = @import("../args.zig").ArgIter;
+const stringToCommand2 = @import("../args.zig").stringToCommand2;
+
+const Self = Command.help;
+
+pub fn main(stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    const cmd = try parseArgs(iter_);
+    try run(stdout_, cmd);
+}
+
+pub fn parseArgs(iter_: *ArgIter) !?Command {
+    // goal -h init
+    // goal help init
+
+    while (iter_.next()) |arg| {
+        if (stringToCommand2(arg)) |cmd| {
+            return cmd;
+        }
+        return Self.unexpectedArgument(arg);
+    }
+
+    return null;
+}
 
 pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
     const main_help_text =

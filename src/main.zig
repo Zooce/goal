@@ -43,15 +43,7 @@ pub fn main() !void {
 
 fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
     switch (cmd_) {
-        .help => {
-            // goal -h init
-            // goal help init
-
-            // TODO: move into help.zig
-            const command = try args.optionalCommand(iter_, cmd_);
-
-            try commands.help.run(stdout_, command);
-        },
+        .help => try commands.help.main(stdout_, iter_),
 
         // zero argument commands...
 
