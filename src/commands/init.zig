@@ -4,6 +4,40 @@ const Meta = @import("../Meta.zig");
 const Config = @import("../Config.zig");
 const Directories = @import("../Directories.zig");
 const git = @import("../git.zig");
+const ArgIter = @import("../args.zig").ArgIter;
+const stringToCommand2 = @import("../args.zig").stringToCommand2;
+const Command = @import("../commands.zig").Command;
+
+const help = @import("help.zig");
+
+const Self = Command.init;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(iter_)) {
+        .help => try help.run(stdout_, Self),
+        .run => try run(alloc_, stdout_),
+    }
+}
+
+const Args = union(enum) {
+    help: void,
+    run: void,
+};
+
+pub fn parseArgs(iter_: *ArgIter) !Args {
+    // goal init
+    // goal init -h
+    // goal init help
+
+    while (iter_.next()) |arg| {
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(cmd),
+        };
+    }
+
+    return Args.run;
+}
 
 /// Initializes a `goal` project by creating local `.goal/` directory and global `~/.goal/<goal_id>/` directory.
 ///

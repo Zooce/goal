@@ -48,17 +48,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
         // zero argument commands...
 
         .setup => try commands.setup.main(alloc_, stdout_, iter_),
-        .init => {
-            // goal init
-            // goal init -h
-            // goal init help
-
-            if (try args.optionalHelp(iter_, cmd_)) {
-                return try commands.help.run(stdout_, cmd_);
-            }
-
-            try commands.init.run(alloc_, stdout_);
-        },
+        .init => try commands.init.main(alloc_, stdout_, iter_),
         .sync => {
             // goal sync
             // goal sync -h
