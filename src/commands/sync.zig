@@ -2,6 +2,39 @@ const std = @import("std");
 
 const Config = @import("../Config.zig");
 const git = @import("../git.zig");
+const Command = @import("../commands.zig").Command;
+const ArgIter = @import("../args.zig").ArgIter;
+
+const help = @import("help.zig");
+
+const Self = Command.sync;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(iter_)) {
+        .help => try help.run(stdout_, Self),
+        .run => try run(alloc_, stdout_),
+    }
+}
+
+const Args = union(enum) {
+    help: void,
+    run: void,
+};
+
+pub fn parseArgs(iter_: *ArgIter) !Args {
+    // goal sync
+    // goal sync -h
+    // goal sync help
+
+    while (iter_.next()) |arg| {
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(cmd),
+        };
+    }
+
+    return Args.run;
+}
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     // get configurable goal base directory

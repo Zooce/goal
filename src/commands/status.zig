@@ -1,29 +1,45 @@
 const std = @import("std");
 const git = @import("../git.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const stringToCommand = @import("../args.zig").stringToCommand;
-const help = @import("help.zig");
-const Command = @import("../commands.zig").Command;
 
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    // TODO: move arg parsing to main
-    {
-        while (iter_.next()) |arg| {
-            const sub = stringToCommand(arg) catch {
-                std.debug.print("\n`{t}` doesn't take any arguments!\n", .{Command.status});
-                return error.UnexpectedArgument;
-            };
-            switch (sub) {
-                .help => return help.run(stdout_, .status),
-                else => return Command.status.unexpectedSubcommand(sub),
-            }
-        }
+const Command = @import("../commands.zig").Command;
+const ArgIter = @import("../args.zig").ArgIter;
+
+const help = @import("help.zig");
+
+const Self = Command.status;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(iter_)) {
+        .help => try help.run(stdout_, Self),
+        .run => try run(alloc_, stdout_),
+    }
+}
+
+const Args = union(enum) {
+    help: void,
+    run: void,
+};
+
+pub fn parseArgs(iter_: *ArgIter) !Args {
+    // goal status
+    // goal status -h
+    // goal status help
+
+    while (iter_.next()) |arg| {
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(cmd),
+        };
     }
 
+    return Args.run;
+}
+
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 

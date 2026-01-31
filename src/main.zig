@@ -49,51 +49,11 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
         .setup => try commands.setup.main(alloc_, stdout_, iter_),
         .init => try commands.init.main(alloc_, stdout_, iter_),
-        .sync => {
-            // goal sync
-            // goal sync -h
-            // goal sync help
-
-            if (try args.optionalHelp(iter_, cmd_)) {
-                return try commands.help.run(stdout_, cmd_);
-            }
-
-            try commands.sync.run(alloc_, stdout_);
-        },
-        .list => {
-            // goal list
-            // goal list -h
-            // goal list help
-
-            if (try args.optionalHelp(iter_, cmd_)) {
-                return try commands.help.run(stdout_, cmd_);
-            }
-
-            try commands.list.run(alloc_, stdout_);
-        },
-        .status => try commands.status.run(alloc_, stdout_, iter_),
-        .stop => {
-            // goal stop
-            // goal stop -h
-            // goal stop help
-
-            if (try args.optionalHelp(iter_, cmd_)) {
-                return try commands.help.run(stdout_, cmd_);
-            }
-
-            try commands.stop.run(alloc_, stdout_);
-        },
-        .complete => {
-            // goal complete
-            // goal complete -h
-            // goal complete help
-
-            if (try args.optionalHelp(iter_, cmd_)) {
-                return try commands.help.run(stdout_, cmd_);
-            }
-
-            try commands.complete.run(alloc_, stdout_);
-        },
+        .sync => try commands.sync.main(alloc_, stdout_, iter_),
+        .list => try commands.list.main(alloc_, stdout_, iter_),
+        .status => try commands.status.main(alloc_, stdout_, iter_),
+        .stop => try commands.stop.main(alloc_, stdout_, iter_),
+        .complete => try commands.complete.main(alloc_, stdout_, iter_),
 
         // single argument commands...
 

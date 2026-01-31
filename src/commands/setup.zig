@@ -6,7 +6,6 @@ const git = @import("../git.zig");
 const Command = @import("../commands.zig").Command;
 const Config = @import("../Config.zig");
 const ArgIter = @import("../args.zig").ArgIter;
-const stringToCommand2 = @import("../args.zig").stringToCommand2;
 
 const help = @import("help.zig");
 

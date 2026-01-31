@@ -23,6 +23,7 @@ pub const ArgIter = struct {
         return arg;
     }
 
+    // TODO: only the 'start' command uses this - consider having it handle this itself
     pub fn peek(self_: *ArgIter) ?[]const u8 {
         self_._next = self_._next orelse self_.iter.next();
         return self_._next;
@@ -94,6 +95,7 @@ pub fn optionalArgOrHelp2(arg_: ?[]const u8) ?ArgOrHelp {
 }
 
 // TODO: move to a `cli.zig` file (or maybe a different)
+// TODO: use Command.fromString() instead
 pub fn stringToCommand(arg_: []const u8) !commands.Command {
     if (std.mem.eql(u8, arg_, "-h") or std.mem.eql(u8, arg_, "--help")) {
         return .help;
@@ -103,6 +105,7 @@ pub fn stringToCommand(arg_: []const u8) !commands.Command {
 
 // TODO: clean this file up.... good god...
 
+// TODO: use Command.fromString() instead
 pub fn stringToCommand2(arg_: []const u8) ?commands.Command {
     if (std.mem.eql(u8, arg_, "-h") or std.mem.eql(u8, arg_, "--help")) {
         return .help;
