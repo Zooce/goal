@@ -4,6 +4,49 @@ const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 const Config = @import("../Config.zig");
+const Command = @import("../commands.zig").Command;
+const ArgIter = @import("../args.zig").ArgIter;
+
+const help = @import("help.zig");
+
+const Self = Command.new;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(alloc_, iter_)) {
+        .help => try help.run(stdout_, Self),
+        .title => |title| {
+            defer if (title) |t| alloc_.free(t);
+            _ = try run(alloc_, stdout_, title);
+        },
+    }
+}
+
+const Args = union(enum) {
+    help: void,
+    title: ?[]const u8,
+};
+
+pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
+    // goal new
+    // goal new "fix the bug"
+    // goal new -h
+    // goal new --help "fix the bug"
+    // goal new "fix the bug" help
+
+    var title: ?[]const u8 = null;
+
+    while (iter_.next()) |arg| {
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(cmd),
+        };
+
+        if (title != null) return Self.tooManyArguments();
+        title = try alloc_.dupe(u8, arg);
+    }
+
+    return .{ .title = title };
+}
 
 /// Creates a new goal file. If a title is included then that title is written
 /// to the file otherwise an editor is opened to edit the file.

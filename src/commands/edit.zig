@@ -3,8 +3,50 @@ const std = @import("std");
 const cli = @import("../cli.zig");
 const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
-const Command = @import("../commands.zig").Command;
 const Config = @import("../Config.zig");
+const Command = @import("../commands.zig").Command;
+const ArgIter = @import("../args.zig").ArgIter;
+
+const help = @import("help.zig");
+
+const Self = Command.edit;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(alloc_, iter_)) {
+        .help => try help.run(stdout_, Self),
+        .id => |id| {
+            defer if (id) |i| alloc_.free(i);
+            _ = try run(alloc_, stdout_, id);
+        },
+    }
+}
+
+const Args = union(enum) {
+    help: void,
+    id: ?[]const u8,
+};
+
+pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
+    // goal edit
+    // goal edit 3
+    // goal edit -h
+    // goal edit --help 3
+    // goal edit 3 help
+
+    var id: ?[]const u8 = null;
+
+    while (iter_.next()) |arg| {
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(cmd),
+        };
+
+        if (id != null) return Self.tooManyArguments();
+        id = try alloc_.dupe(u8, arg);
+    }
+
+    return .{ .id = id };
+}
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });

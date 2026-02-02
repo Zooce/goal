@@ -57,43 +57,8 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
         // single argument commands...
 
-        .new => {
-            // goal new
-            // goal new "fix the bug"
-            // goal new -h
-            // goal new --help "fix the bug"
-            // goal new "fix the bug" help
-
-            const title = title: {
-                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |res| switch (res) {
-                    .arg => |arg| break :title arg,
-                    .help => return try commands.help.run(stdout_, cmd_),
-                };
-                break :title null;
-            };
-            defer if (title) |t| alloc_.free(t);
-
-            const file_name = try commands.new.run(alloc_, stdout_, title);
-            defer alloc_.free(file_name);
-        },
-        .edit, .open => {
-            // goal edit
-            // goal edit 3
-            // goal edit -h
-            // goal edit --help 3
-            // goal edit 3 help
-
-            const id = id: {
-                if (try args.optionalArgOrHelp(alloc_, iter_, cmd_)) |x| switch (x) {
-                    .arg => |arg| break :id arg,
-                    .help => return try commands.help.run(stdout_, cmd_),
-                };
-                break :id null;
-            };
-            defer if (id) |_id| alloc_.free(_id);
-
-            try commands.edit.run(alloc_, stdout_, id);
-        },
+        .new => try commands.new.main(alloc_, stdout_, iter_),
+        .edit, .open => try commands.edit.main(alloc_, stdout_, iter_),
 
         // commands with multiple arguments
 
