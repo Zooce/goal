@@ -66,32 +66,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
         // commands with subcommands...
 
-        .start => {
-            // goal start new
-            // goal start new "fix the bug"
-            // goal start new -h
-            // goal start new --help "fix the bug"
-            // goal start new "fix the bug" help
-
-            // goal start
-            // goal start 3
-            // goal start 3 -b feature/new
-            // goal start 3 -w ../worktree
-            // goal start 3 -w ../worktree -b feature/new
-            // goal start -h
-            // goal start --help 3
-            // goal start 3 help
-
-            // goal start new -w ../worktree -b omg right-now
-
-            const start_args = switch (try commands.start.parseArgs(alloc_, iter_)) {
-                .help => return try commands.help.run(stdout_, cmd_),
-                .args => |parsed_args| parsed_args,
-            };
-            defer start_args.deinit(alloc_);
-
-            try commands.start.run(alloc_, stdout_, start_args);
-        },
+        .start => try commands.start.main(alloc_, stdout_, iter_),
 
         // Git Commands
 

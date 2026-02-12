@@ -11,8 +11,21 @@ const Goal = @import("../Goal.zig");
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const new = @import("new.zig");
+const help = @import("help.zig");
 
-pub const Args = struct {
+const Self = Command.start;
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    const start_args = switch (try parseArgs(alloc_, iter_)) {
+        .help => return try help.run(stdout_, Self),
+        .args => |parsed_args| parsed_args,
+    };
+    defer start_args.deinit(alloc_);
+
+    try run(alloc_, stdout_, start_args);
+}
+
+const Args = struct {
     id_type: ?union(enum) {
         id: []const u8,
         new: struct {
@@ -61,11 +74,28 @@ const ArgState = enum {
 /// Fuck ya it is. Look, I'm not going to remember this stuff in next couple
 /// of weeks, so I need it to be widly easy for me to pick back up. Plus
 /// state machines are really fun.
-pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
+fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
+    // goal start new
+    // goal start new "fix the bug"
+    // goal start new -h
+    // goal start new --help "fix the bug"
+    // goal start new "fix the bug" help
+
+    // goal start
+    // goal start 3
+    // goal start 3 -b feature/new
+    // goal start 3 -w ../worktree
+    // goal start 3 -w ../worktree -b feature/new
+    // goal start -h
+    // goal start --help 3
+    // goal start 3 help
+
+    // goal start new -w ../worktree -b omg right-now
+
     var args: Args = .{};
     errdefer args.deinit(alloc_);
 
-    var help = false;
+    var show_help = false;
 
     sw: switch (ArgState.start) {
         .start => {
@@ -74,7 +104,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             if (stringToCommand2(arg)) |sub| switch (sub) {
                 .new => continue :sw .new,
                 .help => {
-                    help = true;
+                    show_help = true;
                     break :sw;
                 },
                 else => return error.UnexpectedSubcommand,
@@ -91,7 +121,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             if (stringToCommand2(arg)) |sub| switch (sub) {
                 .help => {
-                    help = true;
+                    show_help = true;
                     break :sw;
                 },
                 else => return error.UnexpectedSubcommand,
@@ -111,7 +141,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             if (stringToCommand2(arg)) |sub| switch (sub) {
                 .help => {
-                    help = true;
+                    show_help = true;
                     break :sw;
                 },
                 else => return error.UnexpectedSubcommand,
@@ -136,7 +166,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             if (stringToCommand2(arg)) |sub| switch (sub) {
                 .help => {
-                    help = true;
+                    show_help = true;
                     break :sw;
                 },
                 else => return error.UnexpectedSubcommand,
@@ -156,7 +186,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             if (stringToCommand2(arg)) |sub| switch (sub) {
                 .help => {
-                    help = true;
+                    show_help = true;
                     break :sw;
                 },
                 else => return error.UnexpectedSubcommand,
@@ -175,7 +205,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
         },
     }
 
-    if (help) {
+    if (show_help) {
         args.deinit(alloc_);
         return .help;
     }
@@ -183,7 +213,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     return .{ .args = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
+fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
