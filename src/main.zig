@@ -44,9 +44,6 @@ pub fn main() !void {
 fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
     switch (cmd_) {
         .help => try commands.help.main(stdout_, iter_),
-
-        // zero argument commands...
-
         .setup => try commands.setup.main(alloc_, stdout_, iter_),
         .init => try commands.init.main(alloc_, stdout_, iter_),
         .sync => try commands.sync.main(alloc_, stdout_, iter_),
@@ -54,18 +51,9 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
         .status => try commands.status.main(alloc_, stdout_, iter_),
         .stop => try commands.stop.main(alloc_, stdout_, iter_),
         .complete => try commands.complete.main(alloc_, stdout_, iter_),
-
-        // single argument commands...
-
         .new => try commands.new.main(alloc_, stdout_, iter_),
         .edit, .open => try commands.edit.main(alloc_, stdout_, iter_),
-
-        // commands with multiple arguments
-
         .delete => try commands.delete.main(alloc_, stdout_, iter_),
-
-        // commands with subcommands...
-
         .start => try commands.start.main(alloc_, stdout_, iter_),
 
         // Git Commands
