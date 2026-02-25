@@ -58,7 +58,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
         // Git Commands
 
-        .stage => try commands.stage.run(alloc_, stdout_, iter_),
+        .stage => try commands.stage.main(alloc_, stdout_, iter_),
         .unstage => try commands.unstage.run(alloc_, stdout_, iter_),
         .discard => try commands.discard.run(alloc_, stdout_, iter_),
         .commit, .save => {

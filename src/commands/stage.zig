@@ -8,40 +8,45 @@ const help = @import("help.zig");
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 
-const ArgsOrHelp = union(enum) {
-    args: std.ArrayList([]const u8),
+const Self = Command.stage;
+
+const Args = union(enum) {
     help: void,
     git_help: void,
+    run: std.ArrayList([]const u8),
 };
 
-fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    switch (try parseArgs(alloc_, iter_)) {
+        .help => try help.run(stdout_, Self),
+        .git_help => try git.help(alloc_, stdout_, "add"),
+        .run => |args| try run(alloc_, stdout_, args),
+    }
+}
+
+pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     var args: std.ArrayList([]const u8) = .empty;
     try args.append(alloc_, "git");
     try args.append(alloc_, "add");
 
     while (iter_.next()) |arg| {
         if (stringToCommand(arg)) |sub| switch (sub) {
-            .help => return ArgsOrHelp.help,
-            else => return Command.stage.unexpectedSubcommand(sub),
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(sub),
         } else |_| {} // ignore error
 
         if (std.mem.eql(u8, arg, "--git-help")) {
-            return ArgsOrHelp.git_help;
+            return Args.git_help;
         }
 
         try args.append(alloc_, try alloc_.dupe(u8, arg));
     }
 
-    return ArgsOrHelp{ .args = args };
+    return Args{ .run = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    // TODO: make caller pass args in
-    var args = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, .stage),
-        .args => |cmd_args| cmd_args,
-        .git_help => return git.help(alloc_, stdout_, "add"),
-    };
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: std.ArrayList([]const u8)) !void {
+    var args = args_;
     defer args.deinit(alloc_);
 
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{ .unstaged, .untracked } })) {
