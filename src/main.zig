@@ -60,7 +60,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
 
         .stage => try commands.stage.main(alloc_, stdout_, iter_),
         .unstage => try commands.unstage.main(alloc_, stdout_, iter_),
-        .discard => try commands.discard.run(alloc_, stdout_, iter_),
+        .discard => try commands.discard.main(alloc_, stdout_, iter_),
         .commit, .save => {
             const cmd_args = switch (try commands.commit.parseArgs(alloc_, iter_)) {
                 .help => return try commands.help.run(stdout_, cmd_),

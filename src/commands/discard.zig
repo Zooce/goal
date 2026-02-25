@@ -8,42 +8,46 @@ const help = @import("help.zig");
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 
-const ArgsOrHelp = union(enum) {
-    args: std.ArrayList([]const u8),
+const Self = Command.discard;
+
+const Args = union(enum) {
     help: void,
     git_help: void,
+    run: std.ArrayList([]const u8),
 };
 
-fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    var args = switch (try parseArgs(alloc_, iter_)) {
+        .help => return try help.run(stdout_, Self),
+        .git_help => return try git.help(alloc_, stdout_, "restore"),
+        .run => |args| args,
+    };
+    defer args.deinit(alloc_);
+    try run(alloc_, stdout_, args);
+}
+
+pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     var args: std.ArrayList([]const u8) = .empty;
     try args.append(alloc_, "git");
     try args.append(alloc_, "restore");
 
     while (iter_.next()) |arg| {
         if (stringToCommand(arg)) |sub| switch (sub) {
-            .help => return ArgsOrHelp.help,
-            else => return Command.stage.unexpectedSubcommand(sub),
+            .help => return Args.help,
+            else => return Self.unexpectedSubcommand(sub),
         } else |_| {} // ignore error
 
         if (std.mem.eql(u8, arg, "--git-help")) {
-            return ArgsOrHelp.git_help;
+            return Args.git_help;
         }
 
         try args.append(alloc_, try alloc_.dupe(u8, arg));
     }
 
-    return ArgsOrHelp{ .args = args };
+    return Args{ .run = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    // TODO: make caller pass args in
-    var args = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, .discard),
-        .args => |cmd_args| cmd_args,
-        .git_help => return git.help(alloc_, stdout_, "restore"),
-    };
-    defer args.deinit(alloc_);
-
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: std.ArrayList([]const u8)) !void {
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.unstaged} })) {
         std.debug.print("\nThere are no unstaged changes to discard.\n\nHint: You can only discard unstaged changes.\n", .{});
         return error.NoUnstagedChanges;
@@ -55,7 +59,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) 
     const active_id = try ActiveId.load(alloc_, dirs.local.dir);
     if (active_id) |id| {
         alloc_.free(id); // don't need it
-        try git.run(alloc_, stdout_, .{ .argv = args.items });
+        try git.run(alloc_, stdout_, .{ .argv = args_.items });
         try git.status(alloc_, stdout_);
         return;
     }
