@@ -17,11 +17,13 @@ const Args = union(enum) {
 };
 
 pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    switch (try parseArgs(alloc_, iter_)) {
-        .help => try help.run(stdout_, Self),
-        .git_help => try git.help(alloc_, stdout_, "add"),
-        .run => |args| try run(alloc_, stdout_, args),
-    }
+    var args = switch (try parseArgs(alloc_, iter_)) {
+        .help => return try help.run(stdout_, Self),
+        .git_help => return try git.help(alloc_, stdout_, "add"),
+        .run => |args| args,
+    };
+    defer args.deinit(alloc_);
+    try run(alloc_, stdout_, args);
 }
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
@@ -46,9 +48,6 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: std.ArrayList([]const u8)) !void {
-    var args = args_;
-    defer args.deinit(alloc_);
-
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{ .unstaged, .untracked } })) {
         std.debug.print("\nThere are no changes to stage.\n", .{});
         return error.NoUnstagedChanges;
@@ -60,7 +59,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: std.ArrayL
     const active_id = try ActiveId.load(alloc_, dirs.local.dir);
     if (active_id) |id| {
         alloc_.free(id); // don't need it
-        try git.run(alloc_, stdout_, .{ .argv = args.items });
+        try git.run(alloc_, stdout_, .{ .argv = args_.items });
         try git.status(alloc_, stdout_);
         return;
     }
