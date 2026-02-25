@@ -11,6 +11,9 @@ const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const CommitFile = @import("../CommitFile.zig");
 const Goal = @import("../Goal.zig");
+const help = @import("help.zig");
+
+const Self = Command.commit;
 
 const Args = struct {
     complete: bool = false,
@@ -23,19 +26,16 @@ const Args = struct {
     _goal: ?Goal = null,
 };
 
-/// Parses `goal commit` arguments.
-///
-/// If a message is given, the caller is responsible for freeing that memory.
-///
-/// Example:
-///
-/// ```zig
-/// const cmd_args = switch (try parseArgs(allocator, iter)) {
-///     .help => return try help.run(.commit, stdout),
-///     .args => |_args| _args,
-/// };
-/// defer if (cmd_args.message) |msg| allocator.free(msg);
-/// ```
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(alloc_, iter_)) {
+        .help => return try help.run(stdout_, Self),
+        .args => |args| args,
+    };
+    defer if (args.message) |msg| alloc_.free(msg);
+    try run(alloc_, stdout_, args);
+    if (args.complete) try stdout_.writeAll("\nNice work!\n");
+}
+
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     var args = Args{};
 

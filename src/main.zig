@@ -61,15 +61,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
         .stage => try commands.stage.main(alloc_, stdout_, iter_),
         .unstage => try commands.unstage.main(alloc_, stdout_, iter_),
         .discard => try commands.discard.main(alloc_, stdout_, iter_),
-        .commit, .save => {
-            const cmd_args = switch (try commands.commit.parseArgs(alloc_, iter_)) {
-                .help => return try commands.help.run(stdout_, cmd_),
-                .args => |cmd_args| cmd_args,
-            };
-            defer if (cmd_args.message) |msg| alloc_.free(msg);
-            try commands.commit.run(alloc_, stdout_, cmd_args);
-            if (cmd_args.complete) try stdout_.writeAll("\nNice work!\n");
-        },
+        .commit, .save => try commands.commit.main(alloc_, stdout_, iter_),
 
         .config => {
             const cmd_args = try commands.config.parseArgs(alloc_, iter_);
