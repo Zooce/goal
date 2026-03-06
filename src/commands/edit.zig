@@ -12,18 +12,17 @@ const help = @import("help.zig");
 const Self = Command.edit;
 
 pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    switch (try parseArgs(alloc_, iter_)) {
+    const id = switch (try parseArgs(alloc_, iter_)) {
         .help => try help.run(stdout_, Self),
-        .id => |id| {
-            defer if (id) |i| alloc_.free(i);
-            _ = try run(alloc_, stdout_, id);
-        },
-    }
+        .run => |id| id,
+    };
+    defer if (id) |i| alloc_.free(i);
+    _ = try run(alloc_, stdout_, id);
 }
 
 const Args = union(enum) {
     help: void,
-    id: ?[]const u8,
+    run: ?[]const u8,
 };
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
@@ -45,7 +44,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
         id = try alloc_.dupe(u8, arg);
     }
 
-    return .{ .id = id };
+    return .{ .run = id };
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {

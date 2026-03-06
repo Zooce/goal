@@ -5,6 +5,9 @@ const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const stringToCommand = @import("../args.zig").stringToCommand;
+const help = @import("help.zig");
+
+const Self = Command.config;
 
 pub const Setting = struct {
     key: ConfigKey,
@@ -19,6 +22,18 @@ pub const Args = union(enum) {
     list: void,
     setting: Setting,
 };
+
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(alloc_, iter_)) {
+        .help => return try help.run(stdout_, Self),
+        .args => |args| args,
+    };
+    defer switch (args) {
+        .setting => |setting| setting.deinit(alloc_),
+        else => {},
+    };
+    try run(alloc_, stdout_, args);
+}
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     var list = false;

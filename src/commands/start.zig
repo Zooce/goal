@@ -16,13 +16,12 @@ const help = @import("help.zig");
 const Self = Command.start;
 
 pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    const start_args = switch (try parseArgs(alloc_, iter_)) {
+    const args = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
-        .args => |parsed_args| parsed_args,
+        .args => |args| args,
     };
-    defer start_args.deinit(alloc_);
-
-    try run(alloc_, stdout_, start_args);
+    defer args.deinit(alloc_);
+    try run(alloc_, stdout_, args);
 }
 
 const Args = struct {

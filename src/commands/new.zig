@@ -12,18 +12,17 @@ const help = @import("help.zig");
 const Self = Command.new;
 
 pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
-    switch (try parseArgs(alloc_, iter_)) {
+    const title = switch (try parseArgs(alloc_, iter_)) {
         .help => try help.run(stdout_, Self),
-        .title => |title| {
-            defer if (title) |t| alloc_.free(t);
-            _ = try run(alloc_, stdout_, title);
-        },
-    }
+        .run => |title| title,
+    };
+    defer if (title) |t| alloc_.free(t);
+    _ = try run(alloc_, stdout_, title);
 }
 
 const Args = union(enum) {
     help: void,
-    title: ?[]const u8,
+    run: ?[]const u8,
 };
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
@@ -45,7 +44,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
         title = try alloc_.dupe(u8, arg);
     }
 
-    return .{ .title = title };
+    return .{ .run = title };
 }
 
 /// Creates a new goal file. If a title is included then that title is written

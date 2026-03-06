@@ -63,19 +63,9 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
         .discard => try commands.discard.main(alloc_, stdout_, iter_),
         .commit, .save => try commands.commit.main(alloc_, stdout_, iter_),
 
-        .config => {
-            const cmd_args = try commands.config.parseArgs(alloc_, iter_);
-            switch (cmd_args) {
-                .help => return try commands.help.run(stdout_, cmd_),
-                .args => |config_args| {
-                    defer switch (config_args) {
-                        .setting => |setting| setting.deinit(alloc_),
-                        else => {},
-                    };
-                    try commands.config.run(alloc_, stdout_, config_args);
-                },
-            }
-        },
+        .config => try commands.config.main(alloc_, stdout_, iter_),
+
+        // Just for debugging - obviously
 
         .batman => {
             std.debug.print("\nWhat are you doing here?!\n", .{});
