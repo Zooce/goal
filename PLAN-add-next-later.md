@@ -49,7 +49,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   After this step: all existing commands work, just against `l/` instead of `i/`.
   `goal list` shows active + later (temporary — fixed in the list step).
 
-- [ ] **Register `next` and `later` commands (stubs)**
+- [x] **Register `next` and `later` commands (stubs)**
 
   Depends on: previous step (`dirs.next` and `dirs.later` must exist).
   Reference: any existing command file as a structural template (e.g. `commands/stop.zig`).

@@ -48,6 +48,8 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    status      Show your active goal's status.
         \\    stop        Stop working on the active goal.
         \\    complete    Complete the active goal.
+        \\    next        TODO
+        \\    later       TODO
         \\    list        List all goals.
         \\    edit        Edit a goal.
         \\    delete      Delete a goal.
@@ -558,6 +560,20 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\        goal config [help | -h | --help]
             \\    OR
             \\        goal help config
+            \\
+            ,
+            .next =>
+            \\
+            \\The `next` Command
+            \\
+            \\TODO
+            \\
+            ,
+            .later =>
+            \\
+            \\The `later` Command
+            \\
+            \\TODO
             \\
             ,
 

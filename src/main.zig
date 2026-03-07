@@ -55,6 +55,8 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
         .edit, .open => try commands.edit.main(alloc_, stdout_, iter_),
         .delete => try commands.delete.main(alloc_, stdout_, iter_),
         .start => try commands.start.main(alloc_, stdout_, iter_),
+        .next => try commands.next.main(alloc_, stdout_, iter_),
+        .later => try commands.later.main(alloc_, stdout_, iter_),
 
         // Git Commands
 
