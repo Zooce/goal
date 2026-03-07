@@ -13,7 +13,7 @@ const Self = Command.edit;
 
 pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
     const id = switch (try parseArgs(alloc_, iter_)) {
-        .help => try help.run(stdout_, Self),
+        .help => return try help.run(stdout_, Self),
         .run => |id| id,
     };
     defer if (id) |i| alloc_.free(i);
