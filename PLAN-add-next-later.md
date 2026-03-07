@@ -63,16 +63,16 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   After this step: `goal next` and `goal later` run without crashing. All other
   commands still work.
 
-- [ ] **Implement `commands/next.zig`**
+- [x] **Implement `commands/next.zig`**
 
   Depends on: previous two steps.
   Reference: `commands/stop.zig` for the stop-first pattern; `commands/edit.zig:61-63`
   for the fallback-try dir lookup pattern.
 
-  - Accept optional goal ID argument; prompt with goal list if omitted (search next + later)
-  - If the goal is active, clear active_id and commit `.goal/.active_id` first
-  - Move goal file from its current dir → `n/`
-  - Error if goal is already in `n/`
+  - Accept optional goal ID argument; prompt with later list if omitted
+  - Only Later goals may be promoted to Next
+  - Move goal file from `l/` → `n/`
+  - Error if goal is not found in `l/`
 
 - [ ] **Implement `commands/later.zig`**
 
@@ -80,7 +80,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   Reference: `commands/next.zig` (mirror image).
 
   - Same structure as `next.zig` but moves to `l/`
-  - Error if goal is already in `l/`
+  - Error if goal is not found in `n/`
 
 - [ ] **Update `goal stop`**
 
