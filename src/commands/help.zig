@@ -363,10 +363,16 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\Stop working on the active goal.
             \\
+            \\The goal will be moved into the Next list.
+            \\
             \\
             \\Usage:
             \\
-            \\    goal stop
+            \\    goal stop [--later]
+            \\
+            \\Arguments:
+            \\
+            \\    [--later]    Move the goal to the Later list.
             \\
             \\Help:
             \\

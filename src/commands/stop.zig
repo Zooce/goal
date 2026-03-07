@@ -15,31 +15,39 @@ const Self = Command.stop;
 pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
-        .run => try run(alloc_, stdout_),
+        .run => |later| try run(alloc_, stdout_, later),
     }
 }
 
 const Args = union(enum) {
     help: void,
-    run: void,
+    run: bool,
 };
 
 pub fn parseArgs(iter_: *ArgIter) !Args {
     // goal stop
     // goal stop -h
     // goal stop help
+    // goal stop --later
+
+    var later = false;
 
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
             else => return Self.unexpectedSubcommand(cmd),
         };
+
+        if (later) return Self.tooManyArguments();
+        if (std.mem.eql(u8, arg, "--later")) {
+            later = true;
+        }
     }
 
-    return Args.run;
+    return .{ .run = later };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, later_: bool) !void {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
@@ -52,16 +60,20 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
         try ActiveId.clear(dirs.local.dir);
 
-        try std.fs.rename(dirs.active.dir, id, dirs.later.dir, id);
+        try std.fs.rename(dirs.active.dir, id, if (later_) dirs.later.dir else dirs.next.dir, id);
 
-        const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}", .{ goal.id, goal.title });
+        const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
         defer alloc_.free(commit_subject);
 
         try git.run(alloc_, stdout_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
         });
 
-        try stdout_.print("\nTaking a break from working on goal #{s} - {s}\n", .{ goal.id, goal.title });
+        if (later_) {
+            try stdout_.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
+        } else {
+            try stdout_.print("\nLet's take a break from Goal #{s} - '{s}'.\n", .{ goal.id, goal.title });
+        }
     } else {
         try stdout_.writeAll("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n");
     }

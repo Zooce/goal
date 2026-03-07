@@ -82,7 +82,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - Same structure as `next.zig` but moves to `l/`
   - Error if goal is not found in `n/`
 
-- [ ] **Update `goal stop`**
+- [x] **Update `goal stop`**
 
   Depends on: `Directories.zig` step.
   Reference: `commands/stop.zig:42-67` (existing run function).
