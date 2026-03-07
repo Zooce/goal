@@ -74,7 +74,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - Move goal file from `l/` → `n/`
   - Error if goal is not found in `l/`
 
-- [ ] **Implement `commands/later.zig`**
+- [x] **Implement `commands/later.zig`**
 
   Depends on: previous step (or can be done in parallel — same structure).
   Reference: `commands/next.zig` (mirror image).
