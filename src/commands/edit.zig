@@ -59,8 +59,8 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     // TODO: find the file in a/ i/
     var dir_path = dirs.active.path;
     var goal = Goal.init(alloc_, dirs.active.dir, file_name, .{ .quiet = true }) catch goal: {
-        dir_path = dirs.inactive.path;
-        break :goal try Goal.init(alloc_, dirs.inactive.dir, file_name, .{});
+        dir_path = dirs.later.path;
+        break :goal try Goal.init(alloc_, dirs.later.dir, file_name, .{});
     };
     defer goal.deinit(alloc_);
 

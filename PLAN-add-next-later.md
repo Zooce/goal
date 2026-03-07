@@ -27,7 +27,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
 
 ## Approach
 
-- [ ] **Add `next`/`later` directories in `Directories.zig` and fix all `inactive` references**
+- [x] **Add `next`/`later` directories in `Directories.zig` and fix all `inactive` references**
 
   This is the foundation. Every other step depends on it. All in one step because
   splitting it would leave the binary broken between sub-tasks.

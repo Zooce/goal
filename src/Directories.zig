@@ -23,8 +23,11 @@ base: Dir,
 /// <base-dir>/.goal/<goal_id>/a/
 active: Dir,
 
-/// <base-dir>/.goal/<goal_id>/i/
-inactive: Dir,
+/// <base-dir>/.goal/<goal_id>/n/
+next: Dir,
+
+/// <base-dir>/.goal/<goal_id>/l/
+later: Dir,
 
 /// <base-dir/.goal/<goal_id>/d/
 deleted: Dir,
@@ -110,12 +113,19 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
     };
     errdefer active.close(alloc_);
 
-    // <base-dir>/.goal/<goal_id>/i/
-    var inactive = inactive: {
-        const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "i" });
-        break :inactive try Dir.open(alloc_, path, opts_);
+    // <base-dir>/.goal/<goal_id>/l/
+    var next = next: {
+        const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "n" });
+        break :next try Dir.open(alloc_, path, opts_);
     };
-    errdefer inactive.close(alloc_);
+    errdefer next.close(alloc_);
+
+    // <base-dir>/.goal/<goal_id>/l/
+    var later = later: {
+        const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "l" });
+        break :later try Dir.open(alloc_, path, opts_);
+    };
+    errdefer later.close(alloc_);
 
     // <base-dir>/.goal/<goal_id>/d/
     const deleted = deleted: {
@@ -128,7 +138,8 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
     return .{
         .base = base,
         .active = active,
-        .inactive = inactive,
+        .next = next,
+        .later = later,
         .deleted = deleted,
         .local = local,
     };
@@ -138,7 +149,8 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
 pub fn close(self_: *Directories, alloc_: std.mem.Allocator) void {
     self_.base.close(alloc_);
     self_.active.close(alloc_);
-    self_.inactive.close(alloc_);
+    self_.next.close(alloc_);
+    self_.later.close(alloc_);
     self_.deleted.close(alloc_);
     self_.local.close(alloc_);
 }
@@ -164,12 +176,12 @@ pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.W
         try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
     }
 
-    var inactive_count: u8 = 0;
-    iter = self_.inactive.dir.iterate();
-    while (try iter.next()) |entry| : (inactive_count += 1) {
-        if (inactive_count == 0) try stdout_.writeAll("\nInactive Goals:\n\n");
+    var next_count: u8 = 0;
+    iter = self_.next.dir.iterate();
+    while (try iter.next()) |entry| : (next_count += 1) {
+        if (next_count == 0) try stdout_.writeAll("\nUpcoming Goals:\n\n");
 
-        var goal = try Goal.init(alloc_, self_.inactive.dir, entry.name, .{});
+        var goal = try Goal.init(alloc_, self_.next.dir, entry.name, .{});
         defer goal.deinit(alloc_);
 
         const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
@@ -178,7 +190,21 @@ pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.W
         try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
     }
 
-    if ((active_count + inactive_count) == 0) {
+    var later_count: u8 = 0;
+    iter = self_.later.dir.iterate();
+    while (try iter.next()) |entry| : (later_count += 1) {
+        if (later_count == 0) try stdout_.writeAll("\nGoals for Later:\n\n");
+
+        var goal = try Goal.init(alloc_, self_.later.dir, entry.name, .{});
+        defer goal.deinit(alloc_);
+
+        const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
+        found_active = found_active or active;
+
+        try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
+    }
+
+    if ((active_count + next_count + later_count) == 0) {
         try stdout_.writeAll("You've got no goals. Use `goal new` to create one.\n");
     } else if (found_active) {
         try stdout_.writeAll("\n(* marks the active goal in your current branch)\n");

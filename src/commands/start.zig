@@ -224,7 +224,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
                     .new => |_new| try new.run(alloc_, stdout_, _new.title),
                 };
             } else {
-                if (try dirs.inactive.list(alloc_, stdout_) == 0) {
+                if (try dirs.later.list(alloc_, stdout_) == 0) {
                     std.debug.print(
                         \\
                         \\Sorry, but you can only start goals that are currently
@@ -236,7 +236,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
                     return error.NoInactiveGoalsToStart;
                 }
                 if (try cli.getAnswer(alloc_, stdout_, "\nChoose a goal (type the number)")) |choice| {
-                    dirs.inactive.dir.access(choice, .{}) catch |err| {
+                    dirs.later.dir.access(choice, .{}) catch |err| {
                         std.debug.print(
                             \\
                             \\So... either that goal isn't in the list or something crazy happened.
@@ -257,7 +257,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
 
         if (file_name.len == 0) return Command.start.missingArgument();
 
-        break :goal try Goal.init(alloc_, dirs.inactive.dir, file_name, .{});
+        break :goal try Goal.init(alloc_, dirs.later.dir, file_name, .{});
     };
     defer goal.deinit(alloc_);
 
@@ -328,7 +328,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
                 try std.fs.copyFileAbsolute(goal_id_path, worktree_goal_id_path, .{});
             }
 
-            try std.fs.rename(dirs.inactive.dir, goal.id, dirs.active.dir, goal.id);
+            try std.fs.rename(dirs.later.dir, goal.id, dirs.active.dir, goal.id);
 
             const active_id_file = file: {
                 const active_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".active_id" });
@@ -395,7 +395,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
             }
         }
 
-        try std.fs.rename(dirs.inactive.dir, goal.id, dirs.active.dir, goal.id);
+        try std.fs.rename(dirs.later.dir, goal.id, dirs.active.dir, goal.id);
 
         // Set active goal in current repo
         try ActiveId.store(dirs.local.dir, goal.id);

@@ -52,7 +52,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
 
         try ActiveId.clear(dirs.local.dir);
 
-        try std.fs.rename(dirs.active.dir, id, dirs.inactive.dir, id);
+        try std.fs.rename(dirs.active.dir, id, dirs.later.dir, id);
 
         const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}", .{ goal.id, goal.title });
         defer alloc_.free(commit_subject);

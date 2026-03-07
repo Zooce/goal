@@ -68,7 +68,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
     if (title_) |t| {
         // TODO: trim t
         if (t.len > 0) {
-            const goal_file = try dirs.inactive.dir.createFile(file_name, .{ .exclusive = true });
+            const goal_file = try dirs.later.dir.createFile(file_name, .{ .exclusive = true });
             defer goal_file.close();
             _ = try goal_file.write(t);
             try stdout_.print("\nGoal #{d} - {s}\n", .{ meta.next_id, t });
@@ -78,7 +78,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
         }
     } else {
         // open the new goal file in an editor
-        const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.inactive.path, file_name });
+        const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.later.path, file_name });
         defer alloc_.free(file_path);
 
         var config = try Config.load(alloc_);
@@ -88,12 +88,12 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
         var editor = std.process.Child.init(&cmd, alloc_);
         _ = try editor.spawnAndWait();
 
-        var goal = try Goal.init(alloc_, dirs.inactive.dir, file_name, .{});
+        var goal = try Goal.init(alloc_, dirs.later.dir, file_name, .{});
         defer goal.deinit(alloc_);
 
         if (goal.title.len == 0) {
             std.debug.print("\nGoal title cannot be empty!\n", .{});
-            try dirs.inactive.dir.deleteFile(goal.id);
+            try dirs.later.dir.deleteFile(goal.id);
             return error.EmptyGoalTitle;
         }
         try stdout_.print("\nGoal #{d} - {s}\n", .{ meta.next_id, goal.title });

@@ -50,7 +50,7 @@ fn parseArgs(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter
     }
 
     if (ids.items.len == 0) {
-        if (try dirs_.inactive.list(alloc_, stdout_) == 0) {
+        if (try dirs_.later.list(alloc_, stdout_) == 0) {
             std.debug.print(
                 \\
                 \\Sorry, but you can only delete goals that are currently
@@ -68,7 +68,7 @@ fn parseArgs(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter
             while (choices.next()) |choice| {
                 if (choice.len == 0) continue;
                 count += 1;
-                dirs_.inactive.dir.access(choice, .{}) catch |err| {
+                dirs_.later.dir.access(choice, .{}) catch |err| {
                     std.debug.print(
                         \\
                         \\Hold on there buddy! '{s}' isn't in the list, so get it together and try again.
@@ -104,7 +104,7 @@ fn parseArgs(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter
                 , .{active});
                 return error.CannotDeleteActiveGoal;
             };
-            dirs_.inactive.dir.access(id, .{}) catch |err| {
+            dirs_.later.dir.access(id, .{}) catch |err| {
                 dirs_.active.dir.access(id, .{}) catch return err;
                 std.debug.print("\nGoal #{s} is already active in another branch!\n", .{id});
                 return error.CannotDeleteActiveGoal;
@@ -119,7 +119,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directorie
     try stdout_.writeAll("\nHere's what I'm going to delete:\n\n");
 
     for (ids_.items) |id| {
-        var goal = try Goal.init(alloc_, dirs_.inactive.dir, id, .{});
+        var goal = try Goal.init(alloc_, dirs_.later.dir, id, .{});
         defer goal.deinit(alloc_);
         try stdout_.print("  {s}. {s}\n", .{ goal.id, goal.title });
     }
@@ -130,7 +130,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directorie
     }
 
     for (ids_.items) |id| {
-        std.fs.rename(dirs_.inactive.dir, id, dirs_.deleted.dir, id) catch |err| {
+        std.fs.rename(dirs_.later.dir, id, dirs_.deleted.dir, id) catch |err| {
             std.debug.print("\nUnable to delete goal {s}.\n", .{id});
             return err;
         };
