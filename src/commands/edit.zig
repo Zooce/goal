@@ -54,7 +54,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, dirs);
     defer if (id_ == null) alloc_.free(file_name);
 
-    if (file_name.len == 0) return Command.edit.missingArgument();
+    if (file_name.len == 0) return Self.missingArgument();
 
     // TODO: find the file in a/ i/
     var dir_path = dirs.active.path;

@@ -49,7 +49,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
         if (stringToCommand(arg)) |sub| switch (sub) {
             .help => return .help,
-            else => return Command.commit.unexpectedSubcommand(sub),
+            else => return Self.unexpectedSubcommand(sub),
         } else |_| {} // ignore error
 
         if (std.mem.eql(u8, arg, "--complete")) {

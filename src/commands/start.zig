@@ -129,7 +129,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
             if (std.mem.eql(u8, arg, "-b")) continue :sw .branch;
 
-            return Command.start.unexpectedArgument(arg);
+            return Self.unexpectedArgument(arg);
         },
         .new => {
             _ = iter_.next(); // consume the 'next' command itself
@@ -255,7 +255,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
 
         defer if (args.id_type) |id_type| if (id_type != .id) alloc_.free(file_name);
 
-        if (file_name.len == 0) return Command.start.missingArgument();
+        if (file_name.len == 0) return Self.missingArgument();
 
         break :goal try Goal.init(alloc_, dirs.later.dir, file_name, .{});
     };

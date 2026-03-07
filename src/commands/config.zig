@@ -49,32 +49,32 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                 if (val) |v| alloc_.free(v);
                 return .help;
             },
-            else => return Command.config.unexpectedSubcommand(sub),
+            else => return Self.unexpectedSubcommand(sub),
         } else |_| {} // ignore error
 
         // --list
         if (std.mem.eql(u8, arg, "--list") or std.mem.eql(u8, arg, "-l")) {
-            if (list) return Command.config.duplicateFlag(arg);
-            if (key != null) return Command.config.unexpectedArgument(arg);
+            if (list) return Self.duplicateFlag(arg);
+            if (key != null) return Self.unexpectedArgument(arg);
             list = true;
             continue;
         }
 
         // setting
         if (std.mem.eql(u8, arg, "base-dir")) {
-            if (list or key != null) return Command.config.tooManyArguments();
+            if (list or key != null) return Self.tooManyArguments();
             key = .base_dir;
             continue;
         }
 
         if (std.mem.eql(u8, arg, "editor")) {
-            if (list or key != null) return Command.config.tooManyArguments();
+            if (list or key != null) return Self.tooManyArguments();
             key = .editor;
             continue;
         }
 
         // value
-        if (list or key == null) return Command.config.unexpectedArgument(arg);
+        if (list or key == null) return Self.unexpectedArgument(arg);
         val = try alloc_.dupe(u8, arg);
     }
 
