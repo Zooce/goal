@@ -174,6 +174,8 @@ pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.W
         found_active = found_active or active;
 
         try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
+
+        // TODO: show note if no active goal in the current branch
     }
 
     var next_count: u8 = 0;
@@ -194,6 +196,9 @@ pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.W
     iter = self_.later.dir.iterate();
     while (try iter.next()) |entry| : (later_count += 1) {
         if (later_count == 0) try stdout_.writeAll("\nGoals for Later:\n\n");
+
+        // TODO: limit later list to 5 entries - if more than 5 suggest `goal list --later` to see them all
+        // TODO: OR - only show later goals with `goal list --later` but maybe show a count so you know there are some later goals
 
         var goal = try Goal.init(alloc_, self_.later.dir, entry.name, .{});
         defer goal.deinit(alloc_);
