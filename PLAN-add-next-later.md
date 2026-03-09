@@ -104,7 +104,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - With `--later`: show later
   - Update `list` help text in `commands/help.zig` to mention new flags
 
-- [ ] **Update `goal edit`**
+- [x] **Update `goal edit`**
 
   Depends on: `Directories.zig` step.
   Reference: `commands/edit.zig:61-63` (already uses fallback-try — extend it).
@@ -112,6 +112,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - Extend fallback-try chain: active → next → later
   - `getGoalChoice` interactive picker (no-ID path) shows all non-deleted goals
     (active + next + later)
+  - Edge case: no goals to choose from
 
 - [ ] **Update `goal delete`**
 

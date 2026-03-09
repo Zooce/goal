@@ -1,4 +1,6 @@
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const Writer = std.io.Writer;
 
 const cli = @import("../cli.zig");
 const Directories = @import("../Directories.zig");
@@ -11,7 +13,7 @@ const help = @import("help.zig");
 
 const Self = Command.edit;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: Allocator, stdout_: *Writer, iter_: *ArgIter) !void {
     const id = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .run => |id| id,
@@ -25,7 +27,7 @@ const Args = union(enum) {
     run: ?[]const u8,
 };
 
-pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
+pub fn parseArgs(alloc_: Allocator, iter_: *ArgIter) !Args {
     // goal edit
     // goal edit 3
     // goal edit -h
@@ -47,27 +49,43 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     return .{ .run = id };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {
+pub fn run(alloc_: Allocator, stdout_: *Writer, id_: ?[]const u8) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
-    const file_name = id_ orelse try cli.getGoalChoice(alloc_, stdout_, dirs);
-    defer if (id_ == null) alloc_.free(file_name);
+    const id = id_ orelse id: {
+        var count = try dirs.active.list(alloc_, stdout_);
+        count += try dirs.next.list(alloc_, stdout_);
+        count += try dirs.later.list(alloc_, stdout_);
+        if (count == 0) {
+            try stdout_.writeAll("\nWell I guess there's no goals to edit yet. Run `goal new`!\n");
+            return;
+        }
+        if (try cli.getAnswer(alloc_, stdout_, "\nChoose a goal (type the number)")) |choice| {
+            break :id choice;
+        }
+        std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
+        return error.NoGoalChosen;
+    };
+    defer if (id_ == null) alloc_.free(id);
 
-    if (file_name.len == 0) return Self.missingArgument();
+    if (id.len == 0) return Self.missingArgument();
 
-    // TODO: find the file in a/ i/
+    // find the id in one of the categories
     var dir_path = dirs.active.path;
-    var goal = Goal.init(alloc_, dirs.active.dir, file_name, .{ .quiet = true }) catch goal: {
-        dir_path = dirs.later.path;
-        break :goal try Goal.init(alloc_, dirs.later.dir, file_name, .{});
+    var goal = Goal.init(alloc_, dirs.active.dir, id, .{ .quiet = true }) catch goal: {
+        dir_path = dirs.next.path;
+        break :goal Goal.init(alloc_, dirs.next.dir, id, .{ .quiet = true }) catch {
+            dir_path = dirs.later.path;
+            break :goal try Goal.init(alloc_, dirs.later.dir, id, .{});
+        };
     };
     defer goal.deinit(alloc_);
 
     // TODO: from here........
 
     // open the new goal file in an editor
-    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dir_path, file_name });
+    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dir_path, id });
     defer alloc_.free(file_path);
 
     // Use configurable editor
@@ -93,7 +111,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
             \\directory with Git and you can undo it. If not, then run `goal edit {s}` again
             \\and rewrite whatever you can remember about it -- you'll be okay.
             \\
-        , .{file_name});
+        , .{id});
     } else {
         try stdout_.writeAll("\nThat was an awesome edit, dude! Peace out!\n");
     }

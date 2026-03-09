@@ -37,20 +37,3 @@ pub fn getAnswer(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, prompt_: []
     const trimmed = std.mem.trim(u8, answer, " \t\r\n");
     return if (trimmed.len > 0) try alloc_.dupe(u8, trimmed) else null;
 }
-
-/// Ask the user to input a number from the list of goals. The caller is responsible for
-/// freeing the memory with `allocator.free(choice)`.
-pub fn getGoalChoice(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, dirs_: Directories) ![]const u8 {
-    try dirs_.listAll(alloc_, stdout_);
-
-    var stdin_buffer: [8]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
-    var reader = &stdin_reader.interface;
-
-    try stdout_.writeAll("\nChoose a goal (type the number): ");
-    try stdout_.flush();
-
-    const answer = try reader.takeDelimiterExclusive('\n');
-
-    return try alloc_.dupe(u8, std.mem.trim(u8, answer, ", \t\r\n"));
-}
