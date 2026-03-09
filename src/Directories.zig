@@ -1,6 +1,8 @@
 const Directories = @This();
 
 const std = @import("std");
+const Allocator = std.mem.Allocator;
+const Writer = std.io.Writer;
 
 const git = @import("git.zig");
 const uuid = @import("uuid.zig");
@@ -43,7 +45,7 @@ local: Dir,
 /// const dirs = try Directories.open(allocator, .{});
 /// defer dirs.close(allocator);
 /// ```
-pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
+pub fn open(alloc_: Allocator, opts_: Options) !Directories {
     // <project>/.goal/
     var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
@@ -52,7 +54,7 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
         if (git_root) |root| {
             defer alloc_.free(root);
             const path = try std.fs.path.join(alloc_, &[_][]const u8{ root, ".goal" });
-            break :local try Dir.open(alloc_, path, opts_);
+            break :local try Dir.open(alloc_, path, null, opts_);
         }
         // `goal` only works in Git projects (for now)
         return error.NotAGitProject;
@@ -102,35 +104,35 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
         var config = try Config.load(alloc_);
         defer config.deinit();
         const path = try std.fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
-        break :base try Dir.open(alloc_, path, opts_);
+        break :base try Dir.open(alloc_, path, null, opts_);
     };
     errdefer base.close(alloc_);
 
     // <base-dir>/.goal/<goal_id>/a/
     var active = active: {
         const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "a" });
-        break :active try Dir.open(alloc_, path, opts_);
+        break :active try Dir.open(alloc_, path, "Active Goals", opts_);
     };
     errdefer active.close(alloc_);
 
-    // <base-dir>/.goal/<goal_id>/l/
+    // <base-dir>/.goal/<goal_id>/n/
     var next = next: {
         const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "n" });
-        break :next try Dir.open(alloc_, path, opts_);
+        break :next try Dir.open(alloc_, path, "Upcoming Goals", opts_);
     };
     errdefer next.close(alloc_);
 
     // <base-dir>/.goal/<goal_id>/l/
     var later = later: {
         const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "l" });
-        break :later try Dir.open(alloc_, path, opts_);
+        break :later try Dir.open(alloc_, path, "Goals for Later", opts_);
     };
     errdefer later.close(alloc_);
 
     // <base-dir>/.goal/<goal_id>/d/
     const deleted = deleted: {
         const path = try std.fs.path.join(alloc_, &[_][]const u8{ base.path, "d" });
-        break :deleted try Dir.open(alloc_, path, opts_);
+        break :deleted try Dir.open(alloc_, path, "Deleted Goals", opts_);
     };
     // errdefer deleted.deinit(alloc_);
     // last thing to fail - no need for errdefer close
@@ -146,7 +148,7 @@ pub fn open(alloc_: std.mem.Allocator, opts_: Options) !Directories {
 }
 
 /// Close the project directory.
-pub fn close(self_: *Directories, alloc_: std.mem.Allocator) void {
+pub fn close(self_: *Directories, alloc_: Allocator) void {
     self_.base.close(alloc_);
     self_.active.close(alloc_);
     self_.next.close(alloc_);
@@ -155,73 +157,16 @@ pub fn close(self_: *Directories, alloc_: std.mem.Allocator) void {
     self_.local.close(alloc_);
 }
 
-/// List all goals in the project directory.
-pub fn listAll(self_: Directories, alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    const active_id = try ActiveId.load(alloc_, self_.local.dir);
-    defer if (active_id) |id| alloc_.free(id);
-
-    var found_active = false;
-
-    var active_count: u8 = 0;
-    var iter = self_.active.dir.iterate();
-    while (try iter.next()) |entry| : (active_count += 1) {
-        if (active_count == 0) try stdout_.writeAll("\nActive Goals:\n\n");
-
-        var goal = try Goal.init(alloc_, self_.active.dir, entry.name, .{});
-        defer goal.deinit(alloc_);
-
-        const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
-        found_active = found_active or active;
-
-        try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
-
-        // TODO: show note if no active goal in the current branch
-    }
-
-    var next_count: u8 = 0;
-    iter = self_.next.dir.iterate();
-    while (try iter.next()) |entry| : (next_count += 1) {
-        if (next_count == 0) try stdout_.writeAll("\nUpcoming Goals:\n\n");
-
-        var goal = try Goal.init(alloc_, self_.next.dir, entry.name, .{});
-        defer goal.deinit(alloc_);
-
-        const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
-        found_active = found_active or active;
-
-        try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
-    }
-
-    var later_count: u8 = 0;
-    iter = self_.later.dir.iterate();
-    while (try iter.next()) |entry| : (later_count += 1) {
-        if (later_count == 0) try stdout_.writeAll("\nGoals for Later:\n\n");
-
-        // TODO: limit later list to 5 entries - if more than 5 suggest `goal list --later` to see them all
-        // TODO: OR - only show later goals with `goal list --later` but maybe show a count so you know there are some later goals
-
-        var goal = try Goal.init(alloc_, self_.later.dir, entry.name, .{});
-        defer goal.deinit(alloc_);
-
-        const active = if (active_id) |id| std.mem.eql(u8, id, goal.id) else false;
-        found_active = found_active or active;
-
-        try stdout_.print("{s} {s}. {s}\n", .{ if (active) "*" else " ", goal.id, goal.title });
-    }
-
-    if ((active_count + next_count + later_count) == 0) {
-        try stdout_.writeAll("You've got no goals. Use `goal new` to create one.\n");
-    } else if (found_active) {
-        try stdout_.writeAll("\n(* marks the active goal in your current branch)\n");
-    }
-}
-
 pub const Dir = struct {
     dir: std.fs.Dir,
     path: []const u8,
+    /// An optional label for the directory. If not null this should be a
+    /// comptime string, so no need to free this as it should live in the
+    /// .text block (or whatever that global string space is called).
+    label: ?[]const u8,
 
     /// Takes ownership of `path_` memory.
-    pub fn open(alloc_: std.mem.Allocator, path_: []const u8, opts_: Options) !Dir {
+    pub fn open(alloc_: Allocator, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
         errdefer alloc_.free(path_);
 
         const dir = dir: {
@@ -243,22 +188,31 @@ pub const Dir = struct {
         return .{
             .dir = dir,
             .path = path_,
+            .label = label_,
         };
     }
 
-    pub fn close(self_: *Dir, alloc_: std.mem.Allocator) void {
+    pub fn close(self_: *Dir, alloc_: Allocator) void {
         self_.dir.close();
         alloc_.free(self_.path);
     }
 
-    pub fn list(self_: Dir, alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !u8 {
-        try stdout_.writeAll("\n");
+    pub fn list(self_: Dir, alloc_: Allocator, stdout_: *Writer) !u8 {
+        if (self_.label) |label| {
+            try stdout_.print("\n{s}\n", .{label});
+        } else {
+            try stdout_.writeAll("\n");
+        }
         var count: u8 = 0;
         var iter = self_.dir.iterate();
         while (try iter.next()) |entry| : (count += 1) {
             var goal = try Goal.init(alloc_, self_.dir, entry.name, .{});
             defer goal.deinit(alloc_);
             try stdout_.print("  {s}. {s}\n", .{ goal.id, goal.title });
+        }
+
+        if (count == 0) {
+            try stdout_.writeAll("  (none)\n");
         }
         return count;
     }

@@ -50,7 +50,7 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    complete    Complete the active goal.
         \\    next        TODO
         \\    later       TODO
-        \\    list        List all goals.
+        \\    list        List goals.
         \\    edit        Edit a goal.
         \\    delete      Delete a goal.
         \\    config      Configure `goal`.
@@ -164,12 +164,21 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\The `list` Command
             \\
             \\
-            \\Does what you think it does (lists all goals).
+            \\Lists your goals. Shows the active and next goals by default.
             \\
             \\
             \\Usage:
             \\
-            \\    goal list
+            \\    goal list [--active | --next | --later | --all]
+            \\
+            \\Arguments:
+            \\
+            \\    [--active]    List the active goals. (default)
+            \\    [--next]      List the next goals. (default)
+            \\    [--later]     List the later goals.
+            \\    [--all]       List all goals.
+            \\
+            \\    NOTE: Any combinations of these arguments can be provided.
             \\
             \\Help:
             \\

@@ -91,15 +91,18 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - Add `--later` flag to `parseArgs`; move to `l/` when set
   - Update `stop` help text in `commands/help.zig` to document `--later`
 
-- [ ] **Update `goal list`**
+- [x] **Update `goal list`**
 
   Depends on: `Directories.zig` step.
   Reference: `commands/list.zig` and `Directories.listAll`.
 
-  - Add `--all` flag to `parseArgs` in `list.zig`
+  - Add flags to `parseArgs` in `list.zig`
   - Default (`listAll` or a new `listDefault`): show active + next only
   - With `--all`: show active + next + later
-  - Update `list` help text in `commands/help.zig` to mention `--all`
+  - With `--active`: show active
+  - With `--next`: show next
+  - With `--later`: show later
+  - Update `list` help text in `commands/help.zig` to mention new flags
 
 - [ ] **Update `goal edit`**
 
