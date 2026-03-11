@@ -208,6 +208,12 @@ pub const Dir = struct {
         while (try iter.next()) |entry| : (count += 1) {
             var goal = try Goal.init(alloc_, self_.dir, entry.name, .{});
             defer goal.deinit(alloc_);
+            // TODO: we're no longer marking the active goal when listing them - figure out how to do that
+            // const active = if (active_id_) |active_id|
+            //     std.mem.eql(u8, goal.id, active_id)
+            // else
+            //     false;
+            // try stdout_.print("{s}{s}. {s}\n", .{ if (active) "* " else "  ", goal.id, goal.title });
             try stdout_.print("  {s}. {s}\n", .{ goal.id, goal.title });
         }
 

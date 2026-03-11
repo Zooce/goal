@@ -19,6 +19,9 @@ title: []const u8,
 /// The goal description.
 description: ?[]const u8,
 
+/// The directory where this goal was loaded from.
+dir: std.fs.Dir,
+
 /// Initializes a `Goal` by reading in it's file contents.
 ///
 /// A copy of the given id is made, so the caller is still responsible for
@@ -76,6 +79,7 @@ pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: []const u8, opts_:
         .id = try alloc_.dupe(u8, id_),
         .title = title,
         .description = description,
+        .dir = dir_,
     };
 }
 

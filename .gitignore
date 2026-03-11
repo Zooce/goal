@@ -1,9 +1,11 @@
 .zig-cache/
 zig-out/
 
-.goals/
 .agents/
 .opencode/
 
 # just for now
 HANDOFF.md
+
+# testing
+.testing/

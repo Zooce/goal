@@ -2,7 +2,6 @@ const std = @import("std");
 
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const stringToCommand2 = @import("../args.zig").stringToCommand2;
 const cli = @import("../cli.zig");
 const Command = @import("../commands.zig").Command;
 const CommitFile = @import("../CommitFile.zig");
@@ -100,13 +99,13 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
         .start => {
             const arg = iter_.peek() orelse break :sw;
 
-            if (stringToCommand2(arg)) |sub| switch (sub) {
+            if (Command.fromString(arg)) |sub| switch (sub) {
                 .new => continue :sw .new,
                 .help => {
                     show_help = true;
                     break :sw;
                 },
-                else => return error.UnexpectedSubcommand,
+                else => return Self.unexpectedSubcommand(sub),
             };
 
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
@@ -118,12 +117,12 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             const arg = iter_.peek() orelse break :sw;
 
-            if (stringToCommand2(arg)) |sub| switch (sub) {
+            if (Command.fromString(arg)) |sub| switch (sub) {
                 .help => {
                     show_help = true;
                     break :sw;
                 },
-                else => return error.UnexpectedSubcommand,
+                else => return Self.unexpectedSubcommand(sub),
             };
 
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
@@ -138,14 +137,15 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             var arg = iter_.peek() orelse break :sw;
 
-            if (stringToCommand2(arg)) |sub| switch (sub) {
+            if (Command.fromString(arg)) |sub| switch (sub) {
                 .help => {
                     show_help = true;
                     break :sw;
                 },
-                else => return error.UnexpectedSubcommand,
+                else => return Self.unexpectedSubcommand(sub),
             };
 
+            // TODO: allow --worktree and --branch
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
             if (std.mem.eql(u8, arg, "-b")) continue :sw .branch;
 
@@ -153,22 +153,31 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             arg = iter_.peek() orelse break :sw;
 
+            if (Command.fromString(arg)) |sub| switch (sub) {
+                .help => {
+                    show_help = true;
+                    break :sw;
+                },
+                else => return Self.unexpectedSubcommand(sub),
+            };
+
+            // TODO: allow --worktree and --branch
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
             if (std.mem.eql(u8, arg, "-b")) continue :sw .branch;
 
-            return error.UnexpectedArgument;
+            return Self.unexpectedArgument(arg);
         },
         .worktree => {
             _ = iter_.next(); // consume '-w'
 
             var arg = iter_.next() orelse return error.MissingWorktreePath; // path is required next (help is also okay)
 
-            if (stringToCommand2(arg)) |sub| switch (sub) {
+            if (Command.fromString(arg)) |sub| switch (sub) {
                 .help => {
                     show_help = true;
                     break :sw;
                 },
-                else => return error.UnexpectedSubcommand,
+                else => return Self.unexpectedSubcommand(sub),
             };
 
             args.worktree = try alloc_.dupe(u8, arg);
@@ -183,12 +192,12 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
             const arg = iter_.next() orelse return error.MissingBranchName; // branch is required next (help is also okay)
 
-            if (stringToCommand2(arg)) |sub| switch (sub) {
+            if (Command.fromString(arg)) |sub| switch (sub) {
                 .help => {
                     show_help = true;
                     break :sw;
                 },
-                else => return error.UnexpectedSubcommand,
+                else => return Self.unexpectedSubcommand(sub),
             };
 
             args.branch = try alloc_.dupe(u8, arg);
@@ -200,7 +209,16 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
         .base => {
             args.base_branch = try alloc_.dupe(u8, iter_.next() orelse unreachable); // consume base branch
 
-            if (iter_.next() != null) return error.UnexpectedArgument;
+            if (iter_.next()) |arg| {
+                if (Command.fromString(arg)) |sub| switch (sub) {
+                    .help => {
+                        show_help = true;
+                        break :sw;
+                    },
+                    else => return Self.unexpectedSubcommand(sub),
+                };
+                return Self.unexpectedArgument(arg);
+            }
         },
     }
 
@@ -216,53 +234,58 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
+    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    defer if (active_id) |_id| alloc_.free(_id);
+
+    // edge case - you're starting a goal on the current branch but you already have an active goal on this branch - fail
+    if (args.worktree == null and args.branch == null and active_id != null) {
+        if (active_id) |_id| {
+            std.debug.print(
+                \\
+                \\Goal #{s} is already active on this branch.
+                \\
+                \\You have to stop that goal first with `goal stop`.
+                \\
+            , .{_id});
+            return error.GoalAlreadyActive;
+        }
+    }
+
     var goal = goal: {
-        const file_name = file_name: {
+        const id = id: {
             if (args.id_type) |id_type| {
-                break :file_name switch (id_type) {
+                break :id switch (id_type) {
                     .id => |_id| _id,
                     .new => |_new| try new.run(alloc_, stdout_, _new.title),
                 };
             } else {
-                if (try dirs.later.list(alloc_, stdout_) == 0) {
+                var count = try dirs.next.list(alloc_, stdout_);
+                count += try dirs.later.list(alloc_, stdout_);
+                if (count == 0) {
                     std.debug.print(
                         \\
                         \\Sorry, but you can only start goals that are currently
                         \\inactive and it turns out there aren't any right now.
                         \\
-                        \\Run `goal list` to see the set of goals.
-                        \\
                     , .{});
                     return error.NoInactiveGoalsToStart;
                 }
                 if (try cli.getAnswer(alloc_, stdout_, "\nChoose a goal (type the number)")) |choice| {
-                    dirs.later.dir.access(choice, .{}) catch |err| {
-                        std.debug.print(
-                            \\
-                            \\So... either that goal isn't in the list or something crazy happened.
-                            \\
-                            \\Try again my friend!
-                            \\
-                        , .{});
-                        return err;
-                    };
-                    break :file_name choice;
+                    break :id choice;
                 }
                 std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
                 return error.NoGoalChosen;
             }
         };
 
-        defer if (args.id_type) |id_type| if (id_type != .id) alloc_.free(file_name);
+        defer if (args.id_type) |id_type| if (id_type != .id) alloc_.free(id);
 
-        if (file_name.len == 0) return Self.missingArgument();
+        if (id.len == 0) return Self.missingArgument();
 
-        break :goal try Goal.init(alloc_, dirs.later.dir, file_name, .{});
+        break :goal Goal.init(alloc_, dirs.later.dir, id, .{ .quiet = true }) catch
+            try Goal.init(alloc_, dirs.next.dir, id, .{});
     };
     defer goal.deinit(alloc_);
-
-    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
-    defer if (active_id) |id| alloc_.free(id);
 
     // TODO: record undo git command in case errdefer
 
@@ -328,7 +351,10 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
                 try std.fs.copyFileAbsolute(goal_id_path, worktree_goal_id_path, .{});
             }
 
-            try std.fs.rename(dirs.later.dir, goal.id, dirs.active.dir, goal.id);
+            std.fs.rename(goal.dir, goal.id, dirs.active.dir, goal.id) catch |err| {
+                std.debug.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
+                return err;
+            };
 
             const active_id_file = file: {
                 const active_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".active_id" });
@@ -387,15 +413,10 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
             try stdout_.print("\nBranch created successfully!\n", .{});
         }
 
-        // TODO: ensure id isn't already in a/ dir
-        if (active_id) |old_active_id| {
-            if (std.mem.eql(u8, goal.id, old_active_id)) {
-                try stdout_.print("\nLooks like we're already working on Goal #{s}. Enjoy!\n", .{goal.id});
-                return;
-            }
-        }
-
-        try std.fs.rename(dirs.later.dir, goal.id, dirs.active.dir, goal.id);
+        std.fs.rename(goal.dir, goal.id, dirs.active.dir, goal.id) catch |err| {
+            std.debug.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
+            return err;
+        };
 
         // Set active goal in current repo
         try ActiveId.store(dirs.local.dir, goal.id);

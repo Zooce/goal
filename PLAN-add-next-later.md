@@ -114,7 +114,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
     (active + next + later)
   - Edge case: no goals to choose from
 
-- [ ] **Update `goal delete`**
+- [x] **Update `goal delete`**
 
   Depends on: `Directories.zig` step.
   Reference: `commands/delete.zig:53,71,107,122,133` (all currently hardcoded to `inactive`).
@@ -123,7 +123,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - Interactive picker shows next + later goals only
   - `run` function: rename from whichever dir the goal was found in → `d/`
 
-- [ ] **Update `goal start`**
+- [x] **Update `goal start`**
 
   Depends on: `Directories.zig` step.
   Reference: `commands/start.zig:227,239,260,331,398`; `commands/edit.zig:61-63` for

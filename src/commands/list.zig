@@ -2,6 +2,7 @@ const std = @import("std");
 const Allocator = std.mem.Allocator;
 const Writer = std.io.Writer;
 
+// const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
@@ -70,6 +71,10 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, list_type_: u8) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
+    // TODO: mark the active goal in this branch
+    // const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    // defer if (active_id) |id| alloc_.free(id);
+
     if ((list_type_ & ACTIVE) != 0) {
         _ = try dirs.active.list(alloc_, stdout_);
     }
@@ -79,4 +84,5 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, list_type_: u8) !void {
     if ((list_type_ & LATER) != 0) {
         _ = try dirs.later.list(alloc_, stdout_);
     }
+    // TODO: show later count by default
 }
