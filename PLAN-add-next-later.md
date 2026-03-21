@@ -133,7 +133,7 @@ Replace `<goal_id>` with the UUID found in your project's `.goal/.goal_id` file.
   - Interactive picker shows next + later goals only
   - `std.fs.rename` source must be whichever dir the goal was found in
 
-- [ ] **Update help text for `next` and `later`**
+- [x] **Update help text for `next` and `later`**
 
   Depends on: `next.zig` and `later.zig` being fully implemented.
 

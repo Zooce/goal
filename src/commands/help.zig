@@ -48,8 +48,8 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    status      Show your active goal's status.
         \\    stop        Stop working on the active goal.
         \\    complete    Complete the active goal.
-        \\    next        TODO
-        \\    later       TODO
+        \\    next        Promote a goal from Later to Next.
+        \\    later       Demote a goal from Next to Later.
         \\    list        List goals.
         \\    edit        Edit a goal.
         \\    delete      Delete a goal.
@@ -581,14 +581,71 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\The `next` Command
             \\
-            \\TODO
+            \\
+            \\Promotes a goal from the Later list to the Next list.
+            \\
+            \\Only Later goals can be promoted. If a goal is currently active, stop it
+            \\first with `goal stop` (which moves it to Next automatically) or
+            \\`goal stop --later` (which moves it to Later).
+            \\
+            \\If no goal ID is given you'll select one from the list of Later goals.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal next [id]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]    The goal ID (optional). If omitted, you'll pick from the Later list.
+            \\
+            \\Examples:
+            \\
+            \\    goal next        # pick from Later list interactively
+            \\    goal next 3      # promote goal #3 from Later to Next
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal next [help | -h | --help]
+            \\    OR
+            \\        goal help next
             \\
             ,
             .later =>
             \\
             \\The `later` Command
             \\
-            \\TODO
+            \\
+            \\Demotes a goal from the Next list to the Later list.
+            \\
+            \\Only Next goals can be demoted. If a goal is currently active and you want
+            \\it to go straight to Later, stop it with `goal stop --later`.
+            \\
+            \\If no goal ID is given you'll select one from the list of Next goals.
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal later [id]
+            \\
+            \\Arguments:
+            \\
+            \\    [id]    The goal ID (optional). If omitted, you'll pick from the Next list.
+            \\
+            \\Examples:
+            \\
+            \\    goal later        # pick from Next list interactively
+            \\    goal later 3      # demote goal #3 from Next to Later
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal later [help | -h | --help]
+            \\    OR
+            \\        goal help later
             \\
             ,
 
