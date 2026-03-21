@@ -40,7 +40,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 }
 
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
-    var dirs = try Directories.open(alloc_, .{});
+    var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
     const active_id = try ActiveId.load(alloc_, dirs.local.dir);
@@ -55,6 +55,13 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
         try git.logGrep(alloc_, stdout_, goal.id);
         try git.status(alloc_, stdout_);
     } else {
-        try stdout_.writeAll("\nOh my... it looks like there's no active goal :). Bye now!\n");
+        const count = try dirs.next.list(alloc_, stdout_);
+
+        try stdout_.writeAll("\nYou're not working on a goal right now");
+        if (count > 0) {
+            try stdout_.writeAll(", so why not pick from the Next list?\n");
+        } else {
+            try stdout_.writeAll(". Run `goal list --later` for inspiration!\n");
+        }
     }
 }
