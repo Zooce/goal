@@ -50,6 +50,8 @@ Add `project_name: ?[]const u8 = null` to the `M` struct in `src/Meta.zig:17-19`
 
 In `src/commands/init.zig`, after opening directories but before calling `Meta.create()`, get the git repo root using `git.projectRoot()`. Extract the last path component as the default. Prompt the user using `cli.getAnswer()` with a message like "Project name (default: <repo_name>):". If the user enters nothing, use the default. Pass the resolved name to `Meta.create()`.
 
+> NOTE: During manual testing you may pipe the custom name like `echo 'my-cool-project\n' | goal init`.
+
 **Verify:**
 - `zig build` succeeds
 - `zig build test` passes
@@ -65,8 +67,8 @@ In `src/commands/init.zig`, after opening directories but before calling `Meta.c
   4. `cd -` and `rm -rf .testing/test-init-default`
 
 **Checklist:**
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 
 ### Task 3: Add `project-name` key to `goal config`
 

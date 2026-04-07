@@ -3,6 +3,7 @@ const std = @import("std");
 const Meta = @import("../Meta.zig");
 const Config = @import("../Config.zig");
 const Directories = @import("../Directories.zig");
+const cli = @import("../cli.zig");
 const git = @import("../git.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
@@ -49,7 +50,20 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var config = try Config.load(alloc_);
     defer config.deinit();
 
-    Meta.create(dirs.base.dir, null) catch |err| switch (err) {
+    const project_name = project_name: {
+        const git_root = try git.projectRoot(alloc_, null) orelse return error.NotAGitProject;
+        defer alloc_.free(git_root);
+
+        const repo_name = std.fs.path.basename(git_root);
+        const prompt = try std.fmt.allocPrint(alloc_, "Project name (default: {s})", .{repo_name});
+        defer alloc_.free(prompt);
+
+        const answer = try cli.getAnswer(alloc_, stdout_, prompt);
+        break :project_name answer orelse try alloc_.dupe(u8, repo_name);
+    };
+    defer if (project_name) |n| alloc_.free(n);
+
+    Meta.create(dirs.base.dir, project_name) catch |err| switch (err) {
         error.PathAlreadyExists => return try stdout_.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
     };
