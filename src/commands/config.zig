@@ -1,6 +1,8 @@
 const std = @import("std");
 const Config = @import("../Config.zig");
 const ConfigKey = @import("../Config.zig").ConfigKey;
+const Meta = @import("../Meta.zig");
+const Directories = @import("../Directories.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
@@ -73,6 +75,12 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             continue;
         }
 
+        if (std.mem.eql(u8, arg, "project-name")) {
+            if (list or key != null) return Self.tooManyArguments();
+            key = .project_name;
+            continue;
+        }
+
         // value
         if (list or key == null) return Self.unexpectedArgument(arg);
         val = try alloc_.dupe(u8, arg);
@@ -96,20 +104,38 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 
 /// NOTE: This does not take ownership of args memory!
 pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !void {
+    var dirs = try Directories.open(alloc_, .{});
+    defer dirs.close(alloc_);
+
+    var meta = try Meta.load(alloc_, dirs);
+    defer meta.deinit();
+
     var config = try Config.load(alloc_);
     defer config.deinit();
 
     switch (args_) {
-        .list => return config.print(stdout_, null),
+        .list => {
+            return config.print(stdout_, null, meta.project_name);
+        },
         .setting => |setting| {
-            if (setting.val) |val| {
-                switch (setting.key) {
-                    .base_dir => config.base_dir = val,
-                    .editor => config.editor = val,
-                }
-                try config.store(alloc_);
+            switch (setting.key) {
+                .project_name => {
+                    if (setting.val) |val| {
+                        try meta.setProjectName(val);
+                        try meta.store();
+                    }
+
+                    return try config.print(stdout_, setting.key, meta.project_name);
+                },
+                .base_dir, .editor => {
+                    if (setting.val) |val| {
+                        try config.setKey(setting.key, val);
+                        try config.store(alloc_);
+                    }
+
+                    return try config.print(stdout_, setting.key, null);
+                },
             }
-            return try config.print(stdout_, setting.key);
         },
     }
 }

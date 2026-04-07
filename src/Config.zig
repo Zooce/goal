@@ -132,13 +132,15 @@ pub fn store(self_: Config, alloc_: std.mem.Allocator) !void {
 pub const ConfigKey = enum {
     base_dir,
     editor,
+    project_name,
 };
 
 /// Print the config or a specific key from it to stdout.
-pub fn print(self_: Config, stdout_: *std.io.Writer, key_: ?ConfigKey) !void {
+pub fn print(self_: Config, stdout_: *std.io.Writer, key_: ?ConfigKey, project_name_: ?[]const u8) !void {
     if (key_) |key| switch (key) {
         .base_dir => return try stdout_.print("\nbase-dir = {s}\n", .{self_.base_dir}),
         .editor => return try stdout_.print("\neditor = {s}\n", .{self_.editor}),
+        .project_name => return try stdout_.print("\nproject-name = {s}\n", .{project_name_ orelse ""}),
     };
 
     try stdout_.print(
@@ -147,8 +149,23 @@ pub fn print(self_: Config, stdout_: *std.io.Writer, key_: ?ConfigKey) !void {
         \\
         \\    base-dir = {s}
         \\    editor = {s}
+        \\    project-name = {s}
         \\
-    , .{ self_.base_dir, self_.editor });
+    , .{ self_.base_dir, self_.editor, project_name_ orelse "" });
+}
+
+pub fn setKey(self_: *Config, key_: ConfigKey, val_: []const u8) !void {
+    switch (key_) {
+        .base_dir => {
+            self_._alloc.free(self_.base_dir);
+            self_.base_dir = try self_._alloc.dupe(u8, val_);
+        },
+        .editor => {
+            self_._alloc.free(self_.editor);
+            self_.editor = try self_._alloc.dupe(u8, val_);
+        },
+        else => unreachable,
+    }
 }
 
 fn init(alloc_: std.mem.Allocator, base_dir_: ?[]const u8, editor_: ?[]const u8) !Config {

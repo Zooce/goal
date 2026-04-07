@@ -46,8 +46,10 @@ pub fn load(alloc_: std.mem.Allocator, dirs_: Directories) !Meta {
     };
     defer std.zon.parse.free(alloc_, m);
 
-    var project_name = m.project_name;
-    if (project_name == null) {
+    var project_name: ?[]const u8 = null;
+    if (m.project_name) |name| {
+        project_name = try alloc_.dupe(u8, name);
+    } else {
         // Migration: infer project_name from git repo root for existing projects
         // that don't have it set in their m file yet. This can be removed once
         // all projects have been migrated (project_name will always be set).
@@ -91,6 +93,15 @@ pub fn store(self_: Meta) !void {
     try meta_file.sync();
 
     try std.fs.rename(self_._dirs.base.dir, "~m", self_._dirs.base.dir, "m");
+}
+
+pub fn setProjectName(self_: *Meta, new_name_: []const u8) !void {
+    // free the old project name first
+    if (self_.project_name) |name| {
+        self_._alloc.free(name);
+    }
+
+    self_.project_name = try self_._alloc.dupe(u8, new_name_);
 }
 
 pub fn deinit(self_: *Meta) void {

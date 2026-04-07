@@ -61,7 +61,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
         const answer = try cli.getAnswer(alloc_, stdout_, prompt);
         break :project_name answer orelse try alloc_.dupe(u8, repo_name);
     };
-    defer if (project_name) |n| alloc_.free(n);
+    defer alloc_.free(project_name);
 
     Meta.create(dirs.base.dir, project_name) catch |err| switch (err) {
         error.PathAlreadyExists => return try stdout_.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),

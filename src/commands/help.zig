@@ -549,7 +549,8 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\Manage configuration settings for goal.
             \\
             \\Configuration is stored in key=value format. Settings from the config file can be
-            \\overridden by environment variables.
+            \\overridden by environment variables. The `project-name` setting is per-project
+            \\metadata stored in `~/.goal/<goal_id>/m`.
             \\
             \\
             \\Usage:
@@ -560,8 +561,9 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\Settings:
             \\
-            \\    base-dir    Directory for goal storage
-            \\    editor      Default editor for goal editing
+            \\    base-dir        Directory for goal storage
+            \\    editor          Default editor for goal editing
+            \\    project-name    Project display name (per-project metadata)
             \\
             \\Environment Variables:
             \\

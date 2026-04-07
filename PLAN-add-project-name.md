@@ -70,13 +70,17 @@ In `src/commands/init.zig`, after opening directories but before calling `Meta.c
 - [x] Implemented
 - [x] Verified
 
-### Task 3: Add `project-name` key to `goal config`
+### Task 3: Add `project-name` key to `goal config` and help output
 
-In `src/commands/config.zig`, add a new `project_name` variant to `ConfigKey` (or handle it separately since it lives in `Meta`/`m` rather than `Config`). Update `parseArgs()` to recognize `project-name` as a valid key. Update `run()` to:
+In `src/commands/config.zig`, add a `project_name` key (handled through `Meta`/`m`, not `Config` file storage). Update `parseArgs()` to recognize `project-name` as a valid key. Update `run()` to:
 - On `goal config project-name`: load `Meta`, print the current `project_name`
 - On `goal config project-name "new name"`: load `Meta`, update `project_name`, call `Meta.store()`
 
-This requires loading `Meta` (via `Meta.load()`) instead of `Config` for this key, since the data lives in the `m` file.
+Update `src/commands/help.zig` `.config` section to list `project-name` in **Settings** and clarify that it is a per-project value stored in the `m` metadata file.
+
+This requires loading `Meta` (via `Meta.load()`) and `Directories.open()` instead of `Config` for this key, since the data lives in the `m` file.
+
+> NOTE: During manual testing you may pipe the custom name like `echo 'my-cool-project\n' | goal init`.
 
 **Verify:**
 - `zig build` succeeds
@@ -93,7 +97,10 @@ This requires loading `Meta` (via `Meta.load()`) instead of `Config` for this ke
   4. `goal config project-name` — output should show "renamed-project"
   5. Inspect the `m` file: `cat ~/.goal/$(cat .goal/.goal_id)/m` — confirm `.project_name = "renamed-project"`
   6. `cd -` and `rm -rf .testing/test-config-update`
+- Manual test — help output includes new setting:
+  1. Run `goal help config`
+  2. Confirm **Settings** includes `project-name` with a description that it is per-project metadata
 
 **Checklist:**
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
