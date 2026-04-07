@@ -34,22 +34,17 @@ Add `project_name: ?[]const u8 = null` to the `M` struct in `src/Meta.zig:17-19`
 **Verify:**
 - `zig build` succeeds
 - `zig build test` passes
-- Manual test — new project:
-  1. `mkdir -p .testing/test-new-project && cd .testing/test-new-project && git init`
-  2. `goal init` (enter a name when prompted)
-  3. Inspect the `m` file: `cat ~/.goal/$(cat .goal/.goal_id)/m` — confirm it contains `.project_name = "your name"`
-  4. `cd -` and `rm -rf .testing/test-new-project`
 - Manual test — existing project migration:
   1. `mkdir -p .testing/test-migrate && cd .testing/test-migrate && git init`
   2. `goal init` (use any name)
   3. Manually edit the `m` file to remove the `.project_name` line, simulating an old-format file
   4. Run `goal list` or `goal new` (any command that loads `Meta`) — it should auto-migrate and populate `project_name` from the repo name
-  5. Inspect the `m` file again to confirm `.project_name` was written back
+  5. Inspect the `m` file again to confirm `.project_name = "test-migrate"` was written back
   6. `cd -` and `rm -rf .testing/test-migrate`
 
 **Checklist:**
-- [ ] Implemented
-- [ ] Verified
+- [x] Implemented
+- [x] Verified
 
 ### Task 2: Prompt for project name in `goal init`
 

@@ -57,6 +57,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
     defer dirs.close(alloc_);
 
     var meta = try Meta.load(alloc_, dirs);
+    defer meta.deinit();
 
     const file_name = file_name: {
         var buffer: [7]u8 = undefined; // 7 digits is overkill

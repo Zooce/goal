@@ -49,7 +49,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var config = try Config.load(alloc_);
     defer config.deinit();
 
-    Meta.create(dirs.base.dir) catch |err| switch (err) {
+    Meta.create(dirs.base.dir, null) catch |err| switch (err) {
         error.PathAlreadyExists => return try stdout_.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
     };
