@@ -46,6 +46,7 @@ fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: comm
         .help => try commands.help.main(stdout_, iter_),
         .setup => try commands.setup.main(alloc_, stdout_, iter_),
         .init => try commands.init.main(alloc_, stdout_, iter_),
+        .deinit => try commands.deinit.main(alloc_, stdout_, iter_),
         .sync => try commands.sync.main(alloc_, stdout_, iter_),
         .list => try commands.list.main(alloc_, stdout_, iter_),
         .status => try commands.status.main(alloc_, stdout_, iter_),

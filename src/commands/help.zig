@@ -42,6 +42,7 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
         \\    help        Show this help message or the message for a command.
         \\    setup       Setup `goal` for the first time.
         \\    init        Initialze `goal` in a project.
+        \\    deinit      Remove `goal` from a project (reverses init).
         \\    sync        Sync all your goal projects.
         \\    new         Create a new goal.
         \\    start       Start working on a goal (optionally create a new one).
@@ -134,6 +135,35 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\        goal init [help | -h | --help]
             \\    OR
             \\        goal help init
+            \\
+            ,
+            .deinit =>
+            \\
+            \\The `deinit` Command
+            \\
+            \\
+            \\Reverses `goal init` by removing the local `.goal/` directory and the global
+            \\`~/.goal/<goal_id>/` directory, committing each removal to their respective git
+            \\repos with the message "goal deinit".
+            \\
+            \\
+            \\Usage:
+            \\
+            \\    goal deinit [--no-local-commit] [--no-global-commit] [--no-commit]
+            \\
+            \\Arguments:
+            \\
+            \\    [--no-local-commit]     Skip local git commit after deleting .goal/
+            \\    [--no-global-commit]    Skip global git commit after deleting ~/.goal/<goal_id>/
+            \\    [--no-commit]           Skip both local and global git commits
+            \\
+            \\Help:
+            \\
+            \\    To show this message use one of the following:
+            \\
+            \\        goal deinit [help | -h | --help]
+            \\    OR
+            \\        goal help deinit
             \\
             ,
             .sync =>

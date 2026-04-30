@@ -39,8 +39,8 @@ pub fn load(alloc_: std.mem.Allocator) !Config {
     var reader_buf: [1024]u8 = undefined;
     var reader = config_file.reader(&reader_buf);
 
-    var count: u8 = 1;
-    while (reader.interface.takeDelimiterInclusive('\n')) |line| : (count += 1) {
+    var line_num: u8 = 1;
+    while (reader.interface.takeDelimiterInclusive('\n')) |line| : (line_num += 1) {
         // skip empty lines and comments
         if (line.len == 1 or line[0] == '#') continue;
 
@@ -50,7 +50,7 @@ pub fn load(alloc_: std.mem.Allocator) !Config {
                 \\Invalid config format on line {d}:
                 \\
                 \\    {s}
-            , .{ count, line });
+            , .{ line_num, line });
             return error.InvalidConfigFormat;
         };
         const key = std.mem.trim(u8, line[0..eq_pos], " \t");
@@ -63,7 +63,7 @@ pub fn load(alloc_: std.mem.Allocator) !Config {
                     \\Duplicate base-dir key on line {d}:
                     \\
                     \\    {s}
-                , .{ count, line });
+                , .{ line_num, line });
                 return error.DuplicateConfigKey;
             }
             base_dir = try alloc_.dupe(u8, val);
@@ -74,7 +74,7 @@ pub fn load(alloc_: std.mem.Allocator) !Config {
                     \\Duplicate editor key on line {d}:
                     \\
                     \\    {s}
-                , .{ count, line });
+                , .{ line_num, line });
                 return error.DuplicateConfigKey;
             }
             editor = try alloc_.dupe(u8, val);

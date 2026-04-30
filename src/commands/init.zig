@@ -46,7 +46,6 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     var dirs = try Directories.open(alloc_, .{ .create = true });
     defer dirs.close(alloc_);
 
-    // // Create global ~/.goal/<uuid>/ directory and metadata file
     var config = try Config.load(alloc_);
     defer config.deinit();
 
