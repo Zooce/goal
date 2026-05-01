@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const Config = @import("../Config.zig");
+const Meta = @import("../Meta.zig");
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
 const uuid = @import("../uuid.zig");
@@ -129,8 +130,8 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
             \\
             \\This will permanently delete all goal data for this project in {s}.
             \\This cannot be undone (unless you're tracking with Git).
-            \\Are you sure you want to do this?
             \\
+            \\Are you sure you want to do this?
         ,
             .{global_goal_path},
         );
@@ -167,6 +168,19 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
         return;
     }
 
+    const global_commit_msg = global_commit_msg: {
+        if (!opts_.global_commit) break :global_commit_msg null;
+
+        var global_goal_dir = try std.fs.openDirAbsolute(global_goal_path, .{});
+        defer global_goal_dir.close();
+
+        var meta = try Meta.load(alloc_, global_goal_dir);
+        defer meta.deinit();
+
+        break :global_commit_msg try std.fmt.allocPrint(alloc_, "goal deinit - {s}", .{meta.project_name});
+    };
+    defer if (global_commit_msg) |msg| alloc_.free(msg);
+
     // -- global delete
 
     try std.fs.deleteTreeAbsolute(global_goal_path);
@@ -180,7 +194,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
         });
 
         try git.run(alloc_, stdout_, .{
-            .argv = &[_][]const u8{ "git", "commit", &goal_id, "-m", "goal deinit" },
+            .argv = &[_][]const u8{ "git", "commit", &goal_id, "-m", global_commit_msg orelse "goal deinit" },
             .cwd = config.base_dir,
         });
     } else {

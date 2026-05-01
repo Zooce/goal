@@ -89,8 +89,11 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     });
 
     // Commit in global ~/.goal/ directory
+    const commit_msg = try std.fmt.allocPrint(alloc_, "goal init - {s}", .{project_name});
+    defer alloc_.free(commit_msg);
+
     try git.run(alloc_, stdout_, .{
-        .argv = &[_][]const u8{ "git", "commit", dirs.base.path, "-m", "goal init" },
+        .argv = &[_][]const u8{ "git", "commit", dirs.base.path, "-m", commit_msg },
         .cwd = config.base_dir,
     });
 

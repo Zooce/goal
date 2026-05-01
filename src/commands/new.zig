@@ -56,7 +56,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, dirs);
+    var meta = try Meta.load(alloc_, dirs.base.dir);
     defer meta.deinit();
 
     const file_name = file_name: {

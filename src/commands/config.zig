@@ -107,7 +107,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
-    var meta = try Meta.load(alloc_, dirs);
+    var meta = try Meta.load(alloc_, dirs.base.dir);
     defer meta.deinit();
 
     var config = try Config.load(alloc_);

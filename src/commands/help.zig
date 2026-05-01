@@ -144,7 +144,7 @@ pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
             \\
             \\Reverses `goal init` by removing the local `.goal/` directory and the global
             \\`~/.goal/<goal_id>/` directory, committing each removal to their respective git
-            \\repos with the message "goal deinit".
+            \\repos (local: "goal deinit", global: "goal deinit - <project-name>").
             \\
             \\
             \\Usage:
