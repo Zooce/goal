@@ -1,6 +1,6 @@
 ## Platform
 
-Zig v0.15.2
+Zig v0.16.0
 Arch Linux (via Omarchy)
 
 ## Testing

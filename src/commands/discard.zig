@@ -16,7 +16,7 @@ const Args = union(enum) {
     run: std.ArrayList([]const u8),
 };
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     var args = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .git_help => return try git.help(alloc_, stdout_, "restore"),
@@ -47,7 +47,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     return Args{ .run = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: std.ArrayList([]const u8)) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: std.ArrayList([]const u8)) !void {
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.unstaged} })) {
         std.debug.print("\nThere are no unstaged changes to discard.\n\nHint: You can only discard unstaged changes.\n", .{});
         return error.NoUnstagedChanges;

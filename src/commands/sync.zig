@@ -9,7 +9,7 @@ const help = @import("help.zig");
 
 const Self = Command.sync;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
         .run => try run(alloc_, stdout_),
@@ -36,7 +36,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return Args.run;
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
     // get configurable goal base directory
     var config = try Config.load(alloc_);
     defer config.deinit();

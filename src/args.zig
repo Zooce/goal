@@ -3,12 +3,12 @@ const commands = @import("commands.zig");
 
 // TODO: rename file to ArgIter.zig
 pub const ArgIter = struct {
-    iter: std.process.ArgIterator,
+    iter: std.process.Args.Iterator,
     _next: ?[]const u8,
 
-    pub fn init(alloc_: std.mem.Allocator) !ArgIter {
+    pub fn init(args_: std.process.Args, alloc_: std.mem.Allocator) !ArgIter {
         return ArgIter{
-            .iter = try std.process.ArgIterator.initWithAllocator(alloc_),
+            .iter = try args_.iterateAllocator(alloc_),
             ._next = null,
         };
     }

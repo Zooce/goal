@@ -12,7 +12,7 @@ const help = @import("help.zig");
 
 const Self = Command.init;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
         .run => try run(alloc_, stdout_),
@@ -42,7 +42,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 /// Initializes a `goal` project by creating local `.goal/` directory and global `~/.goal/<goal_id>/` directory.
 ///
 /// Returns error.GoalAlreadyInitialized if `goal` is already initialized for project.
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
     var dirs = try Directories.open(alloc_, .{ .create = true });
     defer dirs.close(alloc_);
 

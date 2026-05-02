@@ -5,7 +5,7 @@ const stringToCommand2 = @import("../args.zig").stringToCommand2;
 
 const Self = Command.help;
 
-pub fn main(stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     const cmd = try parseArgs(iter_);
     try run(stdout_, cmd);
 }
@@ -24,7 +24,7 @@ pub fn parseArgs(iter_: *ArgIter) !?Command {
     return null;
 }
 
-pub fn run(stdout_: *std.io.Writer, command_: ?Command) !void {
+pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
     const main_help_text =
         \\
         \\`goal` is a simple CLI to help you keep track of your goals, while focusing on

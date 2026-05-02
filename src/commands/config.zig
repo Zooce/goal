@@ -25,7 +25,7 @@ pub const Args = union(enum) {
     setting: Setting,
 };
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     const args = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .args => |args| args,
@@ -103,7 +103,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 }
 
 /// NOTE: This does not take ownership of args memory!
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: Args) !void {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 

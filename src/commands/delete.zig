@@ -1,6 +1,7 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 const Allocator = std.mem.Allocator;
-const Writer = std.io.Writer;
+const Writer = std.Io.Writer;
 
 const cli = @import("../cli.zig");
 const ActiveId = @import("../ActiveId.zig");
@@ -109,9 +110,9 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, dirs_: Directories, ids_: std.Ar
             return error.CannotDeleteActiveGoal;
         };
 
-        dirs_.active.dir.access(id, .{}) catch {
-            dirs_.next.dir.access(id, .{}) catch {
-                dirs_.later.dir.access(id, .{}) catch |err| {
+        dirs_.active.dir.access(std.Options.debug_io, id, .{}) catch {
+            dirs_.next.dir.access(std.Options.debug_io, id, .{}) catch {
+                dirs_.later.dir.access(std.Options.debug_io, id, .{}) catch |err| {
                     std.debug.print("\nI can't access Goal #{s}!\n", .{id});
                     return err;
                 };
@@ -140,8 +141,8 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, dirs_: Directories, ids_: std.Ar
     }
 
     for (ids_.items) |id| {
-        std.fs.rename(dirs_.later.dir, id, dirs_.deleted.dir, id) catch {
-            std.fs.rename(dirs_.next.dir, id, dirs_.deleted.dir, id) catch |err| {
+        fs.rename(dirs_.later.dir, id, dirs_.deleted.dir, id) catch {
+            fs.rename(dirs_.next.dir, id, dirs_.deleted.dir, id) catch |err| {
                 std.debug.print("\nUnable to delete goal {s}.\n", .{id});
                 return err;
             };

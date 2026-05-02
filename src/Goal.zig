@@ -1,6 +1,7 @@
 const Goal = @This();
 
 const std = @import("std");
+const fs = @import("fs_compat.zig");
 
 /// Options for initializing a goal.
 pub const Options = struct {
@@ -20,7 +21,7 @@ title: []const u8,
 description: ?[]const u8,
 
 /// The directory where this goal was loaded from.
-dir: std.fs.Dir,
+dir: fs.Dir,
 
 /// Initializes a `Goal` by reading in it's file contents.
 ///
@@ -40,18 +41,18 @@ dir: std.fs.Dir,
 ///     defer goal.deinit(allocator);
 /// }
 /// ```
-pub fn init(alloc_: std.mem.Allocator, dir_: std.fs.Dir, id_: []const u8, opts_: Options) !Goal {
-    const goal_file = dir_.openFile(id_, .{}) catch |err| {
+pub fn init(alloc_: std.mem.Allocator, dir_: fs.Dir, id_: []const u8, opts_: Options) !Goal {
+    const goal_file = dir_.openFile(std.Options.debug_io, id_, .{}) catch |err| {
         if (!opts_.quiet) std.debug.print("\nUnable to open goal file: {s}\n", .{id_});
         return err;
     };
-    defer goal_file.close();
+    defer goal_file.close(std.Options.debug_io);
 
     var read_buffer: [1024]u8 = undefined;
-    var file_reader = goal_file.reader(&read_buffer);
+    var file_reader = goal_file.reader(std.Options.debug_io, &read_buffer);
 
     // TODO: I think I can use takeDelimiterExclusive('\n') instead of all this streaming stuff
-    var stream_writer = std.io.Writer.Allocating.init(alloc_);
+    var stream_writer = std.Io.Writer.Allocating.init(alloc_);
     defer stream_writer.deinit();
 
     var get_desc = true;
@@ -93,7 +94,7 @@ pub fn deinit(self_: *Goal, alloc_: std.mem.Allocator) void {
 }
 
 /// Print the goal tag to stdout.
-pub fn tag(self_: Goal, stdout_: *std.io.Writer) !void {
+pub fn tag(self_: Goal, stdout_: *std.Io.Writer) !void {
     try stdout_.print(
         \\
         \\Goal #{s} - {s}
@@ -102,7 +103,7 @@ pub fn tag(self_: Goal, stdout_: *std.io.Writer) !void {
 }
 
 /// Print the goal tag and description to stdout.
-pub fn print(self_: Goal, stdout_: *std.io.Writer) !void {
+pub fn print(self_: Goal, stdout_: *std.Io.Writer) !void {
     try self_.tag(stdout_);
     if (self_.description) |desc| {
         try stdout_.print(

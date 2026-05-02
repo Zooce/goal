@@ -1,4 +1,12 @@
 const std = @import("std");
+const runtime = @import("runtime.zig");
+
+fn runChild(alloc_: std.mem.Allocator, argv_: []const []const u8, cwd_: ?[]const u8) !std.process.RunResult {
+    return std.process.run(alloc_, runtime.io, .{
+        .argv = argv_,
+        .cwd = if (cwd_) |cwd| .{ .path = cwd } else .inherit,
+    });
+}
 
 /// Find the project root by running `git rev-parse --show-toplevel`.
 ///
@@ -16,18 +24,14 @@ const std = @import("std");
 /// ```
 pub fn projectRoot(alloc_: std.mem.Allocator, cwd_: ?[]const u8) !?[]const u8 {
     const argv = [_][]const u8{ "git", "rev-parse", "--show-toplevel" };
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .cwd = cwd_,
-        .argv = &argv,
-    });
+    const res = try runChild(alloc_, &argv, cwd_);
     defer {
         alloc_.free(res.stdout);
         alloc_.free(res.stderr);
     }
 
     const git_root = root: switch (res.term) {
-        .Exited => |code| {
+        .exited => |code| {
             if (code == 0 and res.stdout.len > 0) {
                 const trimmed = std.mem.trim(u8, res.stdout, " \t\r\n");
                 // need to copy this so the caller owns the memory
@@ -58,11 +62,7 @@ test "getGitRoot - returns the parent of the .git/ directory" {
 
 pub fn init(alloc_: std.mem.Allocator, cwd_: ?[]const u8) !void {
     const argv = [_][]const u8{ "git", "init" };
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .cwd = cwd_,
-        .argv = &argv,
-    });
+    const res = try runChild(alloc_, &argv, cwd_);
     defer {
         alloc_.free(res.stdout);
         alloc_.free(res.stderr);
@@ -88,25 +88,21 @@ pub const ChangeOptions = struct {
 pub fn hasChanges(alloc_: std.mem.Allocator, opts_: ChangeOptions) !bool {
     var found = false;
     for (opts_.kinds) |kind| {
-        const res = try std.process.Child.run(.{
-            .allocator = alloc_,
-            .argv = switch (kind) {
-                .staged => &[_][]const u8{ "git", "diff", "--stat", "--staged" },
-                .unstaged => &[_][]const u8{ "git", "diff", "--stat" },
-                .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
-            },
-            .cwd = opts_.cwd,
-        });
+        const res = try runChild(alloc_, switch (kind) {
+            .staged => &[_][]const u8{ "git", "diff", "--stat", "--staged" },
+            .unstaged => &[_][]const u8{ "git", "diff", "--stat" },
+            .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
+        }, opts_.cwd);
         defer {
             alloc_.free(res.stdout);
             alloc_.free(res.stderr);
         }
 
         const err_code: ?u32 = switch (res.term) {
-            .Exited => |code| if (code != 0) code else null,
-            .Signal => |code| code,
-            .Stopped => |code| code,
-            .Unknown => std.math.maxInt(u32),
+            .exited => |code| if (code != 0) code else null,
+            .signal => |code| @intFromEnum(code),
+            .stopped => |code| @intFromEnum(code),
+            .unknown => std.math.maxInt(u32),
         };
 
         if (err_code) |err| {
@@ -123,14 +119,11 @@ pub const DiffOptions = struct {
     staged: bool,
 };
 
-pub fn diff(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: DiffOptions) !void {
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .argv = if (opts_.staged)
-            &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" }
-        else
-            &[_][]const u8{ "git", "diff", "--stat", "--color" },
-    });
+pub fn diff(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, opts_: DiffOptions) !void {
+    const res = try runChild(alloc_, if (opts_.staged)
+        &[_][]const u8{ "git", "diff", "--stat", "--color", "--staged" }
+    else
+        &[_][]const u8{ "git", "diff", "--stat", "--color" }, null);
     defer {
         alloc_.free(res.stdout);
         alloc_.free(res.stderr);
@@ -156,28 +149,24 @@ pub const RunOptions = struct {
 
 // TODO: the 'run' function has some good stuff in it - like it's error handling - there's a way to clean this all up though
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, opts_: RunOptions) !void {
     // run all git operations in the project root by default
     const cwd = opts_.cwd orelse
         try projectRoot(alloc_, null) orelse
         return error.NotAGitProject;
     defer if (opts_.cwd == null) alloc_.free(cwd);
 
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .argv = opts_.argv,
-        .cwd = cwd,
-    });
+    const res = try runChild(alloc_, opts_.argv, cwd);
     defer {
         alloc_.free(res.stderr);
         alloc_.free(res.stdout);
     }
 
     const err_code: ?u32 = switch (res.term) {
-        .Exited => |code| if (code != 0) code else null,
-        .Signal => |code| code,
-        .Stopped => |code| code,
-        .Unknown => std.math.maxInt(u32),
+        .exited => |code| if (code != 0) code else null,
+        .signal => |code| @intFromEnum(code),
+        .stopped => |code| @intFromEnum(code),
+        .unknown => std.math.maxInt(u32),
     };
 
     if (err_code) |code| {
@@ -196,7 +185,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
 }
 
 // TODO: if there are no changes - tell the user
-pub fn status(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn status(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
     // staged
     try run(alloc_, stdout_, .{
         .label = "Staged changes:",
@@ -208,10 +197,7 @@ pub fn status(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
         .argv = &[_][]const u8{ "git", "diff", "--stat", "--color" },
     });
     // untracked
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .argv = &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
-    });
+    const res = try runChild(alloc_, &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" }, null);
     defer {
         alloc_.free(res.stderr);
         alloc_.free(res.stdout);
@@ -232,7 +218,7 @@ pub fn status(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
     }
 }
 
-pub fn help(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, comptime cmd_: []const u8) !void {
+pub fn help(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, comptime cmd_: []const u8) !void {
     try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", cmd_, "--help" } });
 }
 
@@ -243,7 +229,7 @@ pub fn help(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, comptime cmd_: [
 /// ```zig
 /// try git.logGrep(allocator, stdout, "42");
 /// ```
-pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const u8) !void {
+pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, id_: []const u8) !void {
     const res = res: {
         const _email = try email(alloc_);
         defer alloc_.free(_email);
@@ -251,7 +237,7 @@ pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const 
             var goal_tag_buf: [16]u8 = undefined;
             break :tag try std.fmt.bufPrint(&goal_tag_buf, "Goal #{s}", .{id_});
         };
-        break :res try std.process.Child.run(.{ .allocator = alloc_, .argv = &[_][]const u8{
+        break :res try runChild(alloc_, &[_][]const u8{
             "git",
             "log",
             "--all",
@@ -264,7 +250,7 @@ pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const 
             "--grep",
             _email,
             "--all-match",
-        } });
+        }, null);
     };
     defer {
         alloc_.free(res.stdout);
@@ -281,7 +267,7 @@ pub fn logGrep(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: []const 
     }
 }
 
-pub fn clone(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, repo_: []const u8, cwd_: []const u8) !void {
+pub fn clone(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, repo_: []const u8, cwd_: []const u8) !void {
     try stdout_.print("\nCloning: {s} into {s}\n", .{ repo_, cwd_ });
     try stdout_.flush();
     try run(alloc_, stdout_, .{ .argv = &[_][]const u8{ "git", "clone", repo_, "--quiet", cwd_ } });
@@ -298,19 +284,15 @@ pub fn email(alloc_: std.mem.Allocator) ![]const u8 {
     defer alloc_.free(cwd);
 
     const argv = [_][]const u8{ "git", "config", "user.email" };
-    const res = try std.process.Child.run(.{
-        .allocator = alloc_,
-        .argv = &argv,
-        .cwd = cwd,
-    });
+    const res = try runChild(alloc_, &argv, cwd);
     defer alloc_.free(res.stderr);
     errdefer alloc_.free(res.stdout); // we intend to return this
 
     const err_code: ?u32 = switch (res.term) {
-        .Exited => |code| if (code != 0) code else null,
-        .Signal => |code| code,
-        .Stopped => |code| code,
-        .Unknown => std.math.maxInt(u32),
+        .exited => |code| if (code != 0) code else null,
+        .signal => |code| @intFromEnum(code),
+        .stopped => |code| @intFromEnum(code),
+        .unknown => std.math.maxInt(u32),
     };
 
     if (err_code) |code| {

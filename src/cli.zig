@@ -1,11 +1,12 @@
 const std = @import("std");
+const fs = @import("fs_compat.zig");
 
 const Directories = @import("Directories.zig");
 
 // TODO: pick the default value (y/n) as a parameter
-pub fn confirm(stdout_: *std.io.Writer, prompt_: []const u8) !bool {
+pub fn confirm(stdout_: *std.Io.Writer, prompt_: []const u8) !bool {
     var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var stdin_reader = fs.File.stdin().reader(std.Options.debug_io, &stdin_buffer);
     var reader = &stdin_reader.interface;
 
     try stdout_.print("{s} (y/N): ", .{prompt_});
@@ -25,9 +26,9 @@ pub fn confirm(stdout_: *std.io.Writer, prompt_: []const u8) !bool {
 }
 
 /// If an answer is returned, the caller is responsible for freeing it.
-pub fn getAnswer(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, prompt_: []const u8) !?[]const u8 {
+pub fn getAnswer(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, prompt_: []const u8) !?[]const u8 {
     var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = std.fs.File.stdin().reader(&stdin_buffer);
+    var stdin_reader = fs.File.stdin().reader(std.Options.debug_io, &stdin_buffer);
     var reader = &stdin_reader.interface;
 
     try stdout_.print("{s}: ", .{prompt_});

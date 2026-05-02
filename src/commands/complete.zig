@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
@@ -15,7 +16,7 @@ const help = @import("help.zig");
 
 const Self = Command.complete;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
         .run => try run(alloc_, stdout_),
@@ -42,7 +43,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return Args.run;
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
@@ -80,7 +81,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
                 .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
             });
 
-            std.fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id) catch |err| {
+            fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id) catch |err| {
                 std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
                 return err;
             };
@@ -117,7 +118,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
         .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
     });
 
-    try std.fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id);
+    try fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id);
 
     try stdout_.print("\nGoal #{s} is now complete! I'm so proud of you. You did it!\n", .{goal.id});
 }

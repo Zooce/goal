@@ -1,6 +1,7 @@
 const CommitFile = @This();
 
 const std = @import("std");
+const fs = @import("fs_compat.zig");
 const git = @import("git.zig");
 
 const Directories = @import("Directories.zig");
@@ -29,14 +30,14 @@ path: []const u8,
 /// // use `commit_file.path`
 /// ```
 pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !CommitFile {
-    const template_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs_.local.path, "t" });
+    const template_path = try fs.path.join(alloc_, &[_][]const u8{ dirs_.local.path, "t" });
     errdefer alloc_.free(template_path);
 
-    const t_file = try std.fs.createFileAbsolute(template_path, .{});
-    defer t_file.close();
+    const t_file = try fs.createFileAbsolute(template_path, .{});
+    defer t_file.close(std.Options.debug_io);
 
     var buffer: [5 * 1024]u8 = undefined;
-    var writer = t_file.writer(&buffer);
+    var writer = t_file.writer(std.Options.debug_io, &buffer);
     var w = &writer.interface;
 
     if (opts_.message) |msg| {
@@ -56,14 +57,14 @@ pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !Co
     // TODO: put goal description into commit file optionally
 
     try w.flush();
-    try t_file.sync();
+    try t_file.sync(std.Options.debug_io);
 
     return .{ .path = template_path };
 }
 
 /// Deletes the commit file at `~/.goal/<goal_id>/t` and frees the path string memory.
 pub fn delete(self_: *CommitFile, alloc_: std.mem.Allocator) void {
-    std.fs.deleteFileAbsolute(self_.path) catch {
+    fs.deleteFileAbsolute(self_.path) catch {
         // doesn't matter
     };
     alloc_.free(self_.path);

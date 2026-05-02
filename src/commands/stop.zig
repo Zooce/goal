@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 
 const git = @import("../git.zig");
 
@@ -12,7 +13,7 @@ const help = @import("help.zig");
 
 const Self = Command.stop;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
         .run => |later| try run(alloc_, stdout_, later),
@@ -47,7 +48,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return .{ .run = later };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, later_: bool) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, later_: bool) !void {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
@@ -60,7 +61,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, later_: bool) !vo
 
         try ActiveId.clear(dirs.local.dir);
 
-        try std.fs.rename(dirs.active.dir, id, if (later_) dirs.later.dir else dirs.next.dir, id);
+        try fs.rename(dirs.active.dir, id, if (later_) dirs.later.dir else dirs.next.dir, id);
 
         const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
         defer alloc_.free(commit_subject);

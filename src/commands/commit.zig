@@ -1,4 +1,6 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
+const runtime = @import("../runtime.zig");
 
 const git = @import("../git.zig");
 
@@ -26,7 +28,7 @@ const Args = struct {
     _goal: ?Goal = null,
 };
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     const args = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .args => |args| args,
@@ -75,7 +77,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     return .{ .args = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: Args) !void {
     if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         std.debug.print("\nCan't commit without staged changes.\n", .{});
         return error.NoStagedChanges;
@@ -114,9 +116,11 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
         try stdout_.writeAll("\n");
         try stdout_.flush();
 
-        var proc = std.process.Child.init(&[_][]const u8{ "git", "commit", "-t", commit_file.path, "--edit" }, alloc_);
-        switch (try proc.spawnAndWait()) {
-            .Exited => |code| if (code != 0) return error.GitCommitError,
+        var proc = try std.process.spawn(runtime.io, .{
+            .argv = &[_][]const u8{ "git", "commit", "-t", commit_file.path, "--edit" },
+        });
+        switch (try proc.wait(runtime.io)) {
+            .exited => |code| if (code != 0) return error.GitCommitError,
             else => return error.GitCommitError,
         }
     } else {
@@ -128,7 +132,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args_: Args) !voi
     // TODO: show `goal status` after commit ?? if not --complete
 
     if (args_.complete) {
-        std.fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id) catch |err| {
+        fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id) catch |err| {
             std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
             return err;
         };

@@ -1,5 +1,7 @@
 const std = @import("std");
+const fs = @import("fs_compat.zig");
 const builtin = @import("builtin");
+const runtime = @import("runtime.zig");
 
 const Config = @This();
 
@@ -20,12 +22,12 @@ pub fn load(alloc_: std.mem.Allocator) !Config {
         const config_path = try getConfigPath(alloc_);
         defer alloc_.free(config_path);
 
-        break :config_file std.fs.openFileAbsolute(config_path, .{}) catch |err| switch (err) {
+        break :config_file fs.openFileAbsolute(config_path, .{}) catch |err| switch (err) {
             error.FileNotFound => return try init(alloc_, null, null),
             else => return err,
         };
     };
-    defer config_file.close();
+    defer config_file.close(std.Options.debug_io);
 
     var base_dir: ?[]const u8 = null;
     var editor: ?[]const u8 = null;
@@ -37,7 +39,7 @@ pub fn load(alloc_: std.mem.Allocator) !Config {
 
     // parse the the config file
     var reader_buf: [1024]u8 = undefined;
-    var reader = config_file.reader(&reader_buf);
+    var reader = config_file.reader(std.Options.debug_io, &reader_buf);
 
     var line_num: u8 = 1;
     while (reader.interface.takeDelimiterInclusive('\n')) |line| : (line_num += 1) {
@@ -96,8 +98,8 @@ pub fn store(self_: Config, alloc_: std.mem.Allocator) !void {
     defer alloc_.free(config_path);
 
     // Ensure config directory exists
-    const config_dir = std.fs.path.dirname(config_path) orelse return error.InvalidConfigPath;
-    std.fs.makeDirAbsolute(config_dir) catch |err| switch (err) {
+    const config_dir = fs.path.dirname(config_path) orelse return error.InvalidConfigPath;
+    fs.makeDirAbsolute(config_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => {
             std.debug.print("\nUnable to create config dir: {s}", .{config_dir});
@@ -105,13 +107,13 @@ pub fn store(self_: Config, alloc_: std.mem.Allocator) !void {
         },
     };
 
-    const config_file = std.fs.createFileAbsolute(config_path, .{}) catch |err| {
+    const config_file = fs.createFileAbsolute(config_path, .{}) catch |err| {
         std.debug.print("\nUnable to create config file: {s}\n", .{config_path});
         return err;
     };
-    defer config_file.close();
+    defer config_file.close(std.Options.debug_io);
 
-    try config_file.writeAll(
+    try config_file.writeStreamingAll(std.Options.debug_io,
         \\# Goal configuration file
         \\# Format: key = value (spacing around = doesn't matter)
         \\# This file is updated using `goal config <key> <value>` and is not meant to be manually updated
@@ -120,13 +122,13 @@ pub fn store(self_: Config, alloc_: std.mem.Allocator) !void {
 
     var base_buffer: [1024]u8 = undefined;
     var line = try std.fmt.bufPrint(&base_buffer, "base-dir = {s}\n", .{self_.base_dir});
-    try config_file.writeAll(line);
+    try config_file.writeStreamingAll(std.Options.debug_io, line);
 
     var editor_buffer: [512]u8 = undefined;
     line = try std.fmt.bufPrint(&editor_buffer, "editor = {s}\n", .{self_.editor});
-    try config_file.writeAll(line);
+    try config_file.writeStreamingAll(std.Options.debug_io, line);
 
-    try config_file.sync();
+    try config_file.sync(std.Options.debug_io);
 }
 
 pub const ConfigKey = enum {
@@ -136,7 +138,7 @@ pub const ConfigKey = enum {
 };
 
 /// Print the config or a specific key from it to stdout.
-pub fn print(self_: Config, stdout_: *std.io.Writer, key_: ?ConfigKey, project_name_: ?[]const u8) !void {
+pub fn print(self_: Config, stdout_: *std.Io.Writer, key_: ?ConfigKey, project_name_: ?[]const u8) !void {
     if (key_) |key| switch (key) {
         .base_dir => return try stdout_.print("\nbase-dir = {s}\n", .{self_.base_dir}),
         .editor => return try stdout_.print("\neditor = {s}\n", .{self_.editor}),
@@ -184,14 +186,15 @@ fn defaultBaseDir(alloc_: std.mem.Allocator) ![]const u8 {
     if (try optionalEnvVarOwned(alloc_, "GOAL_BASE_DIR")) |base_dir| {
         defer alloc_.free(base_dir);
         if (base_dir.len > 0) {
-            return std.fs.path.join(alloc_, &[_][]const u8{ base_dir, ".goal" });
+            return fs.path.join(alloc_, &[_][]const u8{ base_dir, ".goal" });
         }
     }
 
     // Priority 2: Default to HOME/.goal or USERPROFILE/.goal
-    const home_path = try std.process.getEnvVarOwned(alloc_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME");
+    const home_path = try optionalEnvVarOwned(alloc_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME") orelse
+        return error.EnvironmentVariableMissing;
     defer alloc_.free(home_path);
-    return std.fs.path.join(alloc_, &[_][]const u8{ home_path, ".goal" });
+    return fs.path.join(alloc_, &[_][]const u8{ home_path, ".goal" });
 }
 
 fn defaultEditor(alloc_: std.mem.Allocator) ![]const u8 {
@@ -231,8 +234,7 @@ fn defaultEditor(alloc_: std.mem.Allocator) ![]const u8 {
 // TODO: move to src/git.zig
 fn getGitEditor(alloc_: std.mem.Allocator) !?[]const u8 {
     const argv = [_][]const u8{ "git", "config", "--get", "core.editor" };
-    const result = try std.process.Child.run(.{
-        .allocator = alloc_,
+    const result = try std.process.run(alloc_, runtime.io, .{
         .argv = &argv,
     });
     defer {
@@ -241,7 +243,7 @@ fn getGitEditor(alloc_: std.mem.Allocator) !?[]const u8 {
     }
 
     return switch (result.term) {
-        .Exited => |code| {
+        .exited => |code| {
             if (code == 0 and result.stdout.len > 0) {
                 const trimmed = std.mem.trim(u8, result.stdout, " \t\r\n");
                 if (trimmed.len > 0) return try alloc_.dupe(u8, trimmed);
@@ -253,8 +255,7 @@ fn getGitEditor(alloc_: std.mem.Allocator) !?[]const u8 {
 }
 
 fn isEditorAvailable(alloc_: std.mem.Allocator, editor: []const u8) bool {
-    const result = std.process.Child.run(.{
-        .allocator = alloc_,
+    const result = std.process.run(alloc_, runtime.io, .{
         .argv = &[_][]const u8{ if (builtin.os.tag == .windows) "where" else "which", editor },
     }) catch return false;
     defer {
@@ -263,14 +264,20 @@ fn isEditorAvailable(alloc_: std.mem.Allocator, editor: []const u8) bool {
     }
 
     return switch (result.term) {
-        .Exited => |code| code == 0,
+        .exited => |code| code == 0,
         else => false,
     };
 }
 
 fn optionalEnvVarOwned(alloc_: std.mem.Allocator, key_: []const u8) !?[]const u8 {
-    return std.process.getEnvVarOwned(alloc_, key_) catch |err| switch (err) {
-        error.EnvironmentVariableNotFound => return null,
+    if (runtime.environ_map) |environ_map| {
+        if (environ_map.get(key_)) |val| return try alloc_.dupe(u8, val);
+        return null;
+    }
+
+    const threaded_io = std.Options.debug_threaded_io orelse return null;
+    return std.process.Environ.getAlloc(threaded_io.environ.process_environ, alloc_, key_) catch |err| switch (err) {
+        error.EnvironmentVariableMissing => return null,
         else => return err,
     };
 }
@@ -281,7 +288,7 @@ fn getConfigPath(alloc_: std.mem.Allocator) ![]const u8 {
         if (try optionalEnvVarOwned(alloc_, "XDG_CONFIG_HOME")) |xdg_config| {
             defer alloc_.free(xdg_config);
             if (xdg_config.len > 0) {
-                return std.fs.path.join(alloc_, &[_][]const u8{ xdg_config, "goal", "config" });
+                return fs.path.join(alloc_, &[_][]const u8{ xdg_config, "goal", "config" });
             }
         }
     }
@@ -291,26 +298,23 @@ fn getConfigPath(alloc_: std.mem.Allocator) ![]const u8 {
         if (try optionalEnvVarOwned(alloc_, "APPDATA")) |appdata| {
             defer alloc_.free(appdata);
             if (appdata.len > 0) {
-                return std.fs.path.join(alloc_, &[_][]const u8{ appdata, "goal", "config" });
+                return fs.path.join(alloc_, &[_][]const u8{ appdata, "goal", "config" });
             }
         }
     }
 
     // Fallback: ~/.config/goal/config
     const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
-    const home = std.process.getEnvVarOwned(alloc_, home_var) catch |err| switch (err) {
-        error.EnvironmentVariableNotFound => {
-            std.debug.print(
-                \\
-                \\Unable to get config file path.
-                \\
-                \\{s} environment variable not set!
-                \\
-            , .{home_var});
-            return err;
-        },
-        else => return err,
+    const home = try optionalEnvVarOwned(alloc_, home_var) orelse {
+        std.debug.print(
+            \\
+            \\Unable to get config file path.
+            \\
+            \\{s} environment variable not set!
+            \\
+        , .{home_var});
+        return error.EnvironmentVariableMissing;
     };
     defer alloc_.free(home);
-    return std.fs.path.join(alloc_, &[_][]const u8{ home, ".config", "goal", "config" });
+    return fs.path.join(alloc_, &[_][]const u8{ home, ".config", "goal", "config" });
 }

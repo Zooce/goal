@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
@@ -10,7 +11,7 @@ const help = @import("help.zig");
 
 const Self = Command.next;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     const id = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .run => |id| id,
@@ -47,7 +48,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     return .{ .run = id };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, id_: ?[]const u8) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
@@ -89,7 +90,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, id_: ?[]const u8)
     };
     defer goal.deinit(alloc_);
 
-    try std.fs.rename(dirs.later.dir, id, dirs.next.dir, id);
+    try fs.rename(dirs.later.dir, id, dirs.next.dir, id);
 
     try stdout_.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
 }

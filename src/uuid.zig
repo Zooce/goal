@@ -5,7 +5,6 @@
 // https://github.com/nitrogenez/zig-uuid (a fork of) https://github.com/dmgk/zig-uuid
 
 const std = @import("std");
-const crypto = std.crypto;
 const testing = std.testing;
 
 pub const SLICE_LEN = 36;
@@ -15,7 +14,9 @@ pub fn v4(buf_: []u8) !void {
 
     var bytes: [16]u8 = undefined;
 
-    crypto.random.bytes(&bytes);
+    var io_source = std.Random.IoSource{ .io = std.Options.debug_io };
+    const random = io_source.interface();
+    random.bytes(&bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
     bytes[8] = (bytes[8] & 0x3f) | 0x80;
 

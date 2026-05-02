@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 
 const Config = @import("../Config.zig");
 const Meta = @import("../Meta.zig");
@@ -12,7 +13,7 @@ const help = @import("help.zig");
 
 const Self = Command.deinit;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
         .run => |opts| try run(alloc_, stdout_, opts),
@@ -71,32 +72,32 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 }
 
 // Note that this function does not open `Directories` because we're deleting them all...
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, opts_: RunOptions) !void {
     // we'll run git commands from here
     const git_root = try git.projectRoot(alloc_, null) orelse return error.NotAGitProject;
     defer alloc_.free(git_root);
 
     // we're going to delete this path
-    const local_goal_path = try std.fs.path.join(alloc_, &[_][]const u8{ git_root, ".goal" });
+    const local_goal_path = try fs.path.join(alloc_, &[_][]const u8{ git_root, ".goal" });
     defer alloc_.free(local_goal_path);
 
     // need this to get the project's base path
     const goal_id = goal_id: {
-        const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ local_goal_path, ".goal_id" });
+        const goal_id_path = try fs.path.join(alloc_, &[_][]const u8{ local_goal_path, ".goal_id" });
         defer alloc_.free(goal_id_path);
 
-        const goal_id_file = std.fs.openFileAbsolute(goal_id_path, .{}) catch |err| switch (err) {
+        const goal_id_file = fs.openFileAbsolute(goal_id_path, .{}) catch |err| switch (err) {
             error.FileNotFound => {
                 try stdout_.writeAll("\ngoal is not initialized in this project. Run `goal init` to get started!\n");
                 return;
             },
             else => return err,
         };
-        defer goal_id_file.close();
+        defer goal_id_file.close(std.Options.debug_io);
 
         var goal_id_buf: [uuid.SLICE_LEN]u8 = undefined;
         var reader_buf: [uuid.SLICE_LEN]u8 = undefined;
-        var reader = goal_id_file.reader(&reader_buf);
+        var reader = goal_id_file.reader(std.Options.debug_io, &reader_buf);
         _ = try reader.interface.readSliceAll(&goal_id_buf);
 
         break :goal_id goal_id_buf;
@@ -111,11 +112,11 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
     var config = try Config.load(alloc_);
     defer config.deinit();
 
-    const global_goal_path = try std.fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
+    const global_goal_path = try fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
     defer alloc_.free(global_goal_path);
 
     const has_global_data = has_global_data: {
-        std.fs.accessAbsolute(global_goal_path, .{}) catch |err| switch (err) {
+        fs.accessAbsolute(global_goal_path, .{}) catch |err| switch (err) {
             error.FileNotFound => break :has_global_data false,
             else => return err,
         };
@@ -145,7 +146,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
 
     // -- local delete
 
-    try std.fs.deleteTreeAbsolute(local_goal_path);
+    try fs.deleteTreeAbsolute(local_goal_path);
 
     if (opts_.local_commit) {
         try stdout_.writeAll("\nCommitting local goal removal...\n");
@@ -171,8 +172,8 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
     const global_commit_msg = global_commit_msg: {
         if (!opts_.global_commit) break :global_commit_msg null;
 
-        var global_goal_dir = try std.fs.openDirAbsolute(global_goal_path, .{});
-        defer global_goal_dir.close();
+        var global_goal_dir = try fs.openDirAbsolute(global_goal_path, .{});
+        defer global_goal_dir.close(std.Options.debug_io);
 
         var meta = try Meta.load(alloc_, global_goal_dir);
         defer meta.deinit();
@@ -183,7 +184,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, opts_: RunOptions
 
     // -- global delete
 
-    try std.fs.deleteTreeAbsolute(global_goal_path);
+    try fs.deleteTreeAbsolute(global_goal_path);
 
     if (opts_.global_commit) {
         try stdout_.writeAll("\nCommitting global goal removal...\n");

@@ -1,22 +1,27 @@
 const std = @import("std");
 const commands = @import("commands.zig");
 const args = @import("args.zig");
+const runtime = @import("runtime.zig");
 
-pub fn main() !void {
+pub fn main(init: std.process.Init) !void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
 
     const allocator = arena.allocator();
 
+    runtime.io = init.io;
+    runtime.environ_map = init.environ_map;
+
     var stdout_buf: [2048]u8 = undefined;
-    var stdout_writer = std.fs.File.stdout().writer(&stdout_buf);
+    const io = init.io;
+    var stdout_writer = std.Io.File.stdout().writer(io, &stdout_buf);
 
     const stdout = &stdout_writer.interface;
     defer stdout.flush() catch |err| {
         std.debug.print("\nERROR: stdout flush error: {t}\n", .{err});
     };
 
-    var iter = try args.ArgIter.init(allocator);
+    var iter = try args.ArgIter.init(init.minimal.args, allocator);
     defer iter.deinit();
 
     _ = iter.next();
@@ -41,7 +46,7 @@ pub fn main() !void {
     try commands.help.run(stdout, null);
 }
 
-fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
+fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
     switch (cmd_) {
         .help => try commands.help.main(stdout_, iter_),
         .setup => try commands.setup.main(alloc_, stdout_, iter_),

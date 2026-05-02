@@ -1,4 +1,5 @@
 const std = @import("std");
+const runtime = @import("../runtime.zig");
 
 const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
@@ -11,7 +12,7 @@ const help = @import("help.zig");
 
 const Self = Command.new;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     const title = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .run => |title| title,
@@ -52,7 +53,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
 ///
 /// Returns the file name so the caller is responsible for calling
 /// `allocator.free(filename)`.
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const u8) ![]const u8 {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, title_: ?[]const u8) ![]const u8 {
     var dirs = try Directories.open(alloc_, .{});
     defer dirs.close(alloc_);
 
@@ -69,9 +70,9 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
     if (title_) |t| {
         // TODO: trim t
         if (t.len > 0) {
-            const goal_file = try dirs.later.dir.createFile(file_name, .{ .exclusive = true });
-            defer goal_file.close();
-            _ = try goal_file.write(t);
+            const goal_file = try dirs.later.dir.createFile(std.Options.debug_io, file_name, .{ .exclusive = true });
+            defer goal_file.close(std.Options.debug_io);
+            try goal_file.writeStreamingAll(std.Options.debug_io, t);
             try stdout_.print("\nGoal #{d} - {s}\n", .{ meta.next_id, t });
         } else {
             std.debug.print("\nGoal title cannot be empty! You're so funny.\n", .{});
@@ -86,15 +87,15 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, title_: ?[]const 
         defer config.deinit();
 
         const cmd = [_][]const u8{ config.editor, file_path };
-        var editor = std.process.Child.init(&cmd, alloc_);
-        _ = try editor.spawnAndWait();
+        var editor = try std.process.spawn(runtime.io, .{ .argv = &cmd });
+        _ = try editor.wait(runtime.io);
 
         var goal = try Goal.init(alloc_, dirs.later.dir, file_name, .{});
         defer goal.deinit(alloc_);
 
         if (goal.title.len == 0) {
             std.debug.print("\nGoal title cannot be empty!\n", .{});
-            try dirs.later.dir.deleteFile(goal.id);
+            try dirs.later.dir.deleteFile(std.Options.debug_io, goal.id);
             return error.EmptyGoalTitle;
         }
         try stdout_.print("\nGoal #{d} - {s}\n", .{ meta.next_id, goal.title });

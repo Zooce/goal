@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
@@ -14,7 +15,7 @@ const help = @import("help.zig");
 
 const Self = Command.start;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     const args = switch (try parseArgs(alloc_, iter_)) {
         .help => return try help.run(stdout_, Self),
         .args => |args| args,
@@ -230,7 +231,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     return .{ .args = args };
 }
 
-fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
+fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args: Args) !void {
     var dirs = try Directories.open(alloc_, .{ .iterate = true });
     defer dirs.close(alloc_);
 
@@ -326,45 +327,45 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
 
         // update the active goal in the new worktree
         {
-            var buf: [std.fs.max_path_bytes]u8 = undefined;
-            const abs_worktree_path = try std.fs.realpath(worktree_path, &buf);
+            var buf: [fs.max_path_bytes]u8 = undefined;
+            const abs_worktree_path = try fs.realpath(worktree_path, &buf);
 
-            const worktree_goal_dir_path = try std.fs.path.join(alloc_, &[_][]const u8{ abs_worktree_path, ".goal" });
+            const worktree_goal_dir_path = try fs.path.join(alloc_, &[_][]const u8{ abs_worktree_path, ".goal" });
             defer alloc_.free(worktree_goal_dir_path);
 
             if (args.base_branch != null) {
                 // the base branch might be older than when `goal init` was run
                 // so make sure the .goal/ directory exists in the worktree
-                std.fs.makeDirAbsolute(worktree_goal_dir_path) catch |err| switch (err) {
+                fs.makeDirAbsolute(worktree_goal_dir_path) catch |err| switch (err) {
                     error.PathAlreadyExists => {},
                     else => return err,
                 };
 
                 // don't forget about the .goal_id file too
 
-                const goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.local.path, ".goal_id" });
+                const goal_id_path = try fs.path.join(alloc_, &[_][]const u8{ dirs.local.path, ".goal_id" });
                 defer alloc_.free(goal_id_path);
 
-                const worktree_goal_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".goal_id" });
+                const worktree_goal_id_path = try fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".goal_id" });
                 defer alloc_.free(worktree_goal_id_path);
 
-                try std.fs.copyFileAbsolute(goal_id_path, worktree_goal_id_path, .{});
+                try fs.copyFileAbsolute(goal_id_path, worktree_goal_id_path, .{});
             }
 
-            std.fs.rename(goal.dir, goal.id, dirs.active.dir, goal.id) catch |err| {
+            fs.rename(goal.dir, goal.id, dirs.active.dir, goal.id) catch |err| {
                 std.debug.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
                 return err;
             };
 
             const active_id_file = file: {
-                const active_id_path = try std.fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".active_id" });
+                const active_id_path = try fs.path.join(alloc_, &[_][]const u8{ worktree_goal_dir_path, ".active_id" });
                 defer alloc_.free(active_id_path);
-                break :file try std.fs.createFileAbsolute(active_id_path, .{});
+                break :file try fs.createFileAbsolute(active_id_path, .{});
             };
-            defer active_id_file.close();
+            defer active_id_file.close(std.Options.debug_io);
 
             var writer_buf: [16]u8 = undefined;
-            var writer = active_id_file.writer(&writer_buf);
+            var writer = active_id_file.writer(std.Options.debug_io, &writer_buf);
             try writer.interface.print("{s}", .{goal.id});
             try writer.interface.flush();
         }
@@ -413,7 +414,7 @@ fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, args: Args) !void {
             try stdout_.print("\nBranch created successfully!\n", .{});
         }
 
-        std.fs.rename(goal.dir, goal.id, dirs.active.dir, goal.id) catch |err| {
+        fs.rename(goal.dir, goal.id, dirs.active.dir, goal.id) catch |err| {
             std.debug.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
             return err;
         };

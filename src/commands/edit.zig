@@ -1,6 +1,7 @@
 const std = @import("std");
+const runtime = @import("../runtime.zig");
 const Allocator = std.mem.Allocator;
-const Writer = std.io.Writer;
+const Writer = std.Io.Writer;
 
 const cli = @import("../cli.zig");
 const Directories = @import("../Directories.zig");
@@ -93,8 +94,8 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, id_: ?[]const u8) !void {
     defer config.deinit();
 
     const cmd = [_][]const u8{ config.editor, file_path };
-    var editor = std.process.Child.init(&cmd, alloc_);
-    _ = try editor.spawnAndWait();
+    var editor = try std.process.spawn(runtime.io, .{ .argv = &cmd });
+    _ = try editor.wait(runtime.io);
 
     // empty file check
 

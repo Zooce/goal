@@ -1,4 +1,5 @@
 const std = @import("std");
+const fs = @import("../fs_compat.zig");
 
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
@@ -11,7 +12,7 @@ const help = @import("help.zig");
 
 const Self = Command.setup;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.io.Writer, iter_: *ArgIter) !void {
+pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
         .help => try help.run(stdout_, Self),
         .run => try run(alloc_, stdout_),
@@ -38,12 +39,12 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return Args.run;
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
+pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
     var config = try Config.load(alloc_);
     defer config.deinit();
 
     var needs_setup = false;
-    std.fs.accessAbsolute(config.base_dir, .{}) catch {
+    fs.accessAbsolute(config.base_dir, .{}) catch {
         needs_setup = true;
     };
 
@@ -57,7 +58,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.io.Writer) !void {
         defer alloc_.free(repo);
         try git.clone(alloc_, stdout_, repo, config.base_dir);
     } else {
-        std.fs.makeDirAbsolute(config.base_dir) catch |err| switch (err) {
+        fs.makeDirAbsolute(config.base_dir) catch |err| switch (err) {
             error.PathAlreadyExists => {},
             else => return err,
         };
