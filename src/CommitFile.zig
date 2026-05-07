@@ -1,7 +1,7 @@
 const CommitFile = @This();
 
 const std = @import("std");
-const fs = @import("fs_compat.zig");
+const Context = @import("Context.zig");
 const git = @import("git.zig");
 
 const Directories = @import("Directories.zig");
@@ -17,6 +17,8 @@ pub const Options = struct {
 /// The absolute path to the commit file `.goal/t` in the local project directory.
 path: []const u8,
 
+_ctx: *Context,
+
 /// Creates the commit file `~/.goal/<goal_id>/t`.
 ///
 /// Caller is responsible for calling `delete` which will delete the `t`
@@ -25,27 +27,27 @@ path: []const u8,
 /// Example:
 ///
 /// ```zig
-/// var commit_file = try CommitFile.create(allocator, dirs, .{ .goal = goal });
-/// defer commit_file.delete(allocator);
+/// var commit_file = try CommitFile.create(ctx, dirs, .{ .goal = goal });
+/// defer commit_file.delete();
 /// // use `commit_file.path`
 /// ```
-pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !CommitFile {
-    const template_path = try fs.path.join(alloc_, &[_][]const u8{ dirs_.local.path, "t" });
-    errdefer alloc_.free(template_path);
+pub fn create(ctx_: *Context, dirs_: Directories, opts_: Options) !CommitFile {
+    const template_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dirs_.local.path, "t" });
+    errdefer ctx_.alloc.free(template_path);
 
-    const t_file = try fs.createFileAbsolute(template_path, .{});
-    defer t_file.close(std.Options.debug_io);
+    const t_file = try std.Io.Dir.createFileAbsolute(ctx_.io, template_path, .{});
+    defer t_file.close(ctx_.io);
 
     var buffer: [5 * 1024]u8 = undefined;
-    var writer = t_file.writer(std.Options.debug_io, &buffer);
+    var writer = t_file.writer(ctx_.io, &buffer);
     var w = &writer.interface;
 
     if (opts_.message) |msg| {
         try w.writeAll(msg);
     }
 
-    const email = try git.email(alloc_);
-    defer alloc_.free(email);
+    const email = try git.email(ctx_);
+    defer ctx_.alloc.free(email);
 
     try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{
         opts_.goal.id,
@@ -57,15 +59,15 @@ pub fn create(alloc_: std.mem.Allocator, dirs_: Directories, opts_: Options) !Co
     // TODO: put goal description into commit file optionally
 
     try w.flush();
-    try t_file.sync(std.Options.debug_io);
+    try t_file.sync(ctx_.io);
 
-    return .{ .path = template_path };
+    return .{ .path = template_path, ._ctx = ctx_ };
 }
 
 /// Deletes the commit file at `~/.goal/<goal_id>/t` and frees the path string memory.
-pub fn delete(self_: *CommitFile, alloc_: std.mem.Allocator) void {
-    fs.deleteFileAbsolute(self_.path) catch {
+pub fn delete(self_: *CommitFile) void {
+    std.Io.Dir.deleteFileAbsolute(self_._ctx.io, self_.path) catch {
         // doesn't matter
     };
-    alloc_.free(self_.path);
+    self_._ctx.alloc.free(self_.path);
 }

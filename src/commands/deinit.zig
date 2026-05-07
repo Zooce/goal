@@ -1,6 +1,6 @@
 const std = @import("std");
-const fs = @import("../fs_compat.zig");
 
+const Context = @import("../Context.zig");
 const Config = @import("../Config.zig");
 const Meta = @import("../Meta.zig");
 const cli = @import("../cli.zig");
@@ -13,10 +13,10 @@ const help = @import("help.zig");
 
 const Self = Command.deinit;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
-        .help => try help.run(stdout_, Self),
-        .run => |opts| try run(alloc_, stdout_, opts),
+        .help => try help.run(ctx_.stdout, Self),
+        .run => |opts| try run(ctx_, opts),
     }
 }
 
@@ -72,51 +72,51 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 }
 
 // Note that this function does not open `Directories` because we're deleting them all...
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, opts_: RunOptions) !void {
+pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     // we'll run git commands from here
-    const git_root = try git.projectRoot(alloc_, null) orelse return error.NotAGitProject;
-    defer alloc_.free(git_root);
+    const git_root = try git.projectRoot(ctx_, null) orelse return error.NotAGitProject;
+    defer ctx_.alloc.free(git_root);
 
     // we're going to delete this path
-    const local_goal_path = try fs.path.join(alloc_, &[_][]const u8{ git_root, ".goal" });
-    defer alloc_.free(local_goal_path);
+    const local_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ git_root, ".goal" });
+    defer ctx_.alloc.free(local_goal_path);
 
     // need this to get the project's base path
     const goal_id = goal_id: {
-        const goal_id_path = try fs.path.join(alloc_, &[_][]const u8{ local_goal_path, ".goal_id" });
-        defer alloc_.free(goal_id_path);
+        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ local_goal_path, ".goal_id" });
+        defer ctx_.alloc.free(goal_id_path);
 
-        const goal_id_file = fs.openFileAbsolute(goal_id_path, .{}) catch |err| switch (err) {
+        const goal_id_file = std.Io.Dir.openFileAbsolute(ctx_.io, goal_id_path, .{}) catch |err| switch (err) {
             error.FileNotFound => {
-                try stdout_.writeAll("\ngoal is not initialized in this project. Run `goal init` to get started!\n");
+                try ctx_.stdout.writeAll("\ngoal is not initialized in this project. Run `goal init` to get started!\n");
                 return;
             },
             else => return err,
         };
-        defer goal_id_file.close(std.Options.debug_io);
+        defer goal_id_file.close(ctx_.io);
 
         var goal_id_buf: [uuid.SLICE_LEN]u8 = undefined;
         var reader_buf: [uuid.SLICE_LEN]u8 = undefined;
-        var reader = goal_id_file.reader(std.Options.debug_io, &reader_buf);
+        var reader = goal_id_file.reader(ctx_.io, &reader_buf);
         _ = try reader.interface.readSliceAll(&goal_id_buf);
 
         break :goal_id goal_id_buf;
     };
 
-    if (!try cli.confirm(stdout_, "This will remove .goal/ from this project. Continue?")) {
-        try stdout_.writeAll("deinit cancelled.\n");
+    if (!try cli.confirm(ctx_, "This will remove .goal/ from this project. Continue?")) {
+        try ctx_.stdout.writeAll("deinit cancelled.\n");
         return;
     }
 
     // config has our base dir path
-    var config = try Config.load(alloc_);
+    var config = try Config.load(ctx_);
     defer config.deinit();
 
-    const global_goal_path = try fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
-    defer alloc_.free(global_goal_path);
+    const global_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ config.base_dir, &goal_id });
+    defer ctx_.alloc.free(global_goal_path);
 
     const has_global_data = has_global_data: {
-        fs.accessAbsolute(global_goal_path, .{}) catch |err| switch (err) {
+        std.Io.Dir.accessAbsolute(ctx_.io, global_goal_path, .{}) catch |err| switch (err) {
             error.FileNotFound => break :has_global_data false,
             else => return err,
         };
@@ -124,10 +124,10 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, opts_: RunOptions
     };
 
     if (!has_global_data) {
-        try stdout_.writeAll("\nWarning: global goal directory does not exist — skipping global cleanup.\n");
+        try ctx_.stdout.writeAll("\nWarning: global goal directory does not exist — skipping global cleanup.\n");
     } else {
         const prompt = try std.fmt.allocPrint(
-            alloc_,
+            ctx_.alloc,
             \\
             \\This will permanently delete all goal data for this project in {s}.
             \\This cannot be undone (unless you're tracking with Git).
@@ -136,71 +136,81 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, opts_: RunOptions
         ,
             .{global_goal_path},
         );
-        defer alloc_.free(prompt);
+        defer ctx_.alloc.free(prompt);
 
-        if (!try cli.confirm(stdout_, prompt)) {
-            try stdout_.writeAll("deinit cancelled.\n");
+        if (!try cli.confirm(ctx_, prompt)) {
+            try ctx_.stdout.writeAll("deinit cancelled.\n");
             return;
         }
     }
 
     // -- local delete
 
-    try fs.deleteTreeAbsolute(local_goal_path);
+    // NOTE:
+    // We need a `std.Io.Dir` to call `deleteTree` and because we're deleting
+    // the `.goal/` directory we can't have it open while we're deleting it.
+    // It turns out since the `sub_dir` parameter is an absolute path, we can
+    // delete it from any directory (including `cwd`).
+    try std.Io.Dir.cwd().deleteTree(ctx_.io, local_goal_path);
 
     if (opts_.local_commit) {
-        try stdout_.writeAll("\nCommitting local goal removal...\n");
+        try ctx_.stdout.writeAll("\nCommitting local goal removal...\n");
 
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", ".goal" },
             .cwd = git_root,
         });
 
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal", "-m", "goal deinit" },
             .cwd = git_root,
         });
     } else {
-        try stdout_.writeAll("\nSkipping local commit.\n");
+        try ctx_.stdout.writeAll("\nSkipping local commit.\n");
     }
 
     if (!has_global_data) {
-        try stdout_.writeAll("\ngoal deinit complete!\n");
+        try ctx_.stdout.writeAll("\ngoal deinit complete!\n");
         return;
     }
 
     const global_commit_msg = global_commit_msg: {
         if (!opts_.global_commit) break :global_commit_msg null;
 
-        var global_goal_dir = try fs.openDirAbsolute(global_goal_path, .{});
-        defer global_goal_dir.close(std.Options.debug_io);
+        var global_goal_dir = try std.Io.Dir.openDirAbsolute(ctx_.io, global_goal_path, .{});
+        defer global_goal_dir.close(ctx_.io);
 
-        var meta = try Meta.load(alloc_, global_goal_dir);
+        var meta = try Meta.load(ctx_, global_goal_dir);
         defer meta.deinit();
 
-        break :global_commit_msg try std.fmt.allocPrint(alloc_, "goal deinit - {s}", .{meta.project_name});
+        break :global_commit_msg try std.fmt.allocPrint(ctx_.alloc, "goal deinit - {s}", .{meta.project_name});
     };
-    defer if (global_commit_msg) |msg| alloc_.free(msg);
+    defer if (global_commit_msg) |msg| ctx_.alloc.free(msg);
 
     // -- global delete
 
-    try fs.deleteTreeAbsolute(global_goal_path);
+    // NOTE:
+    // We need a `std.Io.Dir` to call `deleteTree` and because we're deleting
+    // the `~/.goal/<goal_id>` directory we can't have it open while we're
+    // deleting it. It turns out since the `sub_dir` parameter is an absolute
+    // path, we can delete it from any directory (including `cwd`).
+    try std.Io.Dir.cwd().deleteTree(ctx_.io, global_goal_path);
 
     if (opts_.global_commit) {
-        try stdout_.writeAll("\nCommitting global goal removal...\n");
+        try ctx_.stdout.writeAll("\nCommitting global goal removal...\n");
 
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", &goal_id },
             .cwd = config.base_dir,
         });
 
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", &goal_id, "-m", global_commit_msg orelse "goal deinit" },
             .cwd = config.base_dir,
         });
     } else {
-        try stdout_.writeAll("\nSkipping global commit.\n");
+        try ctx_.stdout.writeAll("\nSkipping global commit.\n");
     }
 
-    try stdout_.writeAll("\ngoal deinit complete!\n");
+    try ctx_.stdout.writeAll("\ngoal deinit complete!\n");
 }

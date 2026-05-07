@@ -1,27 +1,34 @@
 const std = @import("std");
 const commands = @import("commands.zig");
 const args = @import("args.zig");
-const runtime = @import("runtime.zig");
+const Context = @import("Context.zig");
 
-pub fn main(init: std.process.Init) !void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
-
-    const allocator = arena.allocator();
-
-    runtime.io = init.io;
-    runtime.environ_map = init.environ_map;
-
+pub fn main(init_: std.process.Init) !void {
+    // setup stdout
     var stdout_buf: [2048]u8 = undefined;
-    const io = init.io;
-    var stdout_writer = std.Io.File.stdout().writer(io, &stdout_buf);
-
+    var stdout_writer = std.Io.File.stdout().writer(init_.io, &stdout_buf);
     const stdout = &stdout_writer.interface;
     defer stdout.flush() catch |err| {
         std.debug.print("\nERROR: stdout flush error: {t}\n", .{err});
     };
 
-    var iter = try args.ArgIter.init(init.minimal.args, allocator);
+    // setup stderr
+    var stderr_buf: [2048]u8 = undefined;
+    var stderr_writer = std.Io.File.stderr().writer(init_.io, &stderr_buf);
+    const stderr = &stderr_writer.interface;
+    defer stderr.flush() catch |err| {
+        std.debug.print("\nERROR: stderr flush error: {t}\n", .{err});
+    };
+
+    var context = Context{
+        .alloc = init_.gpa,
+        .io = init_.io,
+        .environ_map = init_.environ_map,
+        .stdout = stdout,
+        .stderr = stderr,
+    };
+
+    var iter = try args.ArgIter.init(init_.minimal.args, init_.gpa);
     defer iter.deinit();
 
     _ = iter.next();
@@ -37,41 +44,41 @@ pub fn main(init: std.process.Init) !void {
             , .{_arg});
             std.process.exit(1);
         };
-        return processCommand(allocator, stdout, cmd, &iter) catch |err| {
+        return processCommand(&context, cmd, &iter) catch |err| {
             std.debug.print("\nError: {t}\n", .{err});
             std.process.exit(1);
         };
     }
 
-    try commands.help.run(stdout, null);
+    try commands.help.run(context.stdout, null);
 }
 
-fn processCommand(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, cmd_: commands.Command, iter_: *args.ArgIter) !void {
+fn processCommand(ctx_: *Context, cmd_: commands.Command, iter_: *args.ArgIter) !void {
     switch (cmd_) {
-        .help => try commands.help.main(stdout_, iter_),
-        .setup => try commands.setup.main(alloc_, stdout_, iter_),
-        .init => try commands.init.main(alloc_, stdout_, iter_),
-        .deinit => try commands.deinit.main(alloc_, stdout_, iter_),
-        .sync => try commands.sync.main(alloc_, stdout_, iter_),
-        .list => try commands.list.main(alloc_, stdout_, iter_),
-        .status => try commands.status.main(alloc_, stdout_, iter_),
-        .stop => try commands.stop.main(alloc_, stdout_, iter_),
-        .complete => try commands.complete.main(alloc_, stdout_, iter_),
-        .new => try commands.new.main(alloc_, stdout_, iter_),
-        .edit, .open => try commands.edit.main(alloc_, stdout_, iter_),
-        .delete => try commands.delete.main(alloc_, stdout_, iter_),
-        .start => try commands.start.main(alloc_, stdout_, iter_),
-        .next => try commands.next.main(alloc_, stdout_, iter_),
-        .later => try commands.later.main(alloc_, stdout_, iter_),
+        .help => try commands.help.main(ctx_.stdout, iter_),
+        .setup => try commands.setup.main(ctx_, iter_),
+        .init => try commands.init.main(ctx_, iter_),
+        .deinit => try commands.deinit.main(ctx_, iter_),
+        .sync => try commands.sync.main(ctx_, iter_),
+        .list => try commands.list.main(ctx_, iter_),
+        .status => try commands.status.main(ctx_, iter_),
+        .stop => try commands.stop.main(ctx_, iter_),
+        .complete => try commands.complete.main(ctx_, iter_),
+        .new => try commands.new.main(ctx_, iter_),
+        .edit, .open => try commands.edit.main(ctx_, iter_),
+        .delete => try commands.delete.main(ctx_, iter_),
+        .start => try commands.start.main(ctx_, iter_),
+        .next => try commands.next.main(ctx_, iter_),
+        .later => try commands.later.main(ctx_, iter_),
 
         // Git Commands
 
-        .stage => try commands.stage.main(alloc_, stdout_, iter_),
-        .unstage => try commands.unstage.main(alloc_, stdout_, iter_),
-        .discard => try commands.discard.main(alloc_, stdout_, iter_),
-        .commit, .save => try commands.commit.main(alloc_, stdout_, iter_),
+        .stage => try commands.stage.main(ctx_, iter_),
+        .unstage => try commands.unstage.main(ctx_, iter_),
+        .discard => try commands.discard.main(ctx_, iter_),
+        .commit, .save => try commands.commit.main(ctx_, iter_),
 
-        .config => try commands.config.main(alloc_, stdout_, iter_),
+        .config => try commands.config.main(ctx_, iter_),
 
         // Just for debugging - obviously
 

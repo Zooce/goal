@@ -1,16 +1,15 @@
 const std = @import("std");
-const fs = @import("fs_compat.zig");
 
-const Directories = @import("Directories.zig");
+const Context = @import("Context.zig");
 
 // TODO: pick the default value (y/n) as a parameter
-pub fn confirm(stdout_: *std.Io.Writer, prompt_: []const u8) !bool {
+pub fn confirm(ctx_: *Context, prompt_: []const u8) !bool {
     var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = fs.File.stdin().reader(std.Options.debug_io, &stdin_buffer);
+    var stdin_reader = std.Io.File.stdin().reader(ctx_.io, &stdin_buffer);
     var reader = &stdin_reader.interface;
 
-    try stdout_.print("{s} (y/N): ", .{prompt_});
-    try stdout_.flush();
+    try ctx_.stdout.print("{s} (y/N): ", .{prompt_});
+    try ctx_.stdout.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');
 
@@ -26,15 +25,15 @@ pub fn confirm(stdout_: *std.Io.Writer, prompt_: []const u8) !bool {
 }
 
 /// If an answer is returned, the caller is responsible for freeing it.
-pub fn getAnswer(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, prompt_: []const u8) !?[]const u8 {
+pub fn getAnswer(ctx_: *Context, prompt_: []const u8) !?[]const u8 {
     var stdin_buffer: [64]u8 = undefined;
-    var stdin_reader = fs.File.stdin().reader(std.Options.debug_io, &stdin_buffer);
+    var stdin_reader = std.Io.File.stdin().reader(ctx_.io, &stdin_buffer);
     var reader = &stdin_reader.interface;
 
-    try stdout_.print("{s}: ", .{prompt_});
-    try stdout_.flush();
+    try ctx_.stdout.print("{s}: ", .{prompt_});
+    try ctx_.stdout.flush();
 
     const answer = try reader.takeDelimiterExclusive('\n');
     const trimmed = std.mem.trim(u8, answer, " \t\r\n");
-    return if (trimmed.len > 0) try alloc_.dupe(u8, trimmed) else null;
+    return if (trimmed.len > 0) try ctx_.alloc.dupe(u8, trimmed) else null;
 }

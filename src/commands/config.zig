@@ -1,4 +1,5 @@
 const std = @import("std");
+const Context = @import("../Context.zig");
 const Config = @import("../Config.zig");
 const ConfigKey = @import("../Config.zig").ConfigKey;
 const Meta = @import("../Meta.zig");
@@ -25,16 +26,16 @@ pub const Args = union(enum) {
     setting: Setting,
 };
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
-    const args = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, Self),
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(ctx_.alloc, iter_)) {
+        .help => return try help.run(ctx_.stdout, Self),
         .args => |args| args,
     };
     defer switch (args) {
-        .setting => |setting| setting.deinit(alloc_),
+        .setting => |setting| setting.deinit(ctx_.alloc),
         else => {},
     };
-    try run(alloc_, stdout_, args);
+    try run(ctx_, args);
 }
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
@@ -103,19 +104,19 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
 }
 
 /// NOTE: This does not take ownership of args memory!
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: Args) !void {
-    var dirs = try Directories.open(alloc_, .{});
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context, args_: Args) !void {
+    var dirs = try Directories.open(ctx_, .{});
+    defer dirs.close();
 
-    var meta = try Meta.load(alloc_, dirs.base.dir);
+    var meta = try Meta.load(ctx_, dirs.base.dir);
     defer meta.deinit();
 
-    var config = try Config.load(alloc_);
+    var config = try Config.load(ctx_);
     defer config.deinit();
 
     switch (args_) {
         .list => {
-            return config.print(stdout_, null, meta.project_name);
+            return config.print(null, meta.project_name);
         },
         .setting => |setting| {
             switch (setting.key) {
@@ -125,15 +126,15 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: Args) !voi
                         try meta.store();
                     }
 
-                    return try config.print(stdout_, setting.key, meta.project_name);
+                    return try config.print(setting.key, meta.project_name);
                 },
                 .base_dir, .editor => {
                     if (setting.val) |val| {
                         try config.setKey(setting.key, val);
-                        try config.store(alloc_);
+                        try config.store();
                     }
 
-                    return try config.print(stdout_, setting.key, null);
+                    return try config.print(setting.key, null);
                 },
             }
         },

@@ -1,4 +1,5 @@
 const std = @import("std");
+const Context = @import("../Context.zig");
 const git = @import("../git.zig");
 
 const ActiveId = @import("../ActiveId.zig");
@@ -12,10 +13,10 @@ const help = @import("help.zig");
 
 const Self = Command.status;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
-        .help => try help.run(stdout_, Self),
-        .run => try run(alloc_, stdout_),
+        .help => try help.run(ctx_.stdout, Self),
+        .run => try run(ctx_),
     }
 }
 
@@ -39,29 +40,29 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return Args.run;
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
-    var dirs = try Directories.open(alloc_, .{ .iterate = true });
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context) !void {
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
+    defer dirs.close();
 
-    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
-    defer if (active_id) |id| alloc_.free(id);
+    const active_id = try ActiveId.load(ctx_, dirs.local.dir);
+    defer if (active_id) |id| ctx_.alloc.free(id);
 
     if (active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.active.dir, id, .{});
-        defer goal.deinit(alloc_);
+        var goal = try Goal.init(ctx_, dirs.active.dir, id, .{});
+        defer goal.deinit();
 
-        try goal.tag(stdout_);
+        try goal.tag(ctx_.stdout);
 
-        try git.logGrep(alloc_, stdout_, goal.id);
-        try git.status(alloc_, stdout_);
+        try git.logGrep(ctx_, goal.id);
+        try git.status(ctx_);
     } else {
-        const count = try dirs.next.list(alloc_, stdout_);
+        const count = try dirs.next.list(ctx_);
 
-        try stdout_.writeAll("\nYou're not working on a goal right now");
+        try ctx_.stdout.writeAll("\nYou're not working on a goal right now");
         if (count > 0) {
-            try stdout_.writeAll(", so why not pick from the Next list?\n");
+            try ctx_.stdout.writeAll(", so why not pick from the Next list?\n");
         } else {
-            try stdout_.writeAll(". Run `goal list --later` for inspiration!\n");
+            try ctx_.stdout.writeAll(". Run `goal list --later` for inspiration!\n");
         }
     }
 }

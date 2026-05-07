@@ -61,57 +61,57 @@ pub const Command = enum {
         return std.meta.stringToEnum(Command, str_);
     }
 
-    pub fn unexpectedArgument(self: Command, arg: []const u8) anyerror {
+    pub fn unexpectedArgument(self_: Command, arg_: []const u8) anyerror {
         std.debug.print(
             \\
             \\The `{t}` command was given an unexpected argument "{s}".
             \\
-        , .{ self, arg });
+        , .{ self_, arg_ });
         return error.UnexpectedArgument;
     }
 
-    pub fn unexpectedSubcommand(self: Command, sub: Command) anyerror {
+    pub fn unexpectedSubcommand(self_: Command, sub_: Command) anyerror {
         std.debug.print(
             \\
             \\The `{t}` command does not accept subcommand `{t}`.
             \\
-        , .{ self, sub });
+        , .{ self_, sub_ });
         return error.UnexpectedSubcommand;
     }
 
-    pub fn missingArgument(self: Command) anyerror {
+    pub fn missingArgument(self_: Command) anyerror {
         std.debug.print(
             \\
             \\You didn't choose a goal. Run `goal help {t}`. See you later!
             \\
-        , .{self});
+        , .{self_});
         return error.MissingArgument;
     }
 
-    pub fn fileNotFound(self: Command, id: []const u8) anyerror {
+    pub fn fileNotFound(self_: Command, id_: []const u8) anyerror {
         std.debug.print(
             \\
             \\Goal #{s} doesn't exist! Run `goal {t}` to pick from the list of goals.
             \\
-        , .{ id, self });
+        , .{ id_, self_ });
         return error.FileNotFound;
     }
 
-    pub fn duplicateFlag(self: Command, flag: []const u8) anyerror {
+    pub fn duplicateFlag(self_: Command, flag_: []const u8) anyerror {
         std.debug.print(
             \\
             \\The `{t}` command was given the `{s}` flag multiple times.
             \\
-        , .{ self, flag });
+        , .{ self_, flag_ });
         return error.DuplicateFlag;
     }
 
-    pub fn tooManyArguments(self: Command) anyerror {
+    pub fn tooManyArguments(self_: Command) anyerror {
         std.debug.print(
             \\
             \\The `{t}` command was given too many arguments.
             \\
-        , .{self});
+        , .{self_});
         return error.TooManyArguments;
     }
 };

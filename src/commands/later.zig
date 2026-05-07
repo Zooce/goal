@@ -1,6 +1,6 @@
 const std = @import("std");
-const fs = @import("../fs_compat.zig");
 
+const Context = @import("../Context.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
 const Directories = @import("../Directories.zig");
@@ -11,13 +11,13 @@ const help = @import("help.zig");
 
 const Self = Command.later;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
-    const id = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, Self),
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+    const id = switch (try parseArgs(ctx_.alloc, iter_)) {
+        .help => return try help.run(ctx_.stdout, Self),
         .run => |id| id,
     };
-    defer if (id) |i| alloc_.free(i);
-    _ = try run(alloc_, stdout_, id);
+    defer if (id) |i| ctx_.alloc.free(i);
+    _ = try run(ctx_, id);
 }
 
 const Args = union(enum) {
@@ -48,14 +48,14 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     return .{ .run = id };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, id_: ?[]const u8) !void {
-    var dirs = try Directories.open(alloc_, .{ .iterate = true });
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context, id_: ?[]const u8) !void {
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
+    defer dirs.close();
 
     const id = id_ orelse id: {
         // only next goals can be demoted to later
         // active goals must be stopped explicitly with the --later flag to get into later directly
-        if (try dirs.next.list(alloc_, stdout_) == 0) {
+        if (try dirs.next.list(ctx_) == 0) {
             std.debug.print(
                 \\
                 \\Sorry, but you can only demote next goals to
@@ -66,17 +66,17 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, id_: ?[]const u8)
             , .{});
             return error.NoNextGoalsToDemote;
         }
-        if (try cli.getAnswer(alloc_, stdout_, "\nChoose a goal (type the number)")) |choice| {
+        if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
             break :id choice;
         }
         std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
         return error.NoGoalChosen;
     };
-    defer if (id_ == null) alloc_.free(id);
+    defer if (id_ == null) ctx_.alloc.free(id);
 
     if (id.len == 0) return Self.missingArgument();
 
-    var goal = Goal.init(alloc_, dirs.next.dir, id, .{}) catch |err| {
+    var goal = Goal.init(ctx_, dirs.next.dir, id, .{}) catch |err| {
         if (err == error.FileNotFound) {
             std.debug.print(
                 \\
@@ -88,9 +88,9 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, id_: ?[]const u8)
         }
         return err;
     };
-    defer goal.deinit(alloc_);
+    defer goal.deinit();
 
-    try fs.rename(dirs.next.dir, id, dirs.later.dir, id);
+    try std.Io.Dir.rename(dirs.next.dir, id, dirs.later.dir, id, ctx_.io);
 
-    try stdout_.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
+    try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
 }

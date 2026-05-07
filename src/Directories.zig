@@ -1,14 +1,13 @@
 const Directories = @This();
 
 const std = @import("std");
-const fs = @import("fs_compat.zig");
 const Allocator = std.mem.Allocator;
 const Writer = std.Io.Writer;
 
+const Context = @import("Context.zig");
 const git = @import("git.zig");
 const uuid = @import("uuid.zig");
 
-const ActiveId = @import("ActiveId.zig");
 const Config = @import("Config.zig");
 const Goal = @import("Goal.zig");
 
@@ -38,47 +37,50 @@ deleted: Dir,
 /// <project>/.goal/
 local: Dir,
 
+/// Context reference for cleanup.
+_ctx: *Context,
+
 /// Opens the project directories <base-dir>/.goal/<goal_id>/ and <project>/.goal/.
 ///
 /// Example:
 ///
 /// ```zig
-/// const dirs = try Directories.open(allocator, .{});
-/// defer dirs.close(allocator);
+/// const dirs = try Directories.open(ctx, .{});
+/// defer dirs.close();
 /// ```
-pub fn open(alloc_: Allocator, opts_: Options) !Directories {
+pub fn open(ctx_: *Context, opts_: Options) !Directories {
     // <project>/.goal/
     var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
         // IDEA: perhaps we could detect other root-level project files as well
-        const git_root = try git.projectRoot(alloc_, null);
+        const git_root = try git.projectRoot(ctx_, null);
         if (git_root) |root| {
-            defer alloc_.free(root);
-            const path = try fs.path.join(alloc_, &[_][]const u8{ root, ".goal" });
-            break :local try Dir.open(alloc_, path, null, opts_);
+            defer ctx_.alloc.free(root);
+            const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ root, ".goal" });
+            break :local try Dir.open(ctx_, path, null, opts_);
         }
         // `goal` only works in Git projects (for now)
         return error.NotAGitProject;
     };
-    errdefer local.close(alloc_);
+    errdefer local.close(ctx_);
 
     // get the goal id
     var goal_id: [uuid.SLICE_LEN]u8 = undefined;
     uuid_blk: {
-        const goal_id_path = try fs.path.join(alloc_, &[_][]const u8{ local.path, ".goal_id" });
-        defer alloc_.free(goal_id_path);
+        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ local.path, ".goal_id" });
+        defer ctx_.alloc.free(goal_id_path);
 
         // open the goal id file
-        const goal_id_file = fs.openFileAbsolute(goal_id_path, .{}) catch |err| switch (err) {
+        const goal_id_file = std.Io.Dir.openFileAbsolute(ctx_.io, goal_id_path, .{}) catch |err| switch (err) {
             // if the file doesn't exist and we're allowed to create it, then do so
             error.FileNotFound => if (opts_.create) {
-                const goal_id_file = try fs.createFileAbsolute(goal_id_path, .{ .exclusive = true });
-                defer goal_id_file.close(std.Options.debug_io);
+                const goal_id_file = try std.Io.Dir.createFileAbsolute(ctx_.io, goal_id_path, .{ .exclusive = true });
+                defer goal_id_file.close(ctx_.io);
 
-                try uuid.v4(&goal_id);
+                try uuid.v4(&goal_id, ctx_.io);
 
                 var writer_buf: [uuid.SLICE_LEN]u8 = undefined;
-                var writer = goal_id_file.writer(std.Options.debug_io, &writer_buf);
+                var writer = goal_id_file.writer(ctx_.io, &writer_buf);
                 try writer.interface.writeAll(&goal_id);
                 try writer.interface.flush();
 
@@ -92,48 +94,48 @@ pub fn open(alloc_: Allocator, opts_: Options) !Directories {
                 return err;
             },
         };
-        defer goal_id_file.close(std.Options.debug_io);
+        defer goal_id_file.close(ctx_.io);
 
         // read the goal id from the file
         var reader_buf: [uuid.SLICE_LEN]u8 = undefined;
-        var reader = goal_id_file.reader(std.Options.debug_io, &reader_buf);
+        var reader = goal_id_file.reader(ctx_.io, &reader_buf);
         _ = try reader.interface.readSliceAll(&goal_id);
     }
 
     // <base-dir>/.goal/<goal_id>/
     var base = base: {
-        var config = try Config.load(alloc_);
+        var config = try Config.load(ctx_);
         defer config.deinit();
-        const path = try fs.path.join(alloc_, &[_][]const u8{ config.base_dir, &goal_id });
-        break :base try Dir.open(alloc_, path, null, opts_);
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ config.base_dir, &goal_id });
+        break :base try Dir.open(ctx_, path, null, opts_);
     };
-    errdefer base.close(alloc_);
+    errdefer base.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/a/
     var active = active: {
-        const path = try fs.path.join(alloc_, &[_][]const u8{ base.path, "a" });
-        break :active try Dir.open(alloc_, path, "Active Goals", opts_);
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "a" });
+        break :active try Dir.open(ctx_, path, "Active Goals", opts_);
     };
-    errdefer active.close(alloc_);
+    errdefer active.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/n/
     var next = next: {
-        const path = try fs.path.join(alloc_, &[_][]const u8{ base.path, "n" });
-        break :next try Dir.open(alloc_, path, "Upcoming Goals", opts_);
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "n" });
+        break :next try Dir.open(ctx_, path, "Upcoming Goals", opts_);
     };
-    errdefer next.close(alloc_);
+    errdefer next.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/l/
     var later = later: {
-        const path = try fs.path.join(alloc_, &[_][]const u8{ base.path, "l" });
-        break :later try Dir.open(alloc_, path, "Goals for Later", opts_);
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "l" });
+        break :later try Dir.open(ctx_, path, "Goals for Later", opts_);
     };
-    errdefer later.close(alloc_);
+    errdefer later.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/d/
     const deleted = deleted: {
-        const path = try fs.path.join(alloc_, &[_][]const u8{ base.path, "d" });
-        break :deleted try Dir.open(alloc_, path, "Deleted Goals", opts_);
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "d" });
+        break :deleted try Dir.open(ctx_, path, "Deleted Goals", opts_);
     };
     // errdefer deleted.deinit(alloc_);
     // last thing to fail - no need for errdefer close
@@ -145,21 +147,22 @@ pub fn open(alloc_: Allocator, opts_: Options) !Directories {
         .later = later,
         .deleted = deleted,
         .local = local,
+        ._ctx = ctx_,
     };
 }
 
 /// Close the project directory.
-pub fn close(self_: *Directories, alloc_: Allocator) void {
-    self_.base.close(alloc_);
-    self_.active.close(alloc_);
-    self_.next.close(alloc_);
-    self_.later.close(alloc_);
-    self_.deleted.close(alloc_);
-    self_.local.close(alloc_);
+pub fn close(self_: *Directories) void {
+    self_.base.close(self_._ctx);
+    self_.active.close(self_._ctx);
+    self_.next.close(self_._ctx);
+    self_.later.close(self_._ctx);
+    self_.deleted.close(self_._ctx);
+    self_.local.close(self_._ctx);
 }
 
 pub const Dir = struct {
-    dir: fs.Dir,
+    dir: std.Io.Dir,
     path: []const u8,
     /// An optional label for the directory. If not null this should be a
     /// comptime string, so no need to free this as it should live in the
@@ -167,12 +170,12 @@ pub const Dir = struct {
     label: ?[]const u8,
 
     /// Takes ownership of `path_` memory.
-    pub fn open(alloc_: Allocator, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
-        errdefer alloc_.free(path_);
+    pub fn open(ctx_: *Context, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
+        errdefer ctx_.alloc.free(path_);
 
         const dir = dir: {
             if (opts_.create) {
-                fs.makeDirAbsolute(path_) catch |err| switch (err) {
+                std.Io.Dir.createDirAbsolute(ctx_.io, path_, .default_dir) catch |err| switch (err) {
                     error.PathAlreadyExists => {},
                     else => {
                         std.debug.print("\nUnable to create directory: {s}\n", .{path_});
@@ -180,7 +183,7 @@ pub const Dir = struct {
                     },
                 };
             }
-            break :dir fs.openDirAbsolute(path_, .{ .iterate = opts_.iterate }) catch |err| {
+            break :dir std.Io.Dir.openDirAbsolute(ctx_.io, path_, .{ .iterate = opts_.iterate }) catch |err| {
                 std.debug.print("\nUnable to open directory: {s}\n", .{path_});
                 return err;
             };
@@ -193,33 +196,33 @@ pub const Dir = struct {
         };
     }
 
-    pub fn close(self_: *Dir, alloc_: Allocator) void {
-        self_.dir.close(std.Options.debug_io);
-        alloc_.free(self_.path);
+    pub fn close(self_: *Dir, ctx_: *Context) void {
+        self_.dir.close(ctx_.io);
+        ctx_.alloc.free(self_.path);
     }
 
-    pub fn list(self_: Dir, alloc_: Allocator, stdout_: *Writer) !u8 {
+    pub fn list(self_: Dir, ctx_: *Context) !u8 {
         if (self_.label) |label| {
-            try stdout_.print("\n{s}\n", .{label});
+            try ctx_.stdout.print("\n{s}\n", .{label});
         } else {
-            try stdout_.writeAll("\n");
+            try ctx_.stdout.writeAll("\n");
         }
         var count: u8 = 0;
         var iter = self_.dir.iterate();
-        while (try iter.next(std.Options.debug_io)) |entry| : (count += 1) {
-            var goal = try Goal.init(alloc_, self_.dir, entry.name, .{});
-            defer goal.deinit(alloc_);
+        while (try iter.next(ctx_.io)) |entry| : (count += 1) {
+            var goal = try Goal.init(ctx_, self_.dir, entry.name, .{});
+            defer goal.deinit();
             // TODO: we're no longer marking the active goal when listing them - figure out how to do that
             // const active = if (active_id_) |active_id|
             //     std.mem.eql(u8, goal.id, active_id)
             // else
             //     false;
             // try stdout_.print("{s}{s}. {s}\n", .{ if (active) "* " else "  ", goal.id, goal.title });
-            try stdout_.print("  {s}. {s}\n", .{ goal.id, goal.title });
+            try ctx_.stdout.print("  {s}. {s}\n", .{ goal.id, goal.title });
         }
 
         if (count == 0) {
-            try stdout_.writeAll("  (none)\n");
+            try ctx_.stdout.writeAll("  (none)\n");
         }
         return count;
     }

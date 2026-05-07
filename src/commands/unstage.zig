@@ -1,4 +1,6 @@
 const std = @import("std");
+
+const Context = @import("../Context.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const stringToCommand = @import("../args.zig").stringToCommand;
 const Command = @import("../commands.zig").Command;
@@ -16,14 +18,14 @@ const Args = union(enum) {
     run: std.ArrayList([]const u8),
 };
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
-    var args = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, Self),
-        .git_help => return try git.help(alloc_, stdout_, "restore"),
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+    var args = switch (try parseArgs(ctx_.alloc, iter_)) {
+        .help => return try help.run(ctx_.stdout, Self),
+        .git_help => return try git.help(ctx_, "restore"),
         .run => |args| args,
     };
-    defer args.deinit(alloc_);
-    try run(alloc_, stdout_, args);
+    defer args.deinit(ctx_.alloc);
+    try run(ctx_, args);
 }
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
@@ -48,20 +50,20 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     return Args{ .run = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: std.ArrayList([]const u8)) !void {
-    if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
+pub fn run(ctx_: *Context, args_: std.ArrayList([]const u8)) !void {
+    if (!try git.hasChanges(ctx_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         std.debug.print("\nThere are no changes to unstage.\n", .{});
         return error.NoStagedChanges;
     }
 
-    var dirs = try Directories.open(alloc_, .{});
-    defer dirs.close(alloc_);
+    var dirs = try Directories.open(ctx_, .{});
+    defer dirs.close();
 
-    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
+    const active_id = try ActiveId.load(ctx_, dirs.local.dir);
     if (active_id) |id| {
-        alloc_.free(id); // don't need it
-        try git.run(alloc_, stdout_, .{ .argv = args_.items });
-        try git.status(alloc_, stdout_);
+        ctx_.alloc.free(id); // don't need it
+        try git.run(ctx_, .{ .argv = args_.items });
+        try git.status(ctx_);
         return;
     }
 

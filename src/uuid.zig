@@ -9,12 +9,12 @@ const testing = std.testing;
 
 pub const SLICE_LEN = 36;
 
-pub fn v4(buf_: []u8) !void {
+pub fn v4(buf_: []u8, io_: std.Io) !void {
     if (buf_.len != SLICE_LEN) return error.InvalidUUIDv4BufferSize;
 
     var bytes: [16]u8 = undefined;
 
-    var io_source = std.Random.IoSource{ .io = std.Options.debug_io };
+    var io_source = std.Random.IoSource{ .io = io_ };
     const random = io_source.interface();
     random.bytes(&bytes);
     bytes[6] = (bytes[6] & 0x0f) | 0x40;
@@ -35,11 +35,11 @@ pub fn v4(buf_: []u8) !void {
 
 test v4 {
     var buf: [SLICE_LEN]u8 = undefined;
-    try v4(&buf);
+    try v4(&buf, std.testing.io);
     std.debug.print("{s}\n", .{buf});
 }
 
 test "invalid buffer size" {
     var buf: [SLICE_LEN - 1]u8 = undefined;
-    try testing.expectError(error.InvalidUUIDv4BufferSize, v4(&buf));
+    try testing.expectError(error.InvalidUUIDv4BufferSize, v4(&buf, std.testing.io));
 }

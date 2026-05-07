@@ -1,6 +1,6 @@
 const std = @import("std");
-const fs = @import("../fs_compat.zig");
 
+const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
 
@@ -12,10 +12,10 @@ const help = @import("help.zig");
 
 const Self = Command.setup;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
-        .help => try help.run(stdout_, Self),
-        .run => try run(alloc_, stdout_),
+        .help => try help.run(ctx_.stdout, Self),
+        .run => try run(ctx_),
     }
 }
 
@@ -39,37 +39,37 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return Args.run;
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer) !void {
-    var config = try Config.load(alloc_);
+pub fn run(ctx_: *Context) !void {
+    var config = try Config.load(ctx_);
     defer config.deinit();
 
     var needs_setup = false;
-    fs.accessAbsolute(config.base_dir, .{}) catch {
+    std.Io.Dir.accessAbsolute(ctx_.io, config.base_dir, .{}) catch {
         needs_setup = true;
     };
 
     if (!needs_setup) {
-        try stdout_.writeAll("\nYou're already setup to use `goal`. Enjoy!\n");
+        try ctx_.stdout.writeAll("\nYou're already setup to use `goal`. Enjoy!\n");
         return;
     }
 
     // ask if they'd like to clone an existing .goal project
-    if (try cli.getAnswer(alloc_, stdout_, "\nGot an existing .goal repo? (path or empty)")) |repo| {
-        defer alloc_.free(repo);
-        try git.clone(alloc_, stdout_, repo, config.base_dir);
+    if (try cli.getAnswer(ctx_, "\nGot an existing .goal repo? (path or empty)")) |repo| {
+        defer ctx_.alloc.free(repo);
+        try git.clone(ctx_, repo, config.base_dir);
     } else {
-        fs.makeDirAbsolute(config.base_dir) catch |err| switch (err) {
+        std.Io.Dir.createDirAbsolute(ctx_.io, config.base_dir, .default_dir) catch |err| switch (err) {
             error.PathAlreadyExists => {},
             else => return err,
         };
 
         // git init
-        try git.init(alloc_, config.base_dir);
+        try git.init(ctx_, config.base_dir);
 
-        try stdout_.writeAll("\nWhen you have a remote ready run `goal config`.\n");
+        try ctx_.stdout.writeAll("\nWhen you have a remote ready run `goal config`.\n");
     }
 
     // TODO: ask for initial config values
 
-    try stdout_.writeAll("\nYou're all set up to use `goal`!\n");
+    try ctx_.stdout.writeAll("\nYou're all set up to use `goal`!\n");
 }

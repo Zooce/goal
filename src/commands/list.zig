@@ -3,6 +3,7 @@ const Allocator = std.mem.Allocator;
 const Writer = std.Io.Writer;
 
 // const ActiveId = @import("../ActiveId.zig");
+const Context = @import("../Context.zig");
 const Directories = @import("../Directories.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
@@ -11,10 +12,10 @@ const help = @import("help.zig");
 
 const Self = Command.list;
 
-pub fn main(alloc_: Allocator, stdout_: *Writer, iter_: *ArgIter) !void {
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
-        .help => try help.run(stdout_, Self),
-        .run => |list_type| try run(alloc_, stdout_, list_type),
+        .help => try help.run(ctx_.stdout, Self),
+        .run => |list_type| try run(ctx_, list_type),
     }
 }
 
@@ -67,22 +68,22 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 }
 
 /// List all goals showing their ID and title.
-pub fn run(alloc_: Allocator, stdout_: *Writer, list_type_: u8) !void {
-    var dirs = try Directories.open(alloc_, .{ .iterate = true });
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context, list_type_: u8) !void {
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
+    defer dirs.close();
 
     // TODO: mark the active goal in this branch
-    // const active_id = try ActiveId.load(alloc_, dirs.local.dir);
-    // defer if (active_id) |id| alloc_.free(id);
+    // const active_id = try ActiveId.load(alloc, dirs.local.dir);
+    // defer if (active_id) |id| alloc.free(id);
 
     if ((list_type_ & ACTIVE) != 0) {
-        _ = try dirs.active.list(alloc_, stdout_);
+        _ = try dirs.active.list(ctx_);
     }
     if ((list_type_ & NEXT) != 0) {
-        _ = try dirs.next.list(alloc_, stdout_);
+        _ = try dirs.next.list(ctx_);
     }
     if ((list_type_ & LATER) != 0) {
-        _ = try dirs.later.list(alloc_, stdout_);
+        _ = try dirs.later.list(ctx_);
     }
     // TODO: show later count by default
 }

@@ -1,8 +1,8 @@
 const std = @import("std");
-const runtime = @import("../runtime.zig");
 const Allocator = std.mem.Allocator;
 const Writer = std.Io.Writer;
 
+const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");
 const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
@@ -14,13 +14,13 @@ const help = @import("help.zig");
 
 const Self = Command.edit;
 
-pub fn main(alloc_: Allocator, stdout_: *Writer, iter_: *ArgIter) !void {
-    const id = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, Self),
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+    const id = switch (try parseArgs(ctx_.alloc, iter_)) {
+        .help => return try help.run(ctx_.stdout, Self),
         .run => |id| id,
     };
-    defer if (id) |i| alloc_.free(i);
-    _ = try run(alloc_, stdout_, id);
+    defer if (id) |i| ctx_.alloc.free(i);
+    _ = try run(ctx_, id);
 }
 
 const Args = union(enum) {
@@ -50,52 +50,52 @@ pub fn parseArgs(alloc_: Allocator, iter_: *ArgIter) !Args {
     return .{ .run = id };
 }
 
-pub fn run(alloc_: Allocator, stdout_: *Writer, id_: ?[]const u8) !void {
-    var dirs = try Directories.open(alloc_, .{ .iterate = true });
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context, id_: ?[]const u8) !void {
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
+    defer dirs.close();
 
     const id = id_ orelse id: {
-        var count = try dirs.active.list(alloc_, stdout_);
-        count += try dirs.next.list(alloc_, stdout_);
-        count += try dirs.later.list(alloc_, stdout_);
+        var count = try dirs.active.list(ctx_);
+        count += try dirs.next.list(ctx_);
+        count += try dirs.later.list(ctx_);
         if (count == 0) {
-            try stdout_.writeAll("\nWell I guess there's no goals to edit yet. Run `goal new`!\n");
+            try ctx_.stdout.writeAll("\nWell I guess there's no goals to edit yet. Run `goal new`!\n");
             return;
         }
-        if (try cli.getAnswer(alloc_, stdout_, "\nChoose a goal (type the number)")) |choice| {
+        if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
             break :id choice;
         }
         std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
         return error.NoGoalChosen;
     };
-    defer if (id_ == null) alloc_.free(id);
+    defer if (id_ == null) ctx_.alloc.free(id);
 
     if (id.len == 0) return Self.missingArgument();
 
     // find the id in one of the categories
     var dir_path = dirs.active.path;
-    var goal = Goal.init(alloc_, dirs.active.dir, id, .{ .quiet = true }) catch goal: {
+    var goal = Goal.init(ctx_, dirs.active.dir, id, .{ .quiet = true }) catch goal: {
         dir_path = dirs.next.path;
-        break :goal Goal.init(alloc_, dirs.next.dir, id, .{ .quiet = true }) catch {
+        break :goal Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch {
             dir_path = dirs.later.path;
-            break :goal try Goal.init(alloc_, dirs.later.dir, id, .{});
+            break :goal try Goal.init(ctx_, dirs.later.dir, id, .{});
         };
     };
-    defer goal.deinit(alloc_);
+    defer goal.deinit();
 
-    // TODO: from here........
+    // TODO: from here.......
 
     // open the new goal file in an editor
-    const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dir_path, id });
-    defer alloc_.free(file_path);
+    const file_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dir_path, id });
+    defer ctx_.alloc.free(file_path);
 
     // Use configurable editor
-    var config = try Config.load(alloc_);
+    var config = try Config.load(ctx_);
     defer config.deinit();
 
     const cmd = [_][]const u8{ config.editor, file_path };
-    var editor = try std.process.spawn(runtime.io, .{ .argv = &cmd });
-    _ = try editor.wait(runtime.io);
+    var editor = try std.process.spawn(ctx_.io, .{ .argv = &cmd });
+    _ = try editor.wait(ctx_.io);
 
     // empty file check
 
@@ -103,7 +103,7 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, id_: ?[]const u8) !void {
 
     // TODO: consider editing in a temporary file and if it's empty then error and don't save it
     if (goal.title.len == 0) {
-        try stdout_.print(
+        try ctx_.stdout.print(
             \\
             \\Alright, look... you emptied the file. That's kind of against the rules but I'll
             \\let it slide and just suggest that you run `goal delete`.
@@ -114,6 +114,6 @@ pub fn run(alloc_: Allocator, stdout_: *Writer, id_: ?[]const u8) !void {
             \\
         , .{id});
     } else {
-        try stdout_.writeAll("\nThat was an awesome edit, dude! Peace out!\n");
+        try ctx_.stdout.writeAll("\nThat was an awesome edit, dude! Peace out!\n");
     }
 }

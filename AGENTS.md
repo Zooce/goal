@@ -1,7 +1,23 @@
+# AGENTS.md
+
+## Git Rules
+
+You may NOT run any Git commands that change anything in the repo at all.
+
 ## Platform
 
-Zig v0.16.0
+Zig v0.16.0: https://ziglang.org/download/0.16.0/release-notes.html
 Arch Linux (via Omarchy)
+
+## Research
+
+Learn Zig: Visit https://ziglang.org/documentation/0.16.0/ or run `zig std`
+
+## Conventions
+
+Function parameter names always end with `_` to differentiate them from other variables.
+
+If a function needs access to anything in the `Context` struct, pass it in as the first parameter and name it `ctx_`.
 
 ## Testing
 

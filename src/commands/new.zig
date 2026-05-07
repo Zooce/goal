@@ -1,6 +1,6 @@
 const std = @import("std");
-const runtime = @import("../runtime.zig");
 
+const Context = @import("../Context.zig");
 const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
@@ -12,13 +12,14 @@ const help = @import("help.zig");
 
 const Self = Command.new;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
-    const title = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, Self),
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+    const title = switch (try parseArgs(ctx_.alloc, iter_)) {
+        .help => return try help.run(ctx_.stdout, Self),
         .run => |title| title,
     };
-    defer if (title) |t| alloc_.free(t);
-    _ = try run(alloc_, stdout_, title);
+    defer if (title) |t| ctx_.alloc.free(t);
+    const filename = try run(ctx_, title);
+    ctx_.alloc.free(filename);
 }
 
 const Args = union(enum) {
@@ -53,11 +54,11 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
 ///
 /// Returns the file name so the caller is responsible for calling
 /// `allocator.free(filename)`.
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, title_: ?[]const u8) ![]const u8 {
-    var dirs = try Directories.open(alloc_, .{});
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context, title_: ?[]const u8) ![]const u8 {
+    var dirs = try Directories.open(ctx_, .{});
+    defer dirs.close();
 
-    var meta = try Meta.load(alloc_, dirs.base.dir);
+    var meta = try Meta.load(ctx_, dirs.base.dir);
     defer meta.deinit();
 
     const file_name = file_name: {
@@ -70,40 +71,40 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, title_: ?[]const 
     if (title_) |t| {
         // TODO: trim t
         if (t.len > 0) {
-            const goal_file = try dirs.later.dir.createFile(std.Options.debug_io, file_name, .{ .exclusive = true });
-            defer goal_file.close(std.Options.debug_io);
-            try goal_file.writeStreamingAll(std.Options.debug_io, t);
-            try stdout_.print("\nGoal #{d} - {s}\n", .{ meta.next_id, t });
+            const goal_file = try dirs.later.dir.createFile(ctx_.io, file_name, .{ .exclusive = true });
+            defer goal_file.close(ctx_.io);
+            try goal_file.writeStreamingAll(ctx_.io, t);
+            try ctx_.stdout.print("\nGoal #{d} - {s}\n", .{ meta.next_id, t });
         } else {
             std.debug.print("\nGoal title cannot be empty! You're so funny.\n", .{});
             return error.EmptyGoalTitle;
         }
     } else {
         // open the new goal file in an editor
-        const file_path = try std.fs.path.join(alloc_, &[_][]const u8{ dirs.later.path, file_name });
-        defer alloc_.free(file_path);
+        const file_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dirs.later.path, file_name });
+        defer ctx_.alloc.free(file_path);
 
-        var config = try Config.load(alloc_);
+        var config = try Config.load(ctx_);
         defer config.deinit();
 
         const cmd = [_][]const u8{ config.editor, file_path };
-        var editor = try std.process.spawn(runtime.io, .{ .argv = &cmd });
-        _ = try editor.wait(runtime.io);
+        var editor = try std.process.spawn(ctx_.io, .{ .argv = &cmd });
+        _ = try editor.wait(ctx_.io);
 
-        var goal = try Goal.init(alloc_, dirs.later.dir, file_name, .{});
-        defer goal.deinit(alloc_);
+        var goal = try Goal.init(ctx_, dirs.later.dir, file_name, .{});
+        defer goal.deinit();
 
         if (goal.title.len == 0) {
             std.debug.print("\nGoal title cannot be empty!\n", .{});
-            try dirs.later.dir.deleteFile(std.Options.debug_io, goal.id);
+            try dirs.later.dir.deleteFile(ctx_.io, goal.id);
             return error.EmptyGoalTitle;
         }
-        try stdout_.print("\nGoal #{d} - {s}\n", .{ meta.next_id, goal.title });
+        try ctx_.stdout.print("\nGoal #{d} - {s}\n", .{ meta.next_id, goal.title });
     }
 
     // update the meta file
     meta.next_id += 1;
     try meta.store();
 
-    return try alloc_.dupe(u8, file_name);
+    return try ctx_.alloc.dupe(u8, file_name);
 }

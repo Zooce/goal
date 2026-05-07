@@ -1,6 +1,6 @@
 const std = @import("std");
-const fs = @import("../fs_compat.zig");
 
+const Context = @import("../Context.zig");
 const git = @import("../git.zig");
 
 const ActiveId = @import("../ActiveId.zig");
@@ -13,10 +13,10 @@ const help = @import("help.zig");
 
 const Self = Command.stop;
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     switch (try parseArgs(iter_)) {
-        .help => try help.run(stdout_, Self),
-        .run => |later| try run(alloc_, stdout_, later),
+        .help => try help.run(ctx_.stdout, Self),
+        .run => |later| try run(ctx_, later),
     }
 }
 
@@ -48,34 +48,34 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return .{ .run = later };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, later_: bool) !void {
-    var dirs = try Directories.open(alloc_, .{});
-    defer dirs.close(alloc_);
+pub fn run(ctx_: *Context, later_: bool) !void {
+    var dirs = try Directories.open(ctx_, .{});
+    defer dirs.close();
 
-    const active_id = try ActiveId.load(alloc_, dirs.local.dir);
-    defer if (active_id) |id| alloc_.free(id);
+    const active_id = try ActiveId.load(ctx_, dirs.local.dir);
+    defer if (active_id) |id| ctx_.alloc.free(id);
 
     if (active_id) |id| {
-        var goal = try Goal.init(alloc_, dirs.active.dir, id, .{});
-        defer goal.deinit(alloc_);
+        var goal = try Goal.init(ctx_, dirs.active.dir, id, .{});
+        defer goal.deinit();
 
-        try ActiveId.clear(dirs.local.dir);
+        try ActiveId.clear(ctx_, dirs.local.dir);
 
-        try fs.rename(dirs.active.dir, id, if (later_) dirs.later.dir else dirs.next.dir, id);
+        try std.Io.Dir.rename(dirs.active.dir, id, if (later_) dirs.later.dir else dirs.next.dir, id, ctx_.io);
 
-        const commit_subject = try std.fmt.allocPrint(alloc_, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
-        defer alloc_.free(commit_subject);
+        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
+        defer ctx_.alloc.free(commit_subject);
 
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
         });
 
         if (later_) {
-            try stdout_.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
+            try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
         } else {
-            try stdout_.print("\nLet's take a break from Goal #{s} - '{s}'.\n", .{ goal.id, goal.title });
+            try ctx_.stdout.print("\nLet's take a break from Goal #{s} - '{s}'.\n", .{ goal.id, goal.title });
         }
     } else {
-        try stdout_.writeAll("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n");
+        try ctx_.stdout.writeAll("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n");
     }
 }

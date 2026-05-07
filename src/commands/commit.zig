@@ -1,7 +1,6 @@
 const std = @import("std");
-const fs = @import("../fs_compat.zig");
-const runtime = @import("../runtime.zig");
 
+const Context = @import("../Context.zig");
 const git = @import("../git.zig");
 
 const ArgIter = @import("../args.zig").ArgIter;
@@ -28,14 +27,14 @@ const Args = struct {
     _goal: ?Goal = null,
 };
 
-pub fn main(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
-    const args = switch (try parseArgs(alloc_, iter_)) {
-        .help => return try help.run(stdout_, Self),
+pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(ctx_.alloc, iter_)) {
+        .help => return try help.run(ctx_.stdout, Self),
         .args => |args| args,
     };
-    defer if (args.message) |msg| alloc_.free(msg);
-    try run(alloc_, stdout_, args);
-    if (args.complete) try stdout_.writeAll("\nNice work!\n");
+    defer if (args.message) |msg| ctx_.alloc.free(msg);
+    try run(ctx_, args);
+    if (args.complete) try ctx_.stdout.writeAll("\nNice work!\n");
 }
 
 pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
@@ -77,54 +76,54 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     return .{ .args = args };
 }
 
-pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: Args) !void {
-    if (!try git.hasChanges(alloc_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
+pub fn run(ctx_: *Context, args_: Args) !void {
+    if (!try git.hasChanges(ctx_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         std.debug.print("\nCan't commit without staged changes.\n", .{});
         return error.NoStagedChanges;
     }
 
-    var dirs = try Directories.open(alloc_, .{ .iterate = true });
-    defer dirs.close(alloc_);
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
+    defer dirs.close();
 
     var goal = args_._goal orelse goal: {
         const id = id: {
-            if (try ActiveId.load(alloc_, dirs.local.dir)) |id| {
+            if (try ActiveId.load(ctx_, dirs.local.dir)) |id| {
                 break :id id;
             }
             return error.NoActiveGoal;
         };
-        defer alloc_.free(id);
+        defer ctx_.alloc.free(id);
 
-        break :goal try Goal.init(alloc_, dirs.active.dir, id, .{});
+        break :goal try Goal.init(ctx_, dirs.active.dir, id, .{});
     };
-    defer if (args_._goal == null) goal.deinit(alloc_);
+    defer if (args_._goal == null) goal.deinit();
 
     if (args_.complete) {
-        try ActiveId.clear(dirs.local.dir);
+        try ActiveId.clear(ctx_, dirs.local.dir);
 
         // stage active id deletion
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
             .cwd = args_._worktree_path,
         });
     }
 
-    var commit_file = try CommitFile.create(alloc_, dirs, .{ .goal = goal, .completed = args_.complete, .message = args_.message });
-    defer commit_file.delete(alloc_);
+    var commit_file = try CommitFile.create(ctx_, dirs, .{ .goal = goal, .completed = args_.complete, .message = args_.message });
+    defer commit_file.delete();
 
     if (args_.message == null) {
-        try stdout_.writeAll("\n");
-        try stdout_.flush();
+        try ctx_.stdout.writeAll("\n");
+        try ctx_.stdout.flush();
 
-        var proc = try std.process.spawn(runtime.io, .{
+        var proc = try std.process.spawn(ctx_.io, .{
             .argv = &[_][]const u8{ "git", "commit", "-t", commit_file.path, "--edit" },
         });
-        switch (try proc.wait(runtime.io)) {
+        switch (try proc.wait(ctx_.io)) {
             .exited => |code| if (code != 0) return error.GitCommitError,
             else => return error.GitCommitError,
         }
     } else {
-        try git.run(alloc_, stdout_, .{
+        try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", "-F", commit_file.path },
         });
     }
@@ -132,7 +131,7 @@ pub fn run(alloc_: std.mem.Allocator, stdout_: *std.Io.Writer, args_: Args) !voi
     // TODO: show `goal status` after commit ?? if not --complete
 
     if (args_.complete) {
-        fs.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id) catch |err| {
+        std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io) catch |err| {
             std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
             return err;
         };

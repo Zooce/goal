@@ -1,7 +1,7 @@
 const Goal = @This();
 
 const std = @import("std");
-const fs = @import("fs_compat.zig");
+const Context = @import("Context.zig");
 
 /// Options for initializing a goal.
 pub const Options = struct {
@@ -21,7 +21,9 @@ title: []const u8,
 description: ?[]const u8,
 
 /// The directory where this goal was loaded from.
-dir: fs.Dir,
+dir: std.Io.Dir,
+
+_ctx: *Context,
 
 /// Initializes a `Goal` by reading in it's file contents.
 ///
@@ -31,28 +33,28 @@ dir: fs.Dir,
 /// Example:
 ///
 /// ```zig
-/// const dirs = Directories.open(allocator, .{});
-/// defer dirs.close(allocator);
+/// const dirs = Directories.open(ctx, .{});
+/// defer dirs.close();
 ///
 /// {
-///     const id = try std.fmt.allocPrint(allocator, "{d}", .{5});
-///     defer allocator.free(id); // Goal.init does NOT take ownership of this
-///     var goal = try Goal.init(allocator, dirs.base_dir, id, .{});
-///     defer goal.deinit(allocator);
+///     const id = try std.fmt.allocPrint(ctx.alloc, "{d}", .{5});
+///     defer ctx.alloc.free(id); // Goal.init does NOT take ownership of this
+///     var goal = try Goal.init(ctx, dirs.base_dir, id, .{});
+///     defer goal.deinit();
 /// }
 /// ```
-pub fn init(alloc_: std.mem.Allocator, dir_: fs.Dir, id_: []const u8, opts_: Options) !Goal {
-    const goal_file = dir_.openFile(std.Options.debug_io, id_, .{}) catch |err| {
+pub fn init(ctx_: *Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Goal {
+    const goal_file = dir_.openFile(ctx_.io, id_, .{}) catch |err| {
         if (!opts_.quiet) std.debug.print("\nUnable to open goal file: {s}\n", .{id_});
         return err;
     };
-    defer goal_file.close(std.Options.debug_io);
+    defer goal_file.close(ctx_.io);
 
     var read_buffer: [1024]u8 = undefined;
-    var file_reader = goal_file.reader(std.Options.debug_io, &read_buffer);
+    var file_reader = goal_file.reader(ctx_.io, &read_buffer);
 
     // TODO: I think I can use takeDelimiterExclusive('\n') instead of all this streaming stuff
-    var stream_writer = std.Io.Writer.Allocating.init(alloc_);
+    var stream_writer = std.Io.Writer.Allocating.init(ctx_.alloc);
     defer stream_writer.deinit();
 
     var get_desc = true;
@@ -61,8 +63,8 @@ pub fn init(alloc_: std.mem.Allocator, dir_: fs.Dir, id_: []const u8, opts_: Opt
         else => return err,
     };
 
-    const title = try alloc_.dupe(u8, std.mem.trim(u8, stream_writer.written(), " \t\r\n"));
-    errdefer alloc_.free(title);
+    const title = try ctx_.alloc.dupe(u8, std.mem.trim(u8, stream_writer.written(), " \t\r\n"));
+    errdefer ctx_.alloc.free(title);
 
     var description: ?[]const u8 = null;
     if (opts_.incl_desc and get_desc) {
@@ -72,24 +74,25 @@ pub fn init(alloc_: std.mem.Allocator, dir_: fs.Dir, id_: []const u8, opts_: Opt
 
         const trimmed = std.mem.trim(u8, stream_writer.written(), " \t\r\n");
         if (trimmed.len > 0) {
-            description = try alloc_.dupe(u8, trimmed);
+            description = try ctx_.alloc.dupe(u8, trimmed);
         }
     }
 
     return .{
-        .id = try alloc_.dupe(u8, id_),
+        .id = try ctx_.alloc.dupe(u8, id_),
         .title = title,
         .description = description,
         .dir = dir_,
+        ._ctx = ctx_,
     };
 }
 
 /// Deinit the goal memory.
-pub fn deinit(self_: *Goal, alloc_: std.mem.Allocator) void {
-    alloc_.free(self_.id);
-    alloc_.free(self_.title);
+pub fn deinit(self_: *Goal) void {
+    self_._ctx.alloc.free(self_.id);
+    self_._ctx.alloc.free(self_.title);
     if (self_.description) |desc| {
-        alloc_.free(desc);
+        self_._ctx.alloc.free(desc);
     }
 }
 
