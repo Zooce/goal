@@ -20,12 +20,18 @@ pub fn main(init_: std.process.Init) !void {
         std.debug.print("\nERROR: stderr flush error: {t}\n", .{err});
     };
 
+    // setup stdin
+    var stdin_buf: [2048]u8 = undefined;
+    var stdin_reader = std.Io.File.stdin().reader(init_.io, &stdin_buf);
+    const stdin = &stdin_reader.interface;
+
     var context = Context{
         .alloc = init_.gpa,
         .io = init_.io,
         .environ_map = init_.environ_map,
         .stdout = stdout,
         .stderr = stderr,
+        .stdin = stdin,
     };
 
     var iter = try args.ArgIter.init(init_.minimal.args, init_.gpa);

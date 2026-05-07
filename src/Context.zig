@@ -20,3 +20,9 @@ stdout: *std.Io.Writer,
 
 /// Standard error writer for printing to stderr.
 stderr: *std.Io.Writer,
+
+/// Standard input reader for interactive prompts.
+stdin: *std.Io.Reader,
+
+/// Optional current working directory override used for subprocess execution.
+cwd: ?[]const u8 = null,

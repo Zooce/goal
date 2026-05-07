@@ -5,7 +5,7 @@ const Context = @import("Context.zig");
 fn runChild(ctx_: *Context, argv_: []const []const u8, cwd_: ?[]const u8) !std.process.RunResult {
     return std.process.run(ctx_.alloc, ctx_.io, .{
         .argv = argv_,
-        .cwd = if (cwd_) |cwd| .{ .path = cwd } else .inherit,
+        .cwd = if (cwd_ orelse ctx_.cwd) |cwd| .{ .path = cwd } else .inherit,
     });
 }
 
@@ -47,14 +47,24 @@ pub fn projectRoot(ctx_: *Context, cwd_: ?[]const u8) !?[]const u8 {
 }
 
 test "getGitRoot - returns the parent of the .git/ directory" {
-    const ctx: Context = .{
+    var stdout_buf: [2048]u8 = undefined;
+    var stdout_writer = std.Io.File.stdout().writer(std.testing.io, &stdout_buf);
+
+    var stderr_buf: [2048]u8 = undefined;
+    var stderr_writer = std.Io.File.stderr().writer(std.testing.io, &stderr_buf);
+
+    var stdin_buf: [64]u8 = undefined;
+    var stdin_reader = std.Io.File.stdin().reader(std.testing.io, &stdin_buf);
+
+    var ctx: Context = .{
         .alloc = std.testing.allocator,
         .io = std.testing.io,
-        .environ_map = std.testing.Environ.createMap(std.testing.allocator),
-        .stdout = std.Io.File.stdout(),
-        .stderr = std.Io.File.stderr(),
+        .environ_map = &std.testing.environ,
+        .stdout = &stdout_writer.interface,
+        .stderr = &stderr_writer.interface,
+        .stdin = &stdin_reader.interface,
     };
-    const git_root = try projectRoot(ctx, null);
+    const git_root = try projectRoot(&ctx, null);
     defer if (git_root) |root| ctx.alloc.free(root);
 
     // NOTES
