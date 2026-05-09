@@ -46,7 +46,7 @@ pub fn create(ctx_: *Context, dirs_: Directories, opts_: Options) !CommitFile {
         try w.writeAll(msg);
     }
 
-    const email = try git.email(ctx_);
+    const email = try git.exec(ctx_, .{ .argv = git.cmds.user_email });
     defer ctx_.alloc.free(email);
 
     try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{

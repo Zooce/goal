@@ -74,11 +74,11 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 // Note that this function does not open `Directories` because we're deleting them all...
 pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     // we'll run git commands from here
-    const git_root = try git.projectRoot(ctx_, null) orelse return error.NotAGitProject;
-    defer ctx_.alloc.free(git_root);
+    const proj_root = try git.exec(ctx_, .{ .argv = git.cmds.rev_parse });
+    defer ctx_.alloc.free(proj_root);
 
     // we're going to delete this path
-    const local_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ git_root, ".goal" });
+    const local_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ proj_root, ".goal" });
     defer ctx_.alloc.free(local_goal_path);
 
     // need this to get the project's base path
@@ -158,12 +158,12 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
 
         try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", ".goal" },
-            .cwd = git_root,
+            .cwd = proj_root,
         });
 
         try git.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal", "-m", "goal deinit" },
-            .cwd = git_root,
+            .cwd = proj_root,
         });
     } else {
         try ctx_.stdout.writeAll("\nSkipping local commit.\n");

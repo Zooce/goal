@@ -19,7 +19,11 @@ Function parameter names always end with `_` to differentiate them from other va
 
 If a function needs access to anything in the `Context` struct, pass it in as the first parameter and name it `ctx_`.
 
+When possible, use non-allocating buffers (especially if we can reuse them).
+
 ## Testing
+
+Quick: `zig build test --summary all`
 
 When verifying commands that modify project state or require an initialized goal repository, use the helper script:
 

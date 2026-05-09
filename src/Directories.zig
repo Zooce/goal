@@ -53,14 +53,10 @@ pub fn open(ctx_: *Context, opts_: Options) !Directories {
     var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
         // IDEA: perhaps we could detect other root-level project files as well
-        const git_root = try git.projectRoot(ctx_, null);
-        if (git_root) |root| {
-            defer ctx_.alloc.free(root);
-            const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ root, ".goal" });
-            break :local try Dir.open(ctx_, path, null, opts_);
-        }
-        // `goal` only works in Git projects (for now)
-        return error.NotAGitProject;
+        const proj_root = try git.exec(ctx_, .{ .argv = git.cmds.rev_parse });
+        defer ctx_.alloc.free(proj_root);
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ proj_root, ".goal" });
+        break :local try Dir.open(ctx_, path, null, opts_);
     };
     errdefer local.close(ctx_);
 

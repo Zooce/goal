@@ -63,8 +63,7 @@ pub fn run(ctx_: *Context) !void {
             else => return err,
         };
 
-        // git init
-        try git.init(ctx_, config.base_dir);
+        try git.run(ctx_, .{ .argv = git.cmds.init, .cwd = config.base_dir });
 
         try ctx_.stdout.writeAll("\nWhen you have a remote ready run `goal config`.\n");
     }

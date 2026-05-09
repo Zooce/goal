@@ -51,10 +51,10 @@ pub fn run(ctx_: *Context) !void {
     defer config.deinit();
 
     const project_name = project_name: {
-        const git_root = try git.projectRoot(ctx_, null) orelse return error.NotAGitProject;
-        defer ctx_.alloc.free(git_root);
+        const proj_root = try git.exec(ctx_, .{ .argv = git.cmds.rev_parse });
+        defer ctx_.alloc.free(proj_root);
 
-        const repo_name = std.Io.Dir.path.basename(git_root);
+        const repo_name = std.Io.Dir.path.basename(proj_root);
         const prompt = try std.fmt.allocPrint(ctx_.alloc, "Project name (default: {s})", .{repo_name});
         defer ctx_.alloc.free(prompt);
 
