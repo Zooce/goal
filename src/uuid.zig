@@ -36,7 +36,28 @@ pub fn v4(buf_: []u8, io_: std.Io) !void {
 test v4 {
     var buf: [SLICE_LEN]u8 = undefined;
     try v4(&buf, std.testing.io);
-    std.debug.print("{s}\n", .{buf});
+
+    // 1. Correct length and hyphen positions
+    try std.testing.expectEqual(@as(usize, 36), buf.len);
+    try std.testing.expectEqual(@as(u8, '-'), buf[8]);
+    try std.testing.expectEqual(@as(u8, '-'), buf[13]);
+    try std.testing.expectEqual(@as(u8, '-'), buf[18]);
+    try std.testing.expectEqual(@as(u8, '-'), buf[23]);
+
+    // 2. Version = 4 (character at position 14 must be '4')
+    try std.testing.expectEqual(@as(u8, '4'), buf[14]);
+
+    // 3. Variant bits (RFC 4122): characters at position 19 must be 8,9,a,b (case insensitive)
+    const variant_char = std.ascii.toLower(buf[19]);
+    try std.testing.expect(variant_char == '8' or variant_char == '9' or
+                          variant_char == 'a' or variant_char == 'b');
+
+    // 4. All other characters are valid hex
+    for (buf) |c| {
+        if (c != '-') {
+            try std.testing.expect(std.ascii.isHex(c));
+        }
+    }
 }
 
 test "invalid buffer size" {
