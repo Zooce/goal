@@ -50,7 +50,7 @@ test v4 {
     // 3. Variant bits (RFC 4122): characters at position 19 must be 8,9,a,b (case insensitive)
     const variant_char = std.ascii.toLower(buf[19]);
     try std.testing.expect(variant_char == '8' or variant_char == '9' or
-                          variant_char == 'a' or variant_char == 'b');
+        variant_char == 'a' or variant_char == 'b');
 
     // 4. All other characters are valid hex
     for (buf) |c| {

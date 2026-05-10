@@ -6,7 +6,7 @@ pub const RunOptions = struct {
     argv: []const []const u8,
     label: ?[]const u8 = null,
     cwd: ?[]const u8 = null,
-    custom_stdout_fn: ?*const fn(ctx_: *Context, output_: []const u8) anyerror!void = null,
+    custom_stdout_fn: ?*const fn (ctx_: *Context, output_: []const u8) anyerror!void = null,
 };
 
 /// Runs a command and prints stdout.
@@ -23,11 +23,11 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     try checkError(ctx_, res, opts_.argv);
 
     if (res.stdout.len > 0) {
-        if (opts_.label) |label| try ctx_.stdout.print("\n{s}", .{ label });
+        if (opts_.label) |label| try ctx_.stdout.print("\n{s}", .{label});
         if (opts_.custom_stdout_fn) |stdout_fn| {
             try stdout_fn(ctx_, res.stdout);
         } else {
-            try ctx_.stdout.print("\n{s}", .{ res.stdout });
+            try ctx_.stdout.print("\n{s}", .{res.stdout});
         }
     }
 }

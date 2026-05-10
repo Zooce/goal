@@ -53,7 +53,7 @@ pub fn status(ctx_: *Context) !void {
     try proc.run(ctx_, .{
         .label = "Untracked files:",
         .argv = &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
-        .custom_stdout_fn = splitByNewline
+        .custom_stdout_fn = splitByNewline,
     });
 
     // TODO: if there are no changes - tell the user
@@ -89,7 +89,7 @@ pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
 
     try proc.run(ctx_, .{
         .label = "Commits:",
-        .argv = &[_][]const u8 {
+        .argv = &[_][]const u8{
             "git",
             "log",
             "--all",
