@@ -1,12 +1,10 @@
 const Directories = @This();
 
 const std = @import("std");
-const Allocator = std.mem.Allocator;
-const Writer = std.Io.Writer;
 
 const Context = @import("Context.zig");
-const git = @import("git.zig");
 const uuid = @import("uuid.zig");
+const proc = @import("proc.zig");
 
 const Config = @import("Config.zig");
 const Goal = @import("Goal.zig");
@@ -53,7 +51,7 @@ pub fn open(ctx_: *Context, opts_: Options) !Directories {
     var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
         // IDEA: perhaps we could detect other root-level project files as well
-        const proj_root = try git.exec(ctx_, .{ .argv = git.cmds.rev_parse });
+        const proj_root = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "rev-parse", "--show-toplevel" } });
         defer ctx_.alloc.free(proj_root);
         const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ proj_root, ".goal" });
         break :local try Dir.open(ctx_, path, null, opts_);

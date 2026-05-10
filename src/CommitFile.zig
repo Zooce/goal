@@ -2,7 +2,7 @@ const CommitFile = @This();
 
 const std = @import("std");
 const Context = @import("Context.zig");
-const git = @import("git.zig");
+const proc = @import("proc.zig");
 
 const Directories = @import("Directories.zig");
 const Goal = @import("Goal.zig");
@@ -46,7 +46,7 @@ pub fn create(ctx_: *Context, dirs_: Directories, opts_: Options) !CommitFile {
         try w.writeAll(msg);
     }
 
-    const email = try git.exec(ctx_, .{ .argv = git.cmds.user_email });
+    const email = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "config", "user.email" } });
     defer ctx_.alloc.free(email);
 
     try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{

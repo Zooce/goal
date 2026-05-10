@@ -3,6 +3,7 @@ const std = @import("std");
 const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
+const proc = @import("../proc.zig");
 
 const Command = @import("../commands.zig").Command;
 const Config = @import("../Config.zig");
@@ -63,7 +64,7 @@ pub fn run(ctx_: *Context) !void {
             else => return err,
         };
 
-        try git.run(ctx_, .{ .argv = git.cmds.init, .cwd = config.base_dir });
+        try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "init" }, .cwd = config.base_dir });
 
         try ctx_.stdout.writeAll("\nWhen you have a remote ready run `goal config`.\n");
     }

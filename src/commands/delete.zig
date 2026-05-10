@@ -1,6 +1,4 @@
 const std = @import("std");
-const Allocator = std.mem.Allocator;
-const Writer = std.Io.Writer;
 
 const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");

@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Context = @import("../Context.zig");
-const git = @import("../git.zig");
+const proc = @import("../proc.zig");
 
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
@@ -66,7 +66,7 @@ pub fn run(ctx_: *Context, later_: bool) !void {
         const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
         defer ctx_.alloc.free(commit_subject);
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
         });
 

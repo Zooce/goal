@@ -5,7 +5,7 @@ const Meta = @import("../Meta.zig");
 const Config = @import("../Config.zig");
 const Directories = @import("../Directories.zig");
 const cli = @import("../cli.zig");
-const git = @import("../git.zig");
+const proc = @import("../proc.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
 
@@ -51,7 +51,7 @@ pub fn run(ctx_: *Context) !void {
     defer config.deinit();
 
     const project_name = project_name: {
-        const proj_root = try git.exec(ctx_, .{ .argv = git.cmds.rev_parse });
+        const proj_root = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "rev-parse", "--show-toplevel" } });
         defer ctx_.alloc.free(proj_root);
 
         const repo_name = std.Io.Dir.path.basename(proj_root);
@@ -72,19 +72,19 @@ pub fn run(ctx_: *Context) !void {
     try ctx_.stdout.writeAll("\nCommitting local goal files...\n");
 
     // Add local .goal/ directory to git
-    try git.run(ctx_, .{
+    try proc.run(ctx_, .{
         .argv = &[_][]const u8{ "git", "add", dirs.local.path },
     });
 
     // Create initial commit in local repo
-    try git.run(ctx_, .{
+    try proc.run(ctx_, .{
         .argv = &[_][]const u8{ "git", "commit", dirs.local.path, "-m", "goal init" },
     });
 
     try ctx_.stdout.writeAll("\nCommitting base goal files...\n");
 
     // Add local .goal/ directory to git
-    try git.run(ctx_, .{
+    try proc.run(ctx_, .{
         .argv = &[_][]const u8{ "git", "add", dirs.base.path },
         .cwd = config.base_dir,
     });
@@ -93,7 +93,7 @@ pub fn run(ctx_: *Context) !void {
     const commit_msg = try std.fmt.allocPrint(ctx_.alloc, "goal init - {s}", .{project_name});
     defer ctx_.alloc.free(commit_msg);
 
-    try git.run(ctx_, .{
+    try proc.run(ctx_, .{
         .argv = &[_][]const u8{ "git", "commit", dirs.base.path, "-m", commit_msg },
         .cwd = config.base_dir,
     });

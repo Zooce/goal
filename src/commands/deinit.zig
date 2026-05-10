@@ -4,7 +4,7 @@ const Context = @import("../Context.zig");
 const Config = @import("../Config.zig");
 const Meta = @import("../Meta.zig");
 const cli = @import("../cli.zig");
-const git = @import("../git.zig");
+const proc = @import("../proc.zig");
 const uuid = @import("../uuid.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
@@ -74,7 +74,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 // Note that this function does not open `Directories` because we're deleting them all...
 pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     // we'll run git commands from here
-    const proj_root = try git.exec(ctx_, .{ .argv = git.cmds.rev_parse });
+    const proj_root = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "rev-parse", "--show-toplevel" } });
     defer ctx_.alloc.free(proj_root);
 
     // we're going to delete this path
@@ -156,12 +156,12 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     if (opts_.local_commit) {
         try ctx_.stdout.writeAll("\nCommitting local goal removal...\n");
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", ".goal" },
             .cwd = proj_root,
         });
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal", "-m", "goal deinit" },
             .cwd = proj_root,
         });
@@ -199,12 +199,12 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     if (opts_.global_commit) {
         try ctx_.stdout.writeAll("\nCommitting global goal removal...\n");
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", &goal_id },
             .cwd = config.base_dir,
         });
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", &goal_id, "-m", global_commit_msg orelse "goal deinit" },
             .cwd = config.base_dir,
         });

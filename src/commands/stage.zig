@@ -1,13 +1,16 @@
 const std = @import("std");
+
+const git = @import("../git.zig");
+const proc = @import("../proc.zig");
+const stringToCommand = @import("../args.zig").stringToCommand;
+
 const Context = @import("../Context.zig");
 const ArgIter = @import("../args.zig").ArgIter;
-const stringToCommand = @import("../args.zig").stringToCommand;
 const Command = @import("../commands.zig").Command;
-const git = @import("../git.zig");
-const help = @import("help.zig");
-
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
+
+const help = @import("help.zig");
 
 const Self = Command.stage;
 
@@ -60,7 +63,7 @@ pub fn run(ctx_: *Context, args_: std.ArrayList([]const u8)) !void {
     const active_id = try ActiveId.load(ctx_, dirs.local.dir);
     if (active_id) |id| {
         ctx_.alloc.free(id); // don't need it
-        try git.run(ctx_, .{ .argv = args_.items });
+        try proc.run(ctx_, .{ .argv = args_.items });
         try git.status(ctx_);
         return;
     }

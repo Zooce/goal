@@ -3,6 +3,7 @@ const std = @import("std");
 const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");
 const git = @import("../git.zig");
+const proc = @import("../proc.zig");
 
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
@@ -70,14 +71,14 @@ pub fn run(ctx_: *Context) !void {
         } else if (try cli.confirm(ctx_, "\nComplete the goal anyways?")) {
             try ActiveId.clear(ctx_, dirs.local.dir);
 
-            try git.run(ctx_, .{
+            try proc.run(ctx_, .{
                 .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
             });
 
             const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
             defer ctx_.alloc.free(commit_subject);
 
-            try git.run(ctx_, .{
+            try proc.run(ctx_, .{
                 .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
             });
 
@@ -107,14 +108,14 @@ pub fn run(ctx_: *Context) !void {
 
     try ActiveId.clear(ctx_, dirs.local.dir);
 
-    try git.run(ctx_, .{
+    try proc.run(ctx_, .{
         .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
     });
 
     const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
     defer ctx_.alloc.free(commit_subject);
 
-    try git.run(ctx_, .{
+    try proc.run(ctx_, .{
         .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
     });
 

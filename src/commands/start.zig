@@ -1,15 +1,17 @@
 const std = @import("std");
 
+const cli = @import("../cli.zig");
+const proc = @import("../proc.zig");
+
 const Context = @import("../Context.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const cli = @import("../cli.zig");
 const Command = @import("../commands.zig").Command;
 const CommitFile = @import("../CommitFile.zig");
-const git = @import("../git.zig");
 const Goal = @import("../Goal.zig");
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
+
 const new = @import("new.zig");
 const help = @import("help.zig");
 
@@ -305,14 +307,14 @@ fn run(ctx_: *Context, args_: Args) !void {
             if (args_.base_branch) |base| {
                 // worktree + branch + base
                 try ctx_.stdout.print("\nCreating worktree at {s} with new branch '{s}' from '{s}'...\n", .{ worktree_path, branch_name, base });
-                try git.run(ctx_, .{
+                try proc.run(ctx_, .{
                     .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, "-b", branch_name, base },
                 });
                 // UNDO: git worktree remove worktree_path + git branch -D branch_name ??
             } else {
                 // worktree + branch
                 try ctx_.stdout.print("\nCreating worktree at {s} with new branch '{s}'...\n", .{ worktree_path, branch_name });
-                try git.run(ctx_, .{
+                try proc.run(ctx_, .{
                     .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, "-b", branch_name },
                 });
                 // UNDO: git worktree remove worktree_path + git branch -D branch_name ??
@@ -320,14 +322,14 @@ fn run(ctx_: *Context, args_: Args) !void {
         } else if (args_.base_branch) |base| {
             // worktree + base
             try ctx_.stdout.print("\nCreating worktree at {s} for '{s}'...\n", .{ worktree_path, base });
-            try git.run(ctx_, .{
+            try proc.run(ctx_, .{
                 .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, base },
             });
             // UNDO: git worktree remove worktree path
         } else {
             // worktree only
             try ctx_.stdout.print("\nCreating worktree at {s}...\n", .{worktree_path});
-            try git.run(ctx_, .{
+            try proc.run(ctx_, .{
                 .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path },
             });
             // UNDO: git worktree remove worktree path
@@ -379,7 +381,7 @@ fn run(ctx_: *Context, args_: Args) !void {
         }
 
         // Commit in worktree
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", ".goal/" },
             .cwd = worktree_path,
         });
@@ -392,7 +394,7 @@ fn run(ctx_: *Context, args_: Args) !void {
         };
         defer commit_file.delete();
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal/", "-F", commit_file.path },
             .cwd = worktree_path,
         });
@@ -406,14 +408,14 @@ fn run(ctx_: *Context, args_: Args) !void {
             if (args_.base_branch) |base| {
                 // branch + base
                 try ctx_.stdout.print("\nCreating branch {s} from {s}...\n", .{ branch_name, base });
-                try git.run(ctx_, .{
+                try proc.run(ctx_, .{
                     .argv = &[_][]const u8{ "git", "checkout", "-b", branch_name, base },
                 });
                 // UNDO: git branch -D branch_name ??
             } else {
                 // branch only
                 try ctx_.stdout.print("\nCreating branch {s}...\n", .{branch_name});
-                try git.run(ctx_, .{
+                try proc.run(ctx_, .{
                     .argv = &[_][]const u8{ "git", "checkout", "-b", branch_name },
                 });
                 // UNDO: git branch -D branch_name ??
@@ -432,7 +434,7 @@ fn run(ctx_: *Context, args_: Args) !void {
         // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 
         // Commit in current repo
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
         });
 
@@ -443,7 +445,7 @@ fn run(ctx_: *Context, args_: Args) !void {
         };
         defer commit_file.delete();
 
-        try git.run(ctx_, .{
+        try proc.run(ctx_, .{
             .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-F", commit_file.path },
         });
 

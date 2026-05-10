@@ -1,4 +1,3 @@
-const std = @import("std");
 const Context = @import("../Context.zig");
 const git = @import("../git.zig");
 

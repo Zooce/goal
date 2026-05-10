@@ -1,8 +1,8 @@
-const std = @import("std");
 
 const Context = @import("../Context.zig");
 const Config = @import("../Config.zig");
 const git = @import("../git.zig");
+const proc = @import("../proc.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
@@ -50,10 +50,10 @@ pub fn run(ctx_: *Context) !void {
     if (try git.hasChanges(ctx_, .{ .kinds = &[_]git.ChangeKind{ .staged, .unstaged, .untracked }, .cwd = config.base_dir })) {
         // TODO: only add files from current project
         // git add <goal_id>/
-        try git.run(ctx_, .{ .argv = &[_][]const u8{ "git", "add", "-A" }, .cwd = config.base_dir });
-        try git.run(ctx_, .{ .argv = &[_][]const u8{ "git", "commit", "-m", "\"sync\"" }, .cwd = config.base_dir });
+        try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "add", "-A" }, .cwd = config.base_dir });
+        try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "commit", "-m", "\"sync\"" }, .cwd = config.base_dir });
     }
 
-    try git.run(ctx_, .{ .argv = &[_][]const u8{ "git", "pull", "--rebase" }, .cwd = config.base_dir });
-    try git.run(ctx_, .{ .argv = &[_][]const u8{ "git", "push" }, .cwd = config.base_dir });
+    try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "pull", "--rebase" }, .cwd = config.base_dir });
+    try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "push" }, .cwd = config.base_dir });
 }
