@@ -69,7 +69,9 @@ pub fn init(stdin_calls_: []const std.testing.Reader.Call) !TestEnv {
     var tmp_dir = std.testing.tmpDir(.{ .iterate = true });
     errdefer tmp_dir.cleanup();
 
-    const tmp_path = try dupDirRealPath(alloc_, tmp_dir.dir);
+    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
+    const len = try tmp_dir.dir.realPath(std.testing.io, &path_buffer);
+    const tmp_path = try alloc_.dupe(u8, path_buffer[0..len]);
     errdefer alloc_.free(tmp_path);
 
     const base_path = try std.Io.Dir.path.join(alloc_, &.{ tmp_path, ".goal" });
@@ -204,13 +206,7 @@ pub fn readStdout(self_: *const TestEnv) []const u8 {
 /// Useful between test assertions to isolate output from individual
 /// command invocations.
 pub fn resetStdout(self_: *TestEnv) void {
-    _ = std.Io.Writer.consumeAll(&self_._state.stdout_writer);
-}
-
-fn dupDirRealPath(alloc_: std.mem.Allocator, dir_: std.Io.Dir) ![]const u8 {
-    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-    const len = try dir_.realPath(std.testing.io, &path_buffer);
-    return try alloc_.dupe(u8, path_buffer[0..len]);
+    _ = self_._state.stdout_writer.consumeAll();
 }
 
 fn ensureDir(io_: std.Io, path_: []const u8) !void {

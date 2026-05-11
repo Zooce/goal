@@ -110,6 +110,7 @@ pub fn run(ctx_: *Context) !void {
 // ---------------------------------------------------------------------------
 
 const TestEnv = @import("../TestEnv.zig");
+const uuid = @import("../uuid.zig");
 
 test "init installs hook even if already initialized" {
     var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
@@ -136,4 +137,55 @@ test "init installs hook even if already initialized" {
 
     // Verify hook was recreated
     try std.Io.Dir.accessAbsolute(env.io, hook_path, .{});
+}
+
+test "init sets up project correctly" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    // Run init (accepting default project name "proj")
+    try run(&env.ctx);
+
+    // 1. Local .goal/ directory was created
+    try std.testing.expect(try env.pathExists("proj/.goal/"));
+
+    // 2. .goal_id file exists and contains the goal id
+    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    defer env.alloc.free(goal_id);
+    try std.testing.expectEqual(@as(usize, uuid.SLICE_LEN), goal_id.len);
+
+    // 3. Git hook is installed and executable
+    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
+
+    // 4. Base directory structure exists (a/, n/, l/, d/)
+    var path_buf: [uuid.SLICE_LEN + 9]u8 = undefined; // 9 = ".goal/".len + "/a/".len
+    try std.testing.expect(try env.pathExists(try std.fmt.bufPrint(&path_buf, ".goal/{s}/a/", .{goal_id})));
+    try std.testing.expect(try env.pathExists(try std.fmt.bufPrint(&path_buf, ".goal/{s}/n/", .{goal_id})));
+    try std.testing.expect(try env.pathExists(try std.fmt.bufPrint(&path_buf, ".goal/{s}/l/", .{goal_id})));
+    try std.testing.expect(try env.pathExists(try std.fmt.bufPrint(&path_buf, ".goal/{s}/d/", .{goal_id})));
+
+    // 5. Meta file exists with correct content
+    {
+        const base_dir = try env.tmp_dir.dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+        defer base_dir.close(env.io);
+        var meta = try Meta.load(&env.ctx, base_dir);
+        defer meta.deinit();
+
+        try std.testing.expectEqual(@as(u8, 1), meta.next_id);
+        try std.testing.expectEqualStrings("proj", meta.project_name);
+    }
+
+    // 6. Local .goal/ was committed to project git
+    {
+        const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" }, .cwd = env.proj_path });
+        defer env.alloc.free(log);
+        try std.testing.expect(std.mem.indexOf(u8, log, "goal init") != null);
+    }
+
+    // 7. Base was committed to global base git
+    {
+        const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" }, .cwd = env.base_path });
+        defer env.alloc.free(log);
+        try std.testing.expect(std.mem.indexOf(u8, log, "goal init") != null);
+    }
 }

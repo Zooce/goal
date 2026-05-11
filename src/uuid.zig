@@ -7,6 +7,7 @@
 const std = @import("std");
 const testing = std.testing;
 
+// TODO: come up with a better name for this
 pub const SLICE_LEN = 36;
 
 pub fn v4(buf_: []u8, io_: std.Io) !void {
