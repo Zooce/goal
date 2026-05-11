@@ -21,32 +21,13 @@ If a function needs access to anything in the `Context` struct, pass it in as th
 
 When possible, use non-allocating buffers (especially if we can reuse them).
 
+Keep things simple. No clever tricks unless they unlock something profoundly useful.
+
 ## Testing
 
 Quick: `zig build test --summary all`
 
-When verifying commands that modify project state or require an initialized goal repository, use the helper script:
-
-```bash
-scripts/test-goal-command.sh <goal-command> [args...]
-```
-
-Examples:
-
-```bash
-scripts/test-goal-command.sh status
-scripts/test-goal-command.sh init
-scripts/test-goal-command.sh deinit --no-commit
-```
-
-Notes:
-
-1. The script creates an isolated repo under `.testing/`, runs your command, and cleans up automatically.
-1. It auto-detects `init` and `deinit` tests to avoid double-running those commands:
-   - testing `init` -> script skips bootstrap `goal init`
-   - testing `deinit` -> script skips cleanup `goal deinit`
-1. To inspect test state after the command, set `KEEP_TEST_DIR=1` (this intentionally skips cleanup `deinit` and keeps the directory).
-1. If needed, set `GOAL_BIN=/path/to/goal` to choose a specific binary.
+When creating a test, use `TestEnv` and the normal flow a user would to set things up, `goal init`, `goal new 'something new'`, `goal start 1`, etc.. and remember each command has a public `run` function that tests can call directly to invoke commands programmatically.
 
 Note: Never run goal commands directly in the main `goal/` repository — that would initialize goal in the actual project.
 

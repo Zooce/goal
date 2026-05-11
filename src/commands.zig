@@ -6,6 +6,7 @@ pub const init = @import("commands/init.zig");
 pub const deinit = @import("commands/deinit.zig");
 pub const sync = @import("commands/sync.zig");
 pub const commit = @import("commands/commit.zig");
+pub const commitmsg = @import("commands/commitmsg.zig");
 pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
 pub const stage = @import("commands/stage.zig");
@@ -45,6 +46,7 @@ pub const Command = enum {
     later,
 
     commit,
+    commitmsg,
     save,
 
     stage,

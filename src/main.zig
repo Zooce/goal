@@ -83,6 +83,7 @@ fn processCommand(ctx_: *Context, cmd_: commands.Command, iter_: *args.ArgIter) 
         .unstage => try commands.unstage.main(ctx_, iter_),
         .discard => try commands.discard.main(ctx_, iter_),
         .commit, .save => try commands.commit.main(ctx_, iter_),
+        .commitmsg => try commands.commitmsg.main(ctx_),
 
         .config => try commands.config.main(ctx_, iter_),
 

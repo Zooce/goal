@@ -1,11 +1,13 @@
 const std = @import("std");
 
+const cli = @import("../cli.zig");
+const proc = @import("../proc.zig");
+const git = @import("../git.zig");
+
 const Context = @import("../Context.zig");
 const Meta = @import("../Meta.zig");
 const Config = @import("../Config.zig");
 const Directories = @import("../Directories.zig");
-const cli = @import("../cli.zig");
-const proc = @import("../proc.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
 
@@ -63,6 +65,8 @@ pub fn run(ctx_: *Context) !void {
     };
     defer ctx_.alloc.free(project_name);
 
+    try git.createHook(ctx_);
+
     Meta.create(ctx_, dirs.base.dir, project_name) catch |err| switch (err) {
         error.PathAlreadyExists => return try ctx_.stdout.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
@@ -99,4 +103,37 @@ pub fn run(ctx_: *Context) !void {
     });
 
     try ctx_.stdout.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+
+test "init installs hook even if already initialized" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    // First init — fresh
+    try run(&env.ctx);
+
+    // Delete the hook to simulate a missing hook
+    const hook_path = try std.Io.Dir.path.join(env.alloc, &.{ env.proj_path, ".git", "hooks", "prepare-commit-msg" });
+    defer env.alloc.free(hook_path);
+
+    try std.Io.Dir.deleteFileAbsolute(env.io, hook_path);
+
+    // Verify hook is gone
+    std.Io.Dir.accessAbsolute(env.io, hook_path, .{}) catch |err| switch (err) {
+        error.FileNotFound => {},
+        else => return err,
+    };
+
+    // Second init — already initialized, should still reinstall the hook
+    env.resetStdout();
+    try run(&env.ctx);
+
+    // Verify hook was recreated
+    try std.Io.Dir.accessAbsolute(env.io, hook_path, .{});
 }

@@ -106,6 +106,54 @@ pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
     });
 }
 
+/// Returns the `.git/hooks` directory path if inside a Git project.
+/// Caller is responsible for freeing the returned string.
+pub fn hooksPath(ctx_: *Context) !?[]const u8 {
+    const git_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
+    defer ctx_.alloc.free(git_root);
+    return try std.Io.Dir.path.join(ctx_.alloc, &.{ git_root, ".git", "hooks" });
+}
+
+/// Installs the `prepare-commit-msg` hook into `.git/hooks/`.
+pub fn createHook(ctx_: *Context) !void {
+    const hooks = try hooksPath(ctx_);
+    if (hooks) |path| {
+        defer ctx_.alloc.free(path);
+
+        std.Io.Dir.createDirAbsolute(ctx_.io, path, .default_dir) catch |err| switch (err) {
+            error.PathAlreadyExists => {},
+            else => return err,
+        };
+
+        var hooks_dir = try std.Io.Dir.openDirAbsolute(ctx_.io, path, .{});
+        defer hooks_dir.close(ctx_.io);
+
+        const hook_content = @embedFile("prepare-commit-msg");
+        const hook_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ path, "prepare-commit-msg" });
+        defer ctx_.alloc.free(hook_path);
+
+        try hooks_dir.writeFile(ctx_.io, .{ .sub_path = "prepare-commit-msg", .data = hook_content, .flags = .{ .truncate = true } });
+
+        try hooks_dir.setFilePermissions(ctx_.io, "prepare-commit-msg", std.Io.File.Permissions.fromMode(0o755), .{});
+    }
+}
+
+/// Removes the `prepare-commit-msg` hook from `.git/hooks/`.
+pub fn deleteHook(ctx_: *Context) !void {
+    const hooks = try hooksPath(ctx_);
+    if (hooks) |path| {
+        defer ctx_.alloc.free(path);
+
+        const hook_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ path, "prepare-commit-msg" });
+        defer ctx_.alloc.free(hook_path);
+
+        std.Io.Dir.deleteFileAbsolute(ctx_.io, hook_path) catch |err| switch (err) {
+            error.FileNotFound => {},
+            else => return err,
+        };
+    }
+}
+
 pub fn clone(ctx_: *Context, repo_: []const u8, loc_: []const u8) !void {
     try ctx_.stdout.print("\nCloning: {s} into {s}\n", .{ repo_, loc_ });
     try ctx_.stdout.flush();

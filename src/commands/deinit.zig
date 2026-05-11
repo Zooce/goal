@@ -1,11 +1,13 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const Config = @import("../Config.zig");
-const Meta = @import("../Meta.zig");
+const git = @import("../git.zig");
 const cli = @import("../cli.zig");
 const proc = @import("../proc.zig");
 const uuid = @import("../uuid.zig");
+
+const Context = @import("../Context.zig");
+const Config = @import("../Config.zig");
+const Meta = @import("../Meta.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
 
@@ -145,6 +147,9 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     }
 
     // -- local delete
+
+    // Remove the prepare-commit-msg hook
+    try git.deleteHook(ctx_);
 
     // NOTE:
     // We need a `std.Io.Dir` to call `deleteTree` and because we're deleting

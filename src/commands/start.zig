@@ -26,7 +26,7 @@ pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     try run(ctx_, args);
 }
 
-const Args = struct {
+pub const Args = struct {
     id_type: ?union(enum) {
         id: []const u8,
         new: struct {
@@ -233,7 +233,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     return .{ .args = args };
 }
 
-fn run(ctx_: *Context, args_: Args) !void {
+pub fn run(ctx_: *Context, args_: Args) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
