@@ -46,13 +46,13 @@ pub fn run(ctx_: *Context) !void {
 
     // TODO: show a spinner - some of these commands can take a few seconds
 
-    if (try git.hasChanges(ctx_, .{ .kinds = &[_]git.ChangeKind{ .staged, .unstaged, .untracked }, .cwd = config.base_dir })) {
+    if (try git.hasChanges(ctx_, .{ .kinds = &.{ .staged, .unstaged, .untracked }, .cwd = config.base_dir })) {
         // TODO: only add files from current project
         // git add <goal_id>/
-        try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "add", "-A" }, .cwd = config.base_dir });
-        try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "commit", "-m", "\"sync\"" }, .cwd = config.base_dir });
+        try proc.run(ctx_, .{ .argv = &.{ "git", "add", "-A" }, .cwd = config.base_dir });
+        try proc.run(ctx_, .{ .argv = &.{ "git", "commit", "-m", "\"sync\"" }, .cwd = config.base_dir });
     }
 
-    try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "pull", "--rebase" }, .cwd = config.base_dir });
-    try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "push" }, .cwd = config.base_dir });
+    try proc.run(ctx_, .{ .argv = &.{ "git", "pull", "--rebase" }, .cwd = config.base_dir });
+    try proc.run(ctx_, .{ .argv = &.{ "git", "push" }, .cwd = config.base_dir });
 }

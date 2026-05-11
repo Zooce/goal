@@ -74,16 +74,16 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 // Note that this function does not open `Directories` because we're deleting them all...
 pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     // we'll run git commands from here
-    const proj_root = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "rev-parse", "--show-toplevel" } });
+    const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
     defer ctx_.alloc.free(proj_root);
 
     // we're going to delete this path
-    const local_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ proj_root, ".goal" });
+    const local_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ proj_root, ".goal" });
     defer ctx_.alloc.free(local_goal_path);
 
     // need this to get the project's base path
     const goal_id = goal_id: {
-        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ local_goal_path, ".goal_id" });
+        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ local_goal_path, ".goal_id" });
         defer ctx_.alloc.free(goal_id_path);
 
         const goal_id_file = std.Io.Dir.openFileAbsolute(ctx_.io, goal_id_path, .{}) catch |err| switch (err) {
@@ -112,7 +112,7 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
     var config = try Config.load(ctx_);
     defer config.deinit();
 
-    const global_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ config.base_dir, &goal_id });
+    const global_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ config.base_dir, &goal_id });
     defer ctx_.alloc.free(global_goal_path);
 
     const has_global_data = has_global_data: {
@@ -157,12 +157,12 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
         try ctx_.stdout.writeAll("\nCommitting local goal removal...\n");
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "add", ".goal" },
+            .argv = &.{ "git", "add", ".goal" },
             .cwd = proj_root,
         });
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "commit", ".goal", "-m", "goal deinit" },
+            .argv = &.{ "git", "commit", ".goal", "-m", "goal deinit" },
             .cwd = proj_root,
         });
     } else {
@@ -200,12 +200,12 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
         try ctx_.stdout.writeAll("\nCommitting global goal removal...\n");
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "add", &goal_id },
+            .argv = &.{ "git", "add", &goal_id },
             .cwd = config.base_dir,
         });
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "commit", &goal_id, "-m", global_commit_msg orelse "goal deinit" },
+            .argv = &.{ "git", "commit", &goal_id, "-m", global_commit_msg orelse "goal deinit" },
             .cwd = config.base_dir,
         });
     } else {

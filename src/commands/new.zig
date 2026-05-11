@@ -81,7 +81,7 @@ pub fn run(ctx_: *Context, title_: ?[]const u8) ![]const u8 {
         }
     } else {
         // open the new goal file in an editor
-        const file_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dirs.later.path, file_name });
+        const file_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dirs.later.path, file_name });
         defer ctx_.alloc.free(file_path);
 
         var config = try Config.load(ctx_);

@@ -308,14 +308,14 @@ fn run(ctx_: *Context, args_: Args) !void {
                 // worktree + branch + base
                 try ctx_.stdout.print("\nCreating worktree at {s} with new branch '{s}' from '{s}'...\n", .{ worktree_path, branch_name, base });
                 try proc.run(ctx_, .{
-                    .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, "-b", branch_name, base },
+                    .argv = &.{ "git", "worktree", "add", worktree_path, "-b", branch_name, base },
                 });
                 // UNDO: git worktree remove worktree_path + git branch -D branch_name ??
             } else {
                 // worktree + branch
                 try ctx_.stdout.print("\nCreating worktree at {s} with new branch '{s}'...\n", .{ worktree_path, branch_name });
                 try proc.run(ctx_, .{
-                    .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, "-b", branch_name },
+                    .argv = &.{ "git", "worktree", "add", worktree_path, "-b", branch_name },
                 });
                 // UNDO: git worktree remove worktree_path + git branch -D branch_name ??
             }
@@ -323,14 +323,14 @@ fn run(ctx_: *Context, args_: Args) !void {
             // worktree + base
             try ctx_.stdout.print("\nCreating worktree at {s} for '{s}'...\n", .{ worktree_path, base });
             try proc.run(ctx_, .{
-                .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path, base },
+                .argv = &.{ "git", "worktree", "add", worktree_path, base },
             });
             // UNDO: git worktree remove worktree path
         } else {
             // worktree only
             try ctx_.stdout.print("\nCreating worktree at {s}...\n", .{worktree_path});
             try proc.run(ctx_, .{
-                .argv = &[_][]const u8{ "git", "worktree", "add", worktree_path },
+                .argv = &.{ "git", "worktree", "add", worktree_path },
             });
             // UNDO: git worktree remove worktree path
         }
@@ -340,7 +340,7 @@ fn run(ctx_: *Context, args_: Args) !void {
             var abs_worktree_path: [std.Io.Dir.max_path_bytes]u8 = undefined;
             _ = try std.Io.Dir.cwd().realPathFile(ctx_.io, worktree_path, &abs_worktree_path);
 
-            const worktree_goal_dir_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ &abs_worktree_path, ".goal" });
+            const worktree_goal_dir_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ &abs_worktree_path, ".goal" });
             defer ctx_.alloc.free(worktree_goal_dir_path);
 
             if (args_.base_branch != null) {
@@ -353,10 +353,10 @@ fn run(ctx_: *Context, args_: Args) !void {
 
                 // don't forget about the .goal_id file too
 
-                const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dirs.local.path, ".goal_id" });
+                const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dirs.local.path, ".goal_id" });
                 defer ctx_.alloc.free(goal_id_path);
 
-                const worktree_goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ worktree_goal_dir_path, ".goal_id" });
+                const worktree_goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ worktree_goal_dir_path, ".goal_id" });
                 defer ctx_.alloc.free(worktree_goal_id_path);
 
                 try std.Io.Dir.copyFileAbsolute(goal_id_path, worktree_goal_id_path, ctx_.io, .{});
@@ -368,7 +368,7 @@ fn run(ctx_: *Context, args_: Args) !void {
             };
 
             const active_id_file = file: {
-                const active_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ worktree_goal_dir_path, ".active_id" });
+                const active_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ worktree_goal_dir_path, ".active_id" });
                 defer ctx_.alloc.free(active_id_path);
                 break :file try std.Io.Dir.createFileAbsolute(ctx_.io, active_id_path, .{});
             };
@@ -382,7 +382,7 @@ fn run(ctx_: *Context, args_: Args) !void {
 
         // Commit in worktree
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "add", ".goal/" },
+            .argv = &.{ "git", "add", ".goal/" },
             .cwd = worktree_path,
         });
 
@@ -395,7 +395,7 @@ fn run(ctx_: *Context, args_: Args) !void {
         defer commit_file.delete();
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "commit", ".goal/", "-F", commit_file.path },
+            .argv = &.{ "git", "commit", ".goal/", "-F", commit_file.path },
             .cwd = worktree_path,
         });
 
@@ -409,14 +409,14 @@ fn run(ctx_: *Context, args_: Args) !void {
                 // branch + base
                 try ctx_.stdout.print("\nCreating branch {s} from {s}...\n", .{ branch_name, base });
                 try proc.run(ctx_, .{
-                    .argv = &[_][]const u8{ "git", "checkout", "-b", branch_name, base },
+                    .argv = &.{ "git", "checkout", "-b", branch_name, base },
                 });
                 // UNDO: git branch -D branch_name ??
             } else {
                 // branch only
                 try ctx_.stdout.print("\nCreating branch {s}...\n", .{branch_name});
                 try proc.run(ctx_, .{
-                    .argv = &[_][]const u8{ "git", "checkout", "-b", branch_name },
+                    .argv = &.{ "git", "checkout", "-b", branch_name },
                 });
                 // UNDO: git branch -D branch_name ??
             }
@@ -435,7 +435,7 @@ fn run(ctx_: *Context, args_: Args) !void {
 
         // Commit in current repo
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+            .argv = &.{ "git", "add", ".goal/.active_id" },
         });
 
         var commit_file = file: {
@@ -446,7 +446,7 @@ fn run(ctx_: *Context, args_: Args) !void {
         defer commit_file.delete();
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-F", commit_file.path },
+            .argv = &.{ "git", "commit", ".goal/.active_id", "-F", commit_file.path },
         });
 
         try ctx_.stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });

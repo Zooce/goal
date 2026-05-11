@@ -72,14 +72,14 @@ pub fn run(ctx_: *Context) !void {
             try ActiveId.clear(ctx_, dirs.local.dir);
 
             try proc.run(ctx_, .{
-                .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+                .argv = &.{ "git", "add", ".goal/.active_id" },
             });
 
             const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
             defer ctx_.alloc.free(commit_subject);
 
             try proc.run(ctx_, .{
-                .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+                .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
             });
 
             std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io) catch |err| {
@@ -109,14 +109,14 @@ pub fn run(ctx_: *Context) !void {
     try ActiveId.clear(ctx_, dirs.local.dir);
 
     try proc.run(ctx_, .{
-        .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+        .argv = &.{ "git", "add", ".goal/.active_id" },
     });
 
     const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
     defer ctx_.alloc.free(commit_subject);
 
     try proc.run(ctx_, .{
-        .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+        .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
     });
 
     try std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io);

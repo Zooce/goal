@@ -85,7 +85,7 @@ pub fn run(ctx_: *Context, id_: ?[]const u8) !void {
     // TODO: from here.......
 
     // open the new goal file in an editor
-    const file_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dir_path, id });
+    const file_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dir_path, id });
     defer ctx_.alloc.free(file_path);
 
     // Use configurable editor

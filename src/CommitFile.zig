@@ -32,7 +32,7 @@ _ctx: *Context,
 /// // use `commit_file.path`
 /// ```
 pub fn create(ctx_: *Context, dirs_: Directories, opts_: Options) !CommitFile {
-    const template_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ dirs_.local.path, "t" });
+    const template_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dirs_.local.path, "t" });
     errdefer ctx_.alloc.free(template_path);
 
     const t_file = try std.Io.Dir.createFileAbsolute(ctx_.io, template_path, .{});
@@ -46,7 +46,7 @@ pub fn create(ctx_: *Context, dirs_: Directories, opts_: Options) !CommitFile {
         try w.writeAll(msg);
     }
 
-    const email = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "config", "user.email" } });
+    const email = try proc.exec(ctx_, .{ .argv = &.{ "git", "config", "user.email" } });
     defer ctx_.alloc.free(email);
 
     try w.print("\n\nGoal #{s} ({s}) - {s}{s}\n", .{

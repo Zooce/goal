@@ -64,7 +64,7 @@ pub fn run(ctx_: *Context) !void {
             else => return err,
         };
 
-        try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "init" }, .cwd = config.base_dir });
+        try proc.run(ctx_, .{ .argv = &.{ "git", "init" }, .cwd = config.base_dir });
 
         try ctx_.stdout.writeAll("\nWhen you have a remote ready run `goal config`.\n");
     }

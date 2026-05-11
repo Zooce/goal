@@ -187,7 +187,7 @@ fn defaultBaseDir(ctx_: *Context) ![]const u8 {
     if (try optionalEnvVarOwned(ctx_, "GOAL_BASE_DIR")) |base_dir| {
         defer ctx_.alloc.free(base_dir);
         if (base_dir.len > 0) {
-            return std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base_dir, ".goal" });
+            return std.Io.Dir.path.join(ctx_.alloc, &.{ base_dir, ".goal" });
         }
     }
 
@@ -195,7 +195,7 @@ fn defaultBaseDir(ctx_: *Context) ![]const u8 {
     const home_path = try optionalEnvVarOwned(ctx_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME") orelse
         return error.EnvironmentVariableMissing;
     defer ctx_.alloc.free(home_path);
-    return std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ home_path, ".goal" });
+    return std.Io.Dir.path.join(ctx_.alloc, &.{ home_path, ".goal" });
 }
 
 fn defaultEditor(ctx_: *Context) ![]const u8 {
@@ -257,7 +257,7 @@ fn getGitEditor(ctx_: *Context) !?[]const u8 {
 
 fn isEditorAvailable(ctx_: *Context, editor_: []const u8) bool {
     const result = std.process.run(ctx_.alloc, ctx_.io, .{
-        .argv = &[_][]const u8{ if (builtin.os.tag == .windows) "where" else "which", editor_ },
+        .argv = &.{ if (builtin.os.tag == .windows) "where" else "which", editor_ },
     }) catch return false;
     defer {
         ctx_.alloc.free(result.stderr);
@@ -281,7 +281,7 @@ fn getConfigPath(ctx_: *Context) ![]const u8 {
         if (try optionalEnvVarOwned(ctx_, "XDG_CONFIG_HOME")) |xdg_config| {
             defer ctx_.alloc.free(xdg_config);
             if (xdg_config.len > 0) {
-                return std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ xdg_config, "goal", "config" });
+                return std.Io.Dir.path.join(ctx_.alloc, &.{ xdg_config, "goal", "config" });
             }
         }
     }
@@ -291,7 +291,7 @@ fn getConfigPath(ctx_: *Context) ![]const u8 {
         if (try optionalEnvVarOwned(ctx_, "APPDATA")) |appdata| {
             defer ctx_.alloc.free(appdata);
             if (appdata.len > 0) {
-                return std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ appdata, "goal", "config" });
+                return std.Io.Dir.path.join(ctx_.alloc, &.{ appdata, "goal", "config" });
             }
         }
     }
@@ -309,5 +309,5 @@ fn getConfigPath(ctx_: *Context) ![]const u8 {
         return error.EnvironmentVariableMissing;
     };
     defer ctx_.alloc.free(home);
-    return std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ home, ".config", "goal", "config" });
+    return std.Io.Dir.path.join(ctx_.alloc, &.{ home, ".config", "goal", "config" });
 }

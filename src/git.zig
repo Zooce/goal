@@ -27,10 +27,10 @@ pub const ChangeOptions = struct {
 pub fn hasChanges(ctx_: *Context, opts_: ChangeOptions) !bool {
     var found = false;
     for (opts_.kinds) |kind| {
-        const cmd = switch (kind) {
-            .staged => &[_][]const u8{ "git", "diff", "--stat", "--staged" },
-            .unstaged => &[_][]const u8{ "git", "diff", "--stat" },
-            .untracked => &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
+        const cmd: []const []const u8 = switch (kind) {
+            .staged => &.{ "git", "diff", "--stat", "--staged" },
+            .unstaged => &.{ "git", "diff", "--stat" },
+            .untracked => &.{ "git", "ls-files", "--others", "--exclude-standard" },
         };
         const changes = try proc.exec(ctx_, .{ .argv = cmd, .cwd = opts_.cwd });
         defer ctx_.alloc.free(changes);
@@ -44,15 +44,15 @@ pub fn hasChanges(ctx_: *Context, opts_: ChangeOptions) !bool {
 pub fn status(ctx_: *Context) !void {
     try proc.run(ctx_, .{
         .label = "Staged changes:",
-        .argv = &[_][]const u8{ "git", "diff", "--stat", "--staged", "--color" },
+        .argv = &.{ "git", "diff", "--stat", "--staged", "--color" },
     });
     try proc.run(ctx_, .{
         .label = "Unstaged changes:",
-        .argv = &[_][]const u8{ "git", "diff", "--stat", "--color" },
+        .argv = &.{ "git", "diff", "--stat", "--color" },
     });
     try proc.run(ctx_, .{
         .label = "Untracked files:",
-        .argv = &[_][]const u8{ "git", "ls-files", "--others", "--exclude-standard" },
+        .argv = &.{ "git", "ls-files", "--others", "--exclude-standard" },
         .custom_stdout_fn = splitByNewline,
     });
 
@@ -70,7 +70,7 @@ fn splitByNewline(ctx_: *Context, output_: []const u8) !void {
 
 /// A helper functions for getting help docs for a git command.
 pub fn help(ctx_: *Context, comptime cmd_: []const u8) !void {
-    try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", cmd_, "--help" } });
+    try proc.run(ctx_, .{ .argv = &.{ "git", cmd_, "--help" } });
 }
 
 /// Runs `git log --all --graph --decorate --oneline --grep 'Goal #{id}' --grep '{git user email}' --all-match`
@@ -81,7 +81,7 @@ pub fn help(ctx_: *Context, comptime cmd_: []const u8) !void {
 /// try git.logGrep(allocator, stdout, "42", io);
 /// ```
 pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
-    const email = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "config", "user.email" } });
+    const email = try proc.exec(ctx_, .{ .argv = &.{ "git", "config", "user.email" } });
     defer ctx_.alloc.free(email);
 
     var tag_buffer: [16]u8 = undefined;
@@ -89,7 +89,7 @@ pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
 
     try proc.run(ctx_, .{
         .label = "Commits:",
-        .argv = &[_][]const u8{
+        .argv = &.{
             "git",
             "log",
             "--all",
@@ -109,5 +109,5 @@ pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
 pub fn clone(ctx_: *Context, repo_: []const u8, loc_: []const u8) !void {
     try ctx_.stdout.print("\nCloning: {s} into {s}\n", .{ repo_, loc_ });
     try ctx_.stdout.flush();
-    try proc.run(ctx_, .{ .argv = &[_][]const u8{ "git", "clone", repo_, "--quiet", loc_ } });
+    try proc.run(ctx_, .{ .argv = &.{ "git", "clone", repo_, "--quiet", loc_ } });
 }

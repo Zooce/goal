@@ -51,9 +51,9 @@ pub fn open(ctx_: *Context, opts_: Options) !Directories {
     var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
         // IDEA: perhaps we could detect other root-level project files as well
-        const proj_root = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "rev-parse", "--show-toplevel" } });
+        const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
         defer ctx_.alloc.free(proj_root);
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ proj_root, ".goal" });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ proj_root, ".goal" });
         break :local try Dir.open(ctx_, path, null, opts_);
     };
     errdefer local.close(ctx_);
@@ -61,7 +61,7 @@ pub fn open(ctx_: *Context, opts_: Options) !Directories {
     // get the goal id
     var goal_id: [uuid.SLICE_LEN]u8 = undefined;
     uuid_blk: {
-        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ local.path, ".goal_id" });
+        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ local.path, ".goal_id" });
         defer ctx_.alloc.free(goal_id_path);
 
         // open the goal id file
@@ -100,35 +100,35 @@ pub fn open(ctx_: *Context, opts_: Options) !Directories {
     var base = base: {
         var config = try Config.load(ctx_);
         defer config.deinit();
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ config.base_dir, &goal_id });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ config.base_dir, &goal_id });
         break :base try Dir.open(ctx_, path, null, opts_);
     };
     errdefer base.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/a/
     var active = active: {
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "a" });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "a" });
         break :active try Dir.open(ctx_, path, "Active Goals", opts_);
     };
     errdefer active.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/n/
     var next = next: {
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "n" });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "n" });
         break :next try Dir.open(ctx_, path, "Upcoming Goals", opts_);
     };
     errdefer next.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/l/
     var later = later: {
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "l" });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "l" });
         break :later try Dir.open(ctx_, path, "Goals for Later", opts_);
     };
     errdefer later.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/d/
     const deleted = deleted: {
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &[_][]const u8{ base.path, "d" });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "d" });
         break :deleted try Dir.open(ctx_, path, "Deleted Goals", opts_);
     };
     // errdefer deleted.deinit(alloc_);

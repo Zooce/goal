@@ -67,7 +67,7 @@ pub fn run(ctx_: *Context, later_: bool) !void {
         defer ctx_.alloc.free(commit_subject);
 
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+            .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
         });
 
         if (later_) {

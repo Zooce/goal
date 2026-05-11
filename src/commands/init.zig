@@ -51,7 +51,7 @@ pub fn run(ctx_: *Context) !void {
     defer config.deinit();
 
     const project_name = project_name: {
-        const proj_root = try proc.exec(ctx_, .{ .argv = &[_][]const u8{ "git", "rev-parse", "--show-toplevel" } });
+        const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
         defer ctx_.alloc.free(proj_root);
 
         const repo_name = std.Io.Dir.path.basename(proj_root);
@@ -73,19 +73,19 @@ pub fn run(ctx_: *Context) !void {
 
     // Add local .goal/ directory to git
     try proc.run(ctx_, .{
-        .argv = &[_][]const u8{ "git", "add", dirs.local.path },
+        .argv = &.{ "git", "add", dirs.local.path },
     });
 
     // Create initial commit in local repo
     try proc.run(ctx_, .{
-        .argv = &[_][]const u8{ "git", "commit", dirs.local.path, "-m", "goal init" },
+        .argv = &.{ "git", "commit", dirs.local.path, "-m", "goal init" },
     });
 
     try ctx_.stdout.writeAll("\nCommitting base goal files...\n");
 
     // Add local .goal/ directory to git
     try proc.run(ctx_, .{
-        .argv = &[_][]const u8{ "git", "add", dirs.base.path },
+        .argv = &.{ "git", "add", dirs.base.path },
         .cwd = config.base_dir,
     });
 
@@ -94,7 +94,7 @@ pub fn run(ctx_: *Context) !void {
     defer ctx_.alloc.free(commit_msg);
 
     try proc.run(ctx_, .{
-        .argv = &[_][]const u8{ "git", "commit", dirs.base.path, "-m", commit_msg },
+        .argv = &.{ "git", "commit", dirs.base.path, "-m", commit_msg },
         .cwd = config.base_dir,
     });
 

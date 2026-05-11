@@ -104,7 +104,7 @@ pub fn run(ctx_: *Context, args_: Args) !void {
 
         // stage active id deletion
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "add", ".goal/.active_id" },
+            .argv = &.{ "git", "add", ".goal/.active_id" },
             .cwd = args_._worktree_path,
         });
     }
@@ -117,7 +117,7 @@ pub fn run(ctx_: *Context, args_: Args) !void {
         try ctx_.stdout.flush();
 
         var editor = try std.process.spawn(ctx_.io, .{
-            .argv = &[_][]const u8{ "git", "commit", "-t", commit_file.path, "--edit" },
+            .argv = &.{ "git", "commit", "-t", commit_file.path, "--edit" },
         });
         switch (try editor.wait(ctx_.io)) {
             .exited => |code| if (code != 0) return error.GitCommitError,
@@ -125,7 +125,7 @@ pub fn run(ctx_: *Context, args_: Args) !void {
         }
     } else {
         try proc.run(ctx_, .{
-            .argv = &[_][]const u8{ "git", "commit", "-F", commit_file.path },
+            .argv = &.{ "git", "commit", "-F", commit_file.path },
         });
     }
 
