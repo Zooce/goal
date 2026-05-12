@@ -219,3 +219,62 @@ pub fn run(ctx_: *Context, opts_: RunOptions) !void {
 
     try ctx_.stdout.writeAll("\ngoal deinit complete!\n");
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init = @import("init.zig");
+
+test "deinit command" {
+    // stdin order: init prompt, deinit local confirm, deinit global confirm
+    var env = try TestEnv.init(&.{
+        .{ .buffer = "\n" },
+        .{ .buffer = "yes\n" },
+        .{ .buffer = "yes\n" },
+    });
+    defer env.deinit();
+
+    // Use goal init to set up the project normally
+    try init.run(&env.ctx);
+
+    // Capture goal id before deinit removes it
+    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    defer env.alloc.free(goal_id);
+
+    // Reset stdout so init output doesn't pollute our assertions
+    env.resetStdout();
+
+    // Run deinit
+    try run(&env.ctx, .{});
+
+    // 1. Local .goal/ directory is gone
+    try std.testing.expect(!try env.pathExists("proj/.goal/"));
+
+    // 2. Global goal directory is gone
+    {
+        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
+        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
+        try std.testing.expect(!try env.pathExists(global_path));
+        // sanity check - /.goal/ should still exist
+        try std.testing.expect(try env.pathExists(".goal/"));
+    }
+
+    // 3. Git hook is gone
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
+
+    // 4. Deinit commit exists in local repo
+    {
+        const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline", "-1" }, .cwd = env.proj_path });
+        defer env.alloc.free(log);
+        try std.testing.expect(std.mem.indexOf(u8, log, "goal deinit") != null);
+    }
+
+    // 5. Deinit commit exists in global repo
+    {
+        const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline", "-1" }, .cwd = env.base_path });
+        defer env.alloc.free(log);
+        try std.testing.expect(std.mem.indexOf(u8, log, "goal deinit") != null);
+    }
+}

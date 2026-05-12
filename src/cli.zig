@@ -7,7 +7,7 @@ pub fn confirm(ctx_: *Context, prompt_: []const u8) !bool {
     try ctx_.stdout.print("{s} (y/N): ", .{prompt_});
     try ctx_.stdout.flush();
 
-    const answer = try ctx_.stdin.takeDelimiterExclusive('\n');
+    const answer = try ctx_.stdin.takeDelimiter('\n') orelse "";
 
     if (std.mem.eql(u8, answer, "y") or std.mem.eql(u8, answer, "Y") or std.mem.eql(u8, answer, "yes") or std.mem.eql(u8, answer, "YES") or std.mem.eql(u8, answer, "yep")) {
         return true;
@@ -25,7 +25,7 @@ pub fn getAnswer(ctx_: *Context, prompt_: []const u8) !?[]const u8 {
     try ctx_.stdout.print("{s}: ", .{prompt_});
     try ctx_.stdout.flush();
 
-    const answer = try ctx_.stdin.takeDelimiterExclusive('\n');
-    const trimmed = std.mem.trim(u8, answer, " \t\r\n");
+    const answer = try ctx_.stdin.takeDelimiter('\n') orelse "";
+    const trimmed = std.mem.trim(u8, answer, " \t");
     return if (trimmed.len > 0) try ctx_.alloc.dupe(u8, trimmed) else null;
 }

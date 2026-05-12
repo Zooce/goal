@@ -139,7 +139,7 @@ test "init installs hook even if already initialized" {
     try std.Io.Dir.accessAbsolute(env.io, hook_path, .{});
 }
 
-test "init sets up project correctly" {
+test "init command" {
     var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
     defer env.deinit();
 
