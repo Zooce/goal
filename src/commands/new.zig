@@ -76,7 +76,7 @@ pub fn run(ctx_: *Context, title_: ?[]const u8) ![]const u8 {
             try goal_file.writeStreamingAll(ctx_.io, t);
             try ctx_.stdout.print("\nGoal #{d} - {s}\n", .{ meta.next_id, t });
         } else {
-            std.debug.print("\nGoal title cannot be empty! You're so funny.\n", .{});
+            try ctx_.stderr.print("\nGoal title cannot be empty! You're so funny.\n", .{});
             return error.EmptyGoalTitle;
         }
     } else {
@@ -107,4 +107,53 @@ pub fn run(ctx_: *Context, title_: ?[]const u8) ![]const u8 {
     try meta.store();
 
     return try ctx_.alloc.dupe(u8, file_name);
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const uuid = @import("../uuid.zig");
+
+const init = @import("init.zig");
+
+test "new command creates goal with title" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    try init.run(&env.ctx);
+
+    const title = "fix the bug";
+
+    // 1. Creating a new goal returns its filename/goal number
+    {
+        const filename = try run(&env.ctx, title);
+        defer env.alloc.free(filename);
+        try std.testing.expectEqualStrings("1", filename);
+    }
+
+    // 2. New goals are created in the "later" directory
+    const rel_path = rel_path: {
+        const goal_id = try env.readFile("proj/.goal/.goal_id");
+        defer env.alloc.free(goal_id);
+
+        var path_buf: [uuid.SLICE_LEN + 10]u8 = undefined;
+        break :rel_path try std.fmt.bufPrint(&path_buf, ".goal/{s}/l/1", .{goal_id});
+    };
+    try std.testing.expect(try env.pathExists(rel_path));
+
+    // 3. The content in this case is just the goal title
+    const content = try env.readFile(rel_path);
+    defer env.alloc.free(content);
+    try std.testing.expectEqualStrings(title, content);
+}
+
+test "new with empty title shows error" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    try init.run(&env.ctx);
+
+    try std.testing.expectError(error.EmptyGoalTitle, run(&env.ctx, ""));
 }

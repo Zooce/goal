@@ -3,7 +3,7 @@ const commands = @import("commands.zig");
 const args = @import("args.zig");
 const Context = @import("Context.zig");
 
-pub fn main(init_: std.process.Init) !void {
+pub fn main(init_: std.process.Init) !u8 {
     // setup stdout
     var stdout_buf: [2048]u8 = undefined;
     var stdout_writer = std.Io.File.stdout().writer(init_.io, &stdout_buf);
@@ -41,22 +41,24 @@ pub fn main(init_: std.process.Init) !void {
 
     if (iter.next()) |_arg| {
         const cmd = args.stringToCommand(_arg) catch {
-            std.debug.print(
+            try stderr.print(
                 \\
                 \\'{s}' is not a valid command!
                 \\
                 \\Run `goal help` for the list of commands.
                 \\
             , .{_arg});
-            std.process.exit(1);
+            return 1;
         };
-        return processCommand(&context, cmd, &iter) catch |err| {
-            std.debug.print("\nError: {t}\n", .{err});
-            std.process.exit(1);
+        processCommand(&context, cmd, &iter) catch |err| {
+            try stderr.print("\nError: {t}\n", .{err});
+            return 1;
         };
+        return 0;
     }
 
     try commands.help.run(context.stdout, null);
+    return 0;
 }
 
 fn processCommand(ctx_: *Context, cmd_: commands.Command, iter_: *args.ArgIter) !void {
