@@ -3,7 +3,6 @@ const TestEnv = @This();
 const std = @import("std");
 
 const Context = @import("Context.zig");
-const ArgIter = @import("args.zig").ArgIter;
 const proc = @import("proc.zig");
 
 /// Holds state that must be heap-allocated so Context's pointer fields
