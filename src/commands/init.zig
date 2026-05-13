@@ -189,3 +189,46 @@ test "init command" {
         try std.testing.expect(std.mem.indexOf(u8, log, "goal init") != null);
     }
 }
+
+test "init shows already initialized message when re-run" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    // first init — fresh
+    try run(&env.ctx);
+
+    // second init — already initialized, should show message instead of failing
+    env.resetStdout();
+    try run(&env.ctx);
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "already initialized") != null);
+}
+
+test "init fails in non-git directory" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    env.ctx.cwd = "/tmp"; // assuming Linux/MacOS - Windows sucks
+
+    try std.testing.expectError(error.ProcError, run(&env.ctx));
+}
+
+test "init with custom project name" {
+    var env = try TestEnv.init(&.{.{ .buffer = "my-project\n" }});
+    defer env.deinit();
+
+    try run(&env.ctx);
+
+    // verify meta uses custom project name, not default "proj"
+    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    defer env.alloc.free(goal_id);
+
+    var path_buf: [uuid.SLICE_LEN + 9]u8 = undefined;
+    const base_dir = try env.tmp_dir.dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+    defer base_dir.close(env.io);
+
+    var meta = try Meta.load(&env.ctx, base_dir);
+    defer meta.deinit();
+
+    try std.testing.expectEqualStrings("my-project", meta.project_name);
+}

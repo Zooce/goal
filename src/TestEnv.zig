@@ -134,6 +134,11 @@ pub fn init(stdin_calls_: []const std.testing.Reader.Call) !TestEnv {
 
 /// Free all resources owned by the test environment.
 pub fn deinit(self_: *TestEnv) void {
+    // it's useful to see stderr if there was any
+    // - if you're testing an error scenario, then call `resetStderr()` instead
+    if (self_.ctx.stderr.buffered().len > 0) {
+        std.Io.File.stderr().writeStreamingAll(self_.io, self_.ctx.stderr.buffered()) catch {};
+    }
     self_._state.environ_map.deinit();
     self_.alloc.destroy(self_._state);
 
@@ -197,7 +202,7 @@ pub fn pathExists(self_: *TestEnv, rel_path_: []const u8) !bool {
 /// The returned slice is valid until the next call to `resetStdout`
 /// or `deinit`.
 pub fn readStdout(self_: *const TestEnv) []const u8 {
-    return self_._state.stdout_writer.buffered();
+    return self_.ctx.stdout.buffered();
 }
 
 /// Clear the captured stdout buffer.
@@ -205,7 +210,15 @@ pub fn readStdout(self_: *const TestEnv) []const u8 {
 /// Useful between test assertions to isolate output from individual
 /// command invocations.
 pub fn resetStdout(self_: *TestEnv) void {
-    _ = self_._state.stdout_writer.consumeAll();
+    _ = self_.ctx.stdout.consumeAll();
+}
+
+/// Clear the captured stderr buffer.
+///
+/// Useful for tests that expect to encounter an error - we don't
+/// need to see the output in these cases.
+pub fn resetStderr(self_: *TestEnv) void {
+    _ = self_.ctx.stderr.consumeAll();
 }
 
 fn ensureDir(io_: std.Io, path_: []const u8) !void {

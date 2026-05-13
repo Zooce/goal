@@ -152,6 +152,7 @@ test "new command creates goal with title" {
 test "new with empty title shows error" {
     var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
     defer env.deinit();
+    defer env.resetStderr();
 
     try init.run(&env.ctx);
 

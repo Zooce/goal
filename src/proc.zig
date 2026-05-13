@@ -68,10 +68,11 @@ inline fn checkError(ctx_: *Context, res_: std.process.RunResult, argv_: []const
     };
 
     if (err_code) |code| {
-        if (res_.stderr.len > 0) std.debug.print("\nExit code: {d}\n{s}", .{ code, res_.stderr });
+        if (res_.stderr.len > 0) try ctx_.stderr.print("\nExit code: {d}\n{s}", .{ code, res_.stderr });
         const cmd = try std.mem.join(ctx_.alloc, " ", argv_);
         defer ctx_.alloc.free(cmd);
-        std.debug.print("\nCommand: {s}\n", .{cmd});
+        try ctx_.stderr.print("\nCommand: {s}\n", .{cmd});
+        ctx_.stderr.flush() catch {};
         return error.ProcError;
     }
 }
