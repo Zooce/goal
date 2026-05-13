@@ -29,6 +29,17 @@ Quick: `zig build test --summary all`
 
 When creating a test, use `TestEnv` and the normal flow a user would to set things up, `goal init`, `goal new 'something new'`, `goal start 1`, etc.. and remember each command has a public `run` function that tests can call directly to invoke commands programmatically.
 
+When creating a test, always comment on each section of the test that tests something interesting.
+
+Never create useless tests such as:
+
+```zig
+test "the new comamnd with too many arguments shows error" {
+    const result = Self.tooManyArguments();
+    try std.testing.expect(result == error.TooManyArguments);
+}
+```
+
 Note: Never run goal commands directly in the main `goal/` repository — that would initialize goal in the actual project.
 
 ## Style
