@@ -24,7 +24,7 @@ pub const ChangeOptions = struct {
 };
 
 /// Checks if there are any specified types of changes.
-pub fn hasChanges(ctx_: *Context, opts_: ChangeOptions) !bool {
+pub fn hasChanges(ctx_: *const Context, opts_: ChangeOptions) !bool {
     var found = false;
     for (opts_.kinds) |kind| {
         const cmd: []const []const u8 = switch (kind) {
@@ -41,7 +41,7 @@ pub fn hasChanges(ctx_: *Context, opts_: ChangeOptions) !bool {
 }
 
 /// A helper function for getting git status with `--stat` output + untracked files.
-pub fn status(ctx_: *Context) !void {
+pub fn status(ctx_: *const Context) !void {
     try proc.run(ctx_, .{
         .label = "Staged changes:",
         .argv = &.{ "git", "diff", "--stat", "--staged", "--color" },
@@ -59,7 +59,7 @@ pub fn status(ctx_: *Context) !void {
     // TODO: if there are no changes - tell the user
 }
 
-fn splitByNewline(ctx_: *Context, output_: []const u8) !void {
+fn splitByNewline(ctx_: *const Context, output_: []const u8) !void {
     try ctx_.stdout.writeAll("\n");
     var iter = std.mem.splitAny(u8, output_, "\n");
     while (iter.next()) |file| {
@@ -69,7 +69,7 @@ fn splitByNewline(ctx_: *Context, output_: []const u8) !void {
 }
 
 /// A helper functions for getting help docs for a git command.
-pub fn help(ctx_: *Context, comptime cmd_: []const u8) !void {
+pub fn help(ctx_: *const Context, comptime cmd_: []const u8) !void {
     try proc.run(ctx_, .{ .argv = &.{ "git", cmd_, "--help" } });
 }
 
@@ -80,7 +80,7 @@ pub fn help(ctx_: *Context, comptime cmd_: []const u8) !void {
 /// ```zig
 /// try git.logGrep(allocator, stdout, "42", io);
 /// ```
-pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
+pub fn logGrep(ctx_: *const Context, id_: []const u8) !void {
     const email = try proc.exec(ctx_, .{ .argv = &.{ "git", "config", "user.email" } });
     defer ctx_.alloc.free(email);
 
@@ -108,14 +108,14 @@ pub fn logGrep(ctx_: *Context, id_: []const u8) !void {
 
 /// Returns the `.git/hooks` directory path if inside a Git project.
 /// Caller is responsible for freeing the returned string.
-pub fn hooksPath(ctx_: *Context) !?[]const u8 {
+pub fn hooksPath(ctx_: *const Context) !?[]const u8 {
     const git_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
     defer ctx_.alloc.free(git_root);
     return try std.Io.Dir.path.join(ctx_.alloc, &.{ git_root, ".git", "hooks" });
 }
 
 /// Installs the `prepare-commit-msg` hook into `.git/hooks/`.
-pub fn createHook(ctx_: *Context) !void {
+pub fn createHook(ctx_: *const Context) !void {
     const hooks = try hooksPath(ctx_);
     if (hooks) |path| {
         defer ctx_.alloc.free(path);
@@ -139,7 +139,7 @@ pub fn createHook(ctx_: *Context) !void {
 }
 
 /// Removes the `prepare-commit-msg` hook from `.git/hooks/`.
-pub fn deleteHook(ctx_: *Context) !void {
+pub fn deleteHook(ctx_: *const Context) !void {
     const hooks = try hooksPath(ctx_);
     if (hooks) |path| {
         defer ctx_.alloc.free(path);
@@ -154,7 +154,7 @@ pub fn deleteHook(ctx_: *Context) !void {
     }
 }
 
-pub fn clone(ctx_: *Context, repo_: []const u8, loc_: []const u8) !void {
+pub fn clone(ctx_: *const Context, repo_: []const u8, loc_: []const u8) !void {
     try ctx_.stdout.print("\nCloning: {s} into {s}\n", .{ repo_, loc_ });
     try ctx_.stdout.flush();
     try proc.run(ctx_, .{ .argv = &.{ "git", "clone", repo_, "--quiet", loc_ } });

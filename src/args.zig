@@ -32,40 +32,6 @@ pub const ArgIter = struct {
 
 // TODO: this file could be cleaned up a bit
 
-pub fn expectNoMoreArgs(args_: *ArgIter) !void {
-    if (args_.next()) |_| {
-        std.debug.print("\nLooks like you've got too many arguments there, friend!\n", .{});
-        return error.TooManyArguments;
-    }
-}
-
-pub fn optionalHelp(args_: *ArgIter, cmd_: commands.Command) !bool {
-    const first = optionalArgOrCommand(args_.next());
-    try expectNoMoreArgs(args_);
-
-    if (first) |f| switch (f) {
-        .arg => |arg| return cmd_.unexpectedArgument(arg),
-        .command => |sub| switch (sub) {
-            .help => return true,
-            else => return cmd_.unexpectedSubcommand(sub),
-        },
-    };
-
-    return false;
-}
-
-pub fn optionalCommand(args_: *ArgIter, cmd_: commands.Command) !?commands.Command {
-    const first = optionalArgOrCommand(args_.next());
-    try expectNoMoreArgs(args_);
-
-    if (first) |f| switch (f) {
-        .arg => |arg| return cmd_.unexpectedArgument(arg),
-        .command => |command| return command,
-    };
-
-    return null;
-}
-
 // arg or help
 pub const ArgOrCommand = union(enum) {
     arg: []const u8,
@@ -80,16 +46,6 @@ pub fn optionalArgOrCommand(arg_: ?[]const u8) ?ArgOrCommand {
             return .{ .arg = _arg };
         };
         return .{ .command = cmd };
-    }
-    return null;
-}
-
-pub fn optionalArgOrHelp2(arg_: ?[]const u8) ?ArgOrHelp {
-    if (arg_) |_arg| {
-        const cmd = stringToCommand(_arg) catch {
-            return .{ .arg = _arg };
-        };
-        if (cmd == .help) return .help;
     }
     return null;
 }
@@ -118,60 +74,9 @@ pub const ArgOrHelp = union(enum) {
     help,
 };
 
-// TODO: I don't like this one.....
-pub fn optionalArgOrHelp(alloc_: std.mem.Allocator, args_: *ArgIter, cmd_: commands.Command) !?ArgOrHelp {
-    // arg and/or help
-    const first = optionalArgOrCommand(args_.next());
-    const second = optionalArgOrCommand(args_.next());
-    try expectNoMoreArgs(args_);
-
-    if (first) |f| switch (f) {
-        .arg => |arg| {
-            if (second) |s| switch (s) {
-                .arg => |extra| return cmd_.unexpectedArgument(extra),
-                .command => |sub| switch (sub) {
-                    .help => return .help,
-                    else => return cmd_.unexpectedSubcommand(sub),
-                },
-            };
-            return ArgOrHelp{ .arg = try alloc_.dupe(u8, arg) };
-        },
-        .command => |sub| {
-            if (sub != .help) return cmd_.unexpectedSubcommand(sub);
-
-            if (second) |s| switch (s) {
-                .command => |subsub| {
-                    if (subsub != .help) return cmd_.unexpectedSubcommand(subsub);
-                },
-                .arg => {},
-            };
-
-            return .help;
-        },
-    };
-    return null;
-}
-
 pub fn ArgsOrHelp(comptime T: type) type {
     return union(enum) {
         args: T,
         help,
     };
 }
-
-// pub fn optionalArgsOrHelp(alloc_: std.mem.Allocator, iter_: *ArgIter, cmd_: commands.Command) !ArgsOrHelp(std.ArrayList([]const u8)) {
-//     var args: std.ArrayList([]const u8) = .empty;
-//     errdefer args.deinit(alloc_);
-
-//     while (iter_.next()) |arg| {
-//         if (optionalArgOrCommand(arg)) |x| switch (x) {
-//             .arg => |a| try args.append(alloc_, std.mem.trim(u8, a, ", \t\r\n")),
-//             .command => |sub| switch (sub) {
-//                 .help => return .help,
-//                 else => return cmd_.unexpectedSubcommand(sub),
-//             },
-//         };
-//     }
-
-//     return .{ .args = args };
-// }

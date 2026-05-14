@@ -3,7 +3,7 @@ const std = @import("std");
 const Context = @import("Context.zig");
 
 // TODO: pick the default value (y/n) as a parameter
-pub fn confirm(ctx_: *Context, prompt_: []const u8) !bool {
+pub fn confirm(ctx_: *const Context, prompt_: []const u8) !bool {
     try ctx_.stdout.print("{s} (y/N): ", .{prompt_});
     try ctx_.stdout.flush();
 
@@ -21,7 +21,7 @@ pub fn confirm(ctx_: *Context, prompt_: []const u8) !bool {
 }
 
 /// If an answer is returned, the caller is responsible for freeing it.
-pub fn getAnswer(ctx_: *Context, prompt_: []const u8) !?[]const u8 {
+pub fn getAnswer(ctx_: *const Context, prompt_: []const u8) !?[]const u8 {
     try ctx_.stdout.print("{s}: ", .{prompt_});
     try ctx_.stdout.flush();
 

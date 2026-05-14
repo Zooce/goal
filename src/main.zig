@@ -61,9 +61,9 @@ pub fn main(init_: std.process.Init) !u8 {
     return 0;
 }
 
-fn processCommand(ctx_: *Context, cmd_: commands.Command, iter_: *args.ArgIter) !void {
+fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.ArgIter) !void {
     switch (cmd_) {
-        .help => try commands.help.main(ctx_.stdout, iter_),
+        .help => try commands.help.main(ctx_, iter_),
         .setup => try commands.setup.main(ctx_, iter_),
         .init => try commands.init.main(ctx_, iter_),
         .deinit => try commands.deinit.main(ctx_, iter_),

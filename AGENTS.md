@@ -23,6 +23,8 @@ When possible, use non-allocating buffers (especially if we can reuse them).
 
 Keep things simple. No clever tricks unless they unlock something profoundly useful.
 
+Perferr immutable (const) pointers as function parameters.
+
 ## Testing
 
 Quick: `zig build test --summary all --test-timeout 500ms`

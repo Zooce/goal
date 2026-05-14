@@ -6,11 +6,11 @@ pub const RunOptions = struct {
     argv: []const []const u8,
     label: ?[]const u8 = null,
     cwd: ?[]const u8 = null,
-    custom_stdout_fn: ?*const fn (ctx_: *Context, output_: []const u8) anyerror!void = null,
+    custom_stdout_fn: ?*const fn (ctx_: *const Context, output_: []const u8) anyerror!void = null,
 };
 
 /// Runs a command and prints stdout.
-pub fn run(ctx_: *Context, opts_: RunOptions) !void {
+pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     const res = try std.process.run(ctx_.alloc, ctx_.io, .{
         .argv = opts_.argv,
         .cwd = if (opts_.cwd orelse ctx_.cwd) |cwd| .{ .path = cwd } else .inherit,
@@ -39,7 +39,7 @@ pub const ExecOptions = struct {
 };
 
 /// Execute a command and return stdout. Caller is responsible for returned memory.
-pub fn exec(ctx_: *Context, opts_: ExecOptions) ![]const u8 {
+pub fn exec(ctx_: *const Context, opts_: ExecOptions) ![]const u8 {
     const res = try std.process.run(ctx_.alloc, ctx_.io, .{
         .argv = opts_.argv,
         .cwd = if (opts_.cwd orelse ctx_.cwd) |cwd| .{ .path = cwd } else .inherit,
@@ -59,7 +59,7 @@ pub fn exec(ctx_: *Context, opts_: ExecOptions) ![]const u8 {
     return ctx_.alloc.dupe(u8, res.stdout);
 }
 
-inline fn checkError(ctx_: *Context, res_: std.process.RunResult, argv_: []const []const u8) !void {
+inline fn checkError(ctx_: *const Context, res_: std.process.RunResult, argv_: []const []const u8) !void {
     const err_code: ?u32 = switch (res_.term) {
         .exited => |code| if (code != 0) code else null,
         .signal => |code| @intFromEnum(code),
@@ -72,7 +72,7 @@ inline fn checkError(ctx_: *Context, res_: std.process.RunResult, argv_: []const
         const cmd = try std.mem.join(ctx_.alloc, " ", argv_);
         defer ctx_.alloc.free(cmd);
         try ctx_.stderr.print("\nCommand: {s}\n", .{cmd});
-        ctx_.stderr.flush() catch {};
+        try ctx_.stderr.flush();
         return error.ProcError;
     }
 }

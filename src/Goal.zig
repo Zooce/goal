@@ -23,7 +23,7 @@ description: ?[]const u8,
 /// The directory where this goal was loaded from.
 dir: std.Io.Dir,
 
-_ctx: *Context,
+_ctx: *const Context,
 
 /// Initializes a `Goal` by reading in it's file contents.
 ///
@@ -43,7 +43,7 @@ _ctx: *Context,
 ///     defer goal.deinit();
 /// }
 /// ```
-pub fn init(ctx_: *Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Goal {
+pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Goal {
     const goal_file = dir_.openFile(ctx_.io, id_, .{}) catch |err| {
         if (!opts_.quiet) std.debug.print("\nUnable to open goal file: {s}\n", .{id_});
         return err;

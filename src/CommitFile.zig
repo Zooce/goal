@@ -17,7 +17,7 @@ pub const Options = struct {
 /// The absolute path to the commit file `.goal/t` in the local project directory.
 path: []const u8,
 
-_ctx: *Context,
+_ctx: *const Context,
 
 /// Creates the commit file `~/.goal/<goal_id>/t`.
 ///
@@ -31,7 +31,7 @@ _ctx: *Context,
 /// defer commit_file.delete();
 /// // use `commit_file.path`
 /// ```
-pub fn create(ctx_: *Context, dirs_: Directories, opts_: Options) !CommitFile {
+pub fn create(ctx_: *const Context, dirs_: Directories, opts_: Options) !CommitFile {
     const template_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dirs_.local.path, "t" });
     errdefer ctx_.alloc.free(template_path);
 

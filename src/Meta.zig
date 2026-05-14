@@ -13,7 +13,7 @@ project_name: []const u8,
 /// Handle to the `~/.goal/<goal_id>/` directory used by `store`.
 _base_dir: std.Io.Dir,
 
-_ctx: *Context,
+_ctx: *const Context,
 
 pub fn deinit(self_: *Meta) void {
     self_._ctx.alloc.free(self_.project_name);
@@ -26,7 +26,7 @@ const M = struct {
 };
 
 /// Load the `~/.goal/<goal_id>/m` file.
-pub fn load(ctx_: *Context, base_dir_: std.Io.Dir) !Meta {
+pub fn load(ctx_: *const Context, base_dir_: std.Io.Dir) !Meta {
     const meta_file = base_dir_.readFileAllocOptions(ctx_.io, "m", ctx_.alloc, .unlimited, .of(u8), 0) catch |err| switch (err) {
         error.FileNotFound => {
             std.debug.print("\nThe 'm' file doesn't exist! Run `goal init`.\n", .{});
@@ -79,7 +79,7 @@ pub fn setProjectName(self_: *Meta, new_name_: []const u8) !void {
 }
 
 /// Creates the `~/.goal/<goal_id>/m` file.
-pub fn create(ctx_: *Context, base_dir_: std.Io.Dir, project_name_: []const u8) !void {
+pub fn create(ctx_: *const Context, base_dir_: std.Io.Dir, project_name_: []const u8) !void {
     const meta_file = try base_dir_.createFile(ctx_.io, "m", .{ .exclusive = true });
     defer meta_file.close(ctx_.io);
 

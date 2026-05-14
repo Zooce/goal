@@ -15,8 +15,8 @@ const help = @import("help.zig");
 
 const Self = Command.deinit;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    switch (try parseArgs(iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    switch (try parseArgs(ctx_, iter_)) {
         .help => try help.run(ctx_.stdout, Self),
         .run => |opts| try run(ctx_, opts),
     }
@@ -32,7 +32,7 @@ const Args = union(enum) {
     run: RunOptions,
 };
 
-pub fn parseArgs(iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     var opts: RunOptions = .{};
 
     var seen_no_local_commit = false;
@@ -42,39 +42,39 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
-            else => return Self.unexpectedSubcommand(cmd),
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
 
         if (std.mem.eql(u8, arg, "--no-local-commit")) {
-            if (seen_no_local_commit) return Self.duplicateFlag(arg);
+            if (seen_no_local_commit) return Self.duplicateFlag(ctx_, arg);
             seen_no_local_commit = true;
             opts.local_commit = false;
             continue;
         }
 
         if (std.mem.eql(u8, arg, "--no-global-commit")) {
-            if (seen_no_global_commit) return Self.duplicateFlag(arg);
+            if (seen_no_global_commit) return Self.duplicateFlag(ctx_, arg);
             seen_no_global_commit = true;
             opts.global_commit = false;
             continue;
         }
 
         if (std.mem.eql(u8, arg, "--no-commit")) {
-            if (seen_no_commit) return Self.duplicateFlag(arg);
+            if (seen_no_commit) return Self.duplicateFlag(ctx_, arg);
             seen_no_commit = true;
             opts.local_commit = false;
             opts.global_commit = false;
             continue;
         }
 
-        return Self.unexpectedArgument(arg);
+        return Self.unexpectedArgument(ctx_, arg);
     }
 
     return .{ .run = opts };
 }
 
 // Note that this function does not open `Directories` because we're deleting them all...
-pub fn run(ctx_: *Context, opts_: RunOptions) !void {
+pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     // we'll run git commands from here
     const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
     defer ctx_.alloc.free(proj_root);

@@ -17,8 +17,8 @@ const help = @import("help.zig");
 
 const Self = Command.start;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    const args = switch (try parseArgs(ctx_.alloc, iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(ctx_, iter_)) {
         .help => return try help.run(ctx_.stdout, Self),
         .args => |args| args,
     };
@@ -75,7 +75,7 @@ const ArgState = enum {
 /// Fuck ya it is. Look, I'm not going to remember this stuff in next couple
 /// of weeks, so I need it to be widly easy for me to pick back up. Plus
 /// state machines are really fun.
-fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
+fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
     // goal start new
     // goal start new "fix the bug"
     // goal start new -h
@@ -94,7 +94,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     // goal start new -w ../worktree -b omg right-now
 
     var args: Args = .{};
-    errdefer args.deinit(alloc_);
+    errdefer args.deinit(ctx_.alloc);
 
     var show_help = false;
 
@@ -108,7 +108,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                     show_help = true;
                     break :sw;
                 },
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             };
 
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
@@ -116,7 +116,7 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             continue :sw .id;
         },
         .id => {
-            args.id_type = .{ .id = try alloc_.dupe(u8, iter_.next() orelse unreachable) }; // consume the id
+            args.id_type = .{ .id = try ctx_.alloc.dupe(u8, iter_.next() orelse unreachable) }; // consume the id
 
             const arg = iter_.peek() orelse break :sw;
 
@@ -125,13 +125,13 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                     show_help = true;
                     break :sw;
                 },
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             };
 
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
             if (std.mem.eql(u8, arg, "-b")) continue :sw .branch;
 
-            return Self.unexpectedArgument(arg);
+            return Self.unexpectedArgument(ctx_, arg);
         },
         .new => {
             _ = iter_.next(); // consume the 'next' command itself
@@ -145,14 +145,14 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                     show_help = true;
                     break :sw;
                 },
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             };
 
             // TODO: allow --worktree and --branch
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
             if (std.mem.eql(u8, arg, "-b")) continue :sw .branch;
 
-            args.id_type.?.new.title = try alloc_.dupe(u8, iter_.next() orelse unreachable); // consume the title
+            args.id_type.?.new.title = try ctx_.alloc.dupe(u8, iter_.next() orelse unreachable); // consume the title
 
             arg = iter_.peek() orelse break :sw;
 
@@ -161,14 +161,14 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                     show_help = true;
                     break :sw;
                 },
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             };
 
             // TODO: allow --worktree and --branch
             if (std.mem.eql(u8, arg, "-w")) continue :sw .worktree;
             if (std.mem.eql(u8, arg, "-b")) continue :sw .branch;
 
-            return Self.unexpectedArgument(arg);
+            return Self.unexpectedArgument(ctx_, arg);
         },
         .worktree => {
             _ = iter_.next(); // consume '-w'
@@ -180,10 +180,10 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                     show_help = true;
                     break :sw;
                 },
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             };
 
-            args.worktree = try alloc_.dupe(u8, arg);
+            args.worktree = try ctx_.alloc.dupe(u8, arg);
 
             arg = iter_.peek() orelse break :sw;
 
@@ -200,17 +200,17 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                     show_help = true;
                     break :sw;
                 },
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             };
 
-            args.branch = try alloc_.dupe(u8, arg);
+            args.branch = try ctx_.alloc.dupe(u8, arg);
 
             _ = iter_.peek() orelse break :sw;
 
             continue :sw .base;
         },
         .base => {
-            args.base_branch = try alloc_.dupe(u8, iter_.next() orelse unreachable); // consume base branch
+            args.base_branch = try ctx_.alloc.dupe(u8, iter_.next() orelse unreachable); // consume base branch
 
             if (iter_.next()) |arg| {
                 if (Command.fromString(arg)) |sub| switch (sub) {
@@ -218,22 +218,22 @@ fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
                         show_help = true;
                         break :sw;
                     },
-                    else => return Self.unexpectedSubcommand(sub),
+                    else => return Self.unexpectedSubcommand(ctx_, sub),
                 };
-                return Self.unexpectedArgument(arg);
+                return Self.unexpectedArgument(ctx_, arg);
             }
         },
     }
 
     if (show_help) {
-        args.deinit(alloc_);
+        args.deinit(ctx_.alloc);
         return .help;
     }
 
     return .{ .args = args };
 }
 
-pub fn run(ctx_: *Context, args_: Args) !void {
+pub fn run(ctx_: *const Context, args_: Args) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
@@ -291,7 +291,7 @@ pub fn run(ctx_: *Context, args_: Args) !void {
             }
         }
 
-        if (id.len == 0) return Self.missingArgument();
+        if (id.len == 0) return Self.missingArgument(ctx_);
 
         break :goal Goal.init(ctx_, dirs.later.dir, id, .{ .quiet = true }) catch
             try Goal.init(ctx_, dirs.next.dir, id, .{});

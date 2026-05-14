@@ -12,8 +12,8 @@ const help = @import("help.zig");
 
 const Self = Command.new;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    const title = switch (try parseArgs(ctx_.alloc, iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    const title = switch (try parseArgs(ctx_, iter_)) {
         .help => return try help.run(ctx_.stdout, Self),
         .run => |title| title,
     };
@@ -27,7 +27,7 @@ const Args = union(enum) {
     run: ?[]const u8,
 };
 
-pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal new
     // goal new "fix the bug"
     // goal new -h
@@ -39,11 +39,11 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
-            else => return Self.unexpectedSubcommand(cmd),
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
 
-        if (title != null) return Self.tooManyArguments();
-        title = try alloc_.dupe(u8, arg);
+        if (title != null) return Self.tooManyArguments(ctx_);
+        title = try ctx_.alloc.dupe(u8, arg);
     }
 
     return .{ .run = title };
@@ -54,7 +54,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
 ///
 /// Returns the file name so the caller is responsible for calling
 /// `allocator.free(filename)`.
-pub fn run(ctx_: *Context, title_: ?[]const u8) ![]const u8 {
+pub fn run(ctx_: *const Context, title_: ?[]const u8) ![]const u8 {
     var dirs = try Directories.open(ctx_, .{});
     defer dirs.close();
 

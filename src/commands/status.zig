@@ -12,8 +12,8 @@ const help = @import("help.zig");
 
 const Self = Command.status;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    switch (try parseArgs(iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    switch (try parseArgs(ctx_, iter_)) {
         .help => try help.run(ctx_.stdout, Self),
         .run => try run(ctx_),
     }
@@ -24,7 +24,7 @@ const Args = union(enum) {
     run: void,
 };
 
-pub fn parseArgs(iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal status
     // goal status -h
     // goal status help
@@ -32,14 +32,14 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
-            else => return Self.unexpectedSubcommand(cmd),
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
     }
 
     return Args.run;
 }
 
-pub fn run(ctx_: *Context) !void {
+pub fn run(ctx_: *const Context) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 

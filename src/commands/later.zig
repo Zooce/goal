@@ -11,8 +11,8 @@ const help = @import("help.zig");
 
 const Self = Command.later;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    const id = switch (try parseArgs(ctx_.alloc, iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    const id = switch (try parseArgs(ctx_, iter_)) {
         .help => return try help.run(ctx_.stdout, Self),
         .run => |id| id,
     };
@@ -26,7 +26,7 @@ const Args = union(enum) {
 };
 
 // TODO: this is exactly like the edit command
-pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal later
     // goal later 3
     // goal later -h
@@ -38,17 +38,17 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !Args {
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
-            else => return Self.unexpectedSubcommand(cmd),
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
 
-        if (id != null) return Self.tooManyArguments();
-        id = try alloc_.dupe(u8, arg);
+        if (id != null) return Self.tooManyArguments(ctx_);
+        id = try ctx_.alloc.dupe(u8, arg);
     }
 
     return .{ .run = id };
 }
 
-pub fn run(ctx_: *Context, id_: ?[]const u8) !void {
+pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
@@ -74,7 +74,7 @@ pub fn run(ctx_: *Context, id_: ?[]const u8) !void {
     };
     defer if (id_ == null) ctx_.alloc.free(id);
 
-    if (id.len == 0) return Self.missingArgument();
+    if (id.len == 0) return Self.missingArgument(ctx_);
 
     var goal = Goal.init(ctx_, dirs.next.dir, id, .{}) catch |err| {
         if (err == error.FileNotFound) {

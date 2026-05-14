@@ -28,8 +28,8 @@ const Args = struct {
     _goal: ?Goal = null,
 };
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    const args = switch (try parseArgs(ctx_.alloc, iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(ctx_, iter_)) {
         .help => return try help.run(ctx_.stdout, Self),
         .args => |args| args,
     };
@@ -38,20 +38,20 @@ pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     if (args.complete) try ctx_.stdout.writeAll("\nNice work!\n");
 }
 
-pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
     var args = Args{};
 
     var count: u8 = 0;
     while (iter_.next()) |arg| : (count += 1) {
         // TODO: I'm not sure this is even possible to reach
         if (count > 3) {
-            std.debug.print("\nLooks like you've got too many arguments there, friend!\n", .{});
+            try ctx_.stderr.print("\nLooks like you've got too many arguments there, friend!\n", .{});
             return error.TooManyArguments;
         }
 
         if (stringToCommand(arg)) |sub| switch (sub) {
             .help => return .help,
-            else => return Self.unexpectedSubcommand(sub),
+            else => return Self.unexpectedSubcommand(ctx_, sub),
         } else |_| {} // ignore error
 
         if (std.mem.eql(u8, arg, "--complete")) {
@@ -65,10 +65,10 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
             if (iter_.next()) |message| {
                 const trimmed = std.mem.trim(u8, message, " \t\r\n");
                 if (trimmed.len == 0) return error.EmptyCommitMessage;
-                args.message = try alloc_.dupe(u8, trimmed);
+                args.message = try ctx_.alloc.dupe(u8, trimmed);
                 continue;
             } else {
-                std.debug.print("\nThe '-m' option requires an argument!\n", .{});
+                try ctx_.stderr.print("\nThe '-m' option requires an argument!\n", .{});
                 return error.MissingArgument;
             }
         }
@@ -77,7 +77,7 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     return .{ .args = args };
 }
 
-pub fn run(ctx_: *Context, args_: Args) !void {
+pub fn run(ctx_: *const Context, args_: Args) !void {
     if (!try git.hasChanges(ctx_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         std.debug.print("\nCan't commit without staged changes.\n", .{});
         return error.NoStagedChanges;

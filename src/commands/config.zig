@@ -26,8 +26,8 @@ pub const Args = union(enum) {
     setting: Setting,
 };
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    const args = switch (try parseArgs(ctx_.alloc, iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    const args = switch (try parseArgs(ctx_, iter_)) {
         .help => return try help.run(ctx_.stdout, Self),
         .args => |args| args,
     };
@@ -38,7 +38,7 @@ pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     try run(ctx_, args);
 }
 
-pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
     var list = false;
     var key: ?ConfigKey = null;
     var val: ?[]const u8 = null;
@@ -49,42 +49,42 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
         if (stringToCommand(arg)) |sub| switch (sub) {
             .help => {
                 // we might have allocated memory for val that we don't need anymore
-                if (val) |v| alloc_.free(v);
+                if (val) |v| ctx_.alloc.free(v);
                 return .help;
             },
-            else => return Self.unexpectedSubcommand(sub),
+            else => return Self.unexpectedSubcommand(ctx_, sub),
         } else |_| {} // ignore error
 
         // --list
         if (std.mem.eql(u8, arg, "--list") or std.mem.eql(u8, arg, "-l")) {
-            if (list) return Self.duplicateFlag(arg);
-            if (key != null) return Self.unexpectedArgument(arg);
+            if (list) return Self.duplicateFlag(ctx_, arg);
+            if (key != null) return Self.unexpectedArgument(ctx_, arg);
             list = true;
             continue;
         }
 
         // setting
         if (std.mem.eql(u8, arg, "base-dir")) {
-            if (list or key != null) return Self.tooManyArguments();
+            if (list or key != null) return Self.tooManyArguments(ctx_);
             key = .base_dir;
             continue;
         }
 
         if (std.mem.eql(u8, arg, "editor")) {
-            if (list or key != null) return Self.tooManyArguments();
+            if (list or key != null) return Self.tooManyArguments(ctx_);
             key = .editor;
             continue;
         }
 
         if (std.mem.eql(u8, arg, "project-name")) {
-            if (list or key != null) return Self.tooManyArguments();
+            if (list or key != null) return Self.tooManyArguments(ctx_);
             key = .project_name;
             continue;
         }
 
         // value
-        if (list or key == null) return Self.unexpectedArgument(arg);
-        val = try alloc_.dupe(u8, arg);
+        if (list or key == null) return Self.unexpectedArgument(ctx_, arg);
+        val = try ctx_.alloc.dupe(u8, arg);
     }
 
     if (list or count == 0) {
@@ -103,8 +103,33 @@ pub fn parseArgs(alloc_: std.mem.Allocator, iter_: *ArgIter) !ArgsOrHelp(Args) {
     unreachable;
 }
 
+test "config with unknown setting shows error" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    // TODO: figure out a way to get args into TestEnv
+    const argv = [_][*:0]const u8{ "notasetting", "value" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.UnexpectedArgument, parseArgs(&env.ctx, &iter));
+}
+
+test "config shows error for duplicate flags" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    const argv = [_][*:0]const u8{ "--list", "--list" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.DuplicateFlag, parseArgs(&env.ctx, &iter));
+}
+
 /// NOTE: This does not take ownership of args memory!
-pub fn run(ctx_: *Context, args_: Args) !void {
+pub fn run(ctx_: *const Context, args_: Args) !void {
     var dirs = try Directories.open(ctx_, .{});
     defer dirs.close();
 
@@ -139,4 +164,66 @@ pub fn run(ctx_: *Context, args_: Args) !void {
             }
         },
     }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init_cmd = @import("init.zig");
+const config_cmd = @This();
+
+test "config command lists settings" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    // Initialize goal so local/global metadata exist.
+    try init_cmd.run(&env.ctx);
+
+    env.resetStdout();
+    try config_cmd.run(&env.ctx, .list);
+
+    const stdout = env.readStdout();
+    try std.testing.expect(std.mem.indexOf(u8, stdout, "Current configuration") != null);
+    try std.testing.expect(std.mem.indexOf(u8, stdout, "base-dir =") != null);
+    try std.testing.expect(std.mem.indexOf(u8, stdout, "editor =") != null);
+    try std.testing.expect(std.mem.indexOf(u8, stdout, "project-name = proj") != null);
+}
+
+test "config command shows specific setting" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    // Initialize goal so local/global metadata exist.
+    try init_cmd.run(&env.ctx);
+
+    var config = try Config.load(&env.ctx);
+    defer config.deinit();
+
+    env.resetStdout();
+    try config_cmd.run(&env.ctx, .{ .setting = .{ .key = .editor, .val = null } });
+
+    var expected_buf: [256]u8 = undefined;
+    const expected = try std.fmt.bufPrint(&expected_buf, "editor = {s}", .{config.editor});
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), expected) != null);
+}
+
+test "config command sets setting value" {
+    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    defer env.deinit();
+
+    // Initialize goal so local/global metadata exist.
+    try init_cmd.run(&env.ctx);
+
+    env.resetStdout();
+    try config_cmd.run(&env.ctx, .{ .setting = .{ .key = .editor, .val = "helllyea" } });
+
+    // Verify stdout reflects new value.
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "editor = helllyea") != null);
+
+    // Verify the value persisted in config.
+    var config = try Config.load(&env.ctx);
+    defer config.deinit();
+    try std.testing.expectEqualStrings("helllyea", config.editor);
 }

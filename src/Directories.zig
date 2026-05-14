@@ -36,7 +36,7 @@ deleted: Dir,
 local: Dir,
 
 /// Context reference for cleanup.
-_ctx: *Context,
+_ctx: *const Context,
 
 /// Opens the project directories <base-dir>/.goal/<goal_id>/ and <project>/.goal/.
 ///
@@ -46,7 +46,7 @@ _ctx: *Context,
 /// const dirs = try Directories.open(ctx, .{});
 /// defer dirs.close();
 /// ```
-pub fn open(ctx_: *Context, opts_: Options) !Directories {
+pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     // <project>/.goal/
     var local = local: {
         // local .goal/ should be at a project root so .git/ is our best case
@@ -164,7 +164,7 @@ pub const Dir = struct {
     label: ?[]const u8,
 
     /// Takes ownership of `path_` memory.
-    pub fn open(ctx_: *Context, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
+    pub fn open(ctx_: *const Context, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
         errdefer ctx_.alloc.free(path_);
 
         const dir = dir: {
@@ -190,12 +190,12 @@ pub const Dir = struct {
         };
     }
 
-    pub fn close(self_: *Dir, ctx_: *Context) void {
+    pub fn close(self_: *Dir, ctx_: *const Context) void {
         self_.dir.close(ctx_.io);
         ctx_.alloc.free(self_.path);
     }
 
-    pub fn list(self_: Dir, ctx_: *Context) !u8 {
+    pub fn list(self_: Dir, ctx_: *const Context) !u8 {
         if (self_.label) |label| {
             try ctx_.stdout.print("\n{s}\n", .{label});
         } else {

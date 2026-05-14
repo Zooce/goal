@@ -1,4 +1,5 @@
 const std = @import("std");
+const Context = @import("Context.zig");
 
 // re-exports
 pub const setup = @import("commands/setup.zig");
@@ -63,8 +64,8 @@ pub const Command = enum {
         return std.meta.stringToEnum(Command, str_);
     }
 
-    pub fn unexpectedArgument(self_: Command, arg_: []const u8) anyerror {
-        std.debug.print(
+    pub fn unexpectedArgument(self_: Command, ctx_: *const Context, arg_: []const u8) anyerror {
+        try ctx_.stderr.print(
             \\
             \\The `{t}` command was given an unexpected argument "{s}".
             \\
@@ -72,8 +73,8 @@ pub const Command = enum {
         return error.UnexpectedArgument;
     }
 
-    pub fn unexpectedSubcommand(self_: Command, sub_: Command) anyerror {
-        std.debug.print(
+    pub fn unexpectedSubcommand(self_: Command, ctx_: *const Context, sub_: Command) anyerror {
+        try ctx_.stderr.print(
             \\
             \\The `{t}` command does not accept subcommand `{t}`.
             \\
@@ -81,8 +82,8 @@ pub const Command = enum {
         return error.UnexpectedSubcommand;
     }
 
-    pub fn missingArgument(self_: Command) anyerror {
-        std.debug.print(
+    pub fn missingArgument(self_: Command, ctx_: *const Context) anyerror {
+        try ctx_.stderr.print(
             \\
             \\You didn't choose a goal. Run `goal help {t}`. See you later!
             \\
@@ -90,8 +91,8 @@ pub const Command = enum {
         return error.MissingArgument;
     }
 
-    pub fn fileNotFound(self_: Command, id_: []const u8) anyerror {
-        std.debug.print(
+    pub fn fileNotFound(self_: Command, ctx_: *const Context, id_: []const u8) anyerror {
+        try ctx_.stderr.print(
             \\
             \\Goal #{s} doesn't exist! Run `goal {t}` to pick from the list of goals.
             \\
@@ -99,8 +100,8 @@ pub const Command = enum {
         return error.FileNotFound;
     }
 
-    pub fn duplicateFlag(self_: Command, flag_: []const u8) anyerror {
-        std.debug.print(
+    pub fn duplicateFlag(self_: Command, ctx_: *const Context, flag_: []const u8) anyerror {
+        try ctx_.stderr.print(
             \\
             \\The `{t}` command was given the `{s}` flag multiple times.
             \\
@@ -108,8 +109,8 @@ pub const Command = enum {
         return error.DuplicateFlag;
     }
 
-    pub fn tooManyArguments(self_: Command) anyerror {
-        std.debug.print(
+    pub fn tooManyArguments(self_: Command, ctx_: *const Context) anyerror {
+        try ctx_.stderr.print(
             \\
             \\The `{t}` command was given too many arguments.
             \\

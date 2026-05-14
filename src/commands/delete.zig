@@ -13,7 +13,7 @@ const help = @import("help.zig");
 
 const Self = Command.delete;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
@@ -26,7 +26,7 @@ pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
     try run(ctx_, dirs, ids);
 }
 
-fn parseArgs(ctx_: *Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrHelp(std.ArrayList([]const u8)) {
+fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrHelp(std.ArrayList([]const u8)) {
     // goal delete
     // goal delete 3
     // goal delete 3 4 5, 6
@@ -45,7 +45,7 @@ fn parseArgs(ctx_: *Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrHelp(st
             },
             .command => |sub| switch (sub) {
                 .help => return .help,
-                else => return Self.unexpectedSubcommand(sub),
+                else => return Self.unexpectedSubcommand(ctx_, sub),
             },
         };
     }
@@ -89,7 +89,7 @@ fn parseArgs(ctx_: *Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrHelp(st
     return .{ .args = ids };
 }
 
-pub fn run(ctx_: *Context, dirs_: Directories, ids_: std.ArrayList([]const u8)) !void {
+pub fn run(ctx_: *const Context, dirs_: Directories, ids_: std.ArrayList([]const u8)) !void {
     const active_id = try ActiveId.load(ctx_, dirs_.local.dir);
     defer if (active_id) |id| ctx_.alloc.free(id);
 

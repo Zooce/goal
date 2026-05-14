@@ -1,6 +1,5 @@
 const std = @import("std");
 
-// const ActiveId = @import("../ActiveId.zig");
 const Context = @import("../Context.zig");
 const Directories = @import("../Directories.zig");
 const Command = @import("../commands.zig").Command;
@@ -10,8 +9,8 @@ const help = @import("help.zig");
 
 const Self = Command.list;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    switch (try parseArgs(iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    switch (try parseArgs(ctx_, iter_)) {
         .help => try help.run(ctx_.stdout, Self),
         .run => |list_type| try run(ctx_, list_type),
     }
@@ -26,7 +25,7 @@ const Args = union(enum) {
     run: u8,
 };
 
-pub fn parseArgs(iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal list
     // goal list -h
     // goal list help
@@ -41,7 +40,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
-            else => return Self.unexpectedSubcommand(cmd),
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
 
         if (std.mem.eql(u8, arg, "--active")) {
@@ -53,7 +52,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
         } else if (std.mem.eql(u8, arg, "--all")) {
             list_type = ACTIVE | NEXT | LATER;
         } else {
-            return Self.unexpectedArgument(arg);
+            return Self.unexpectedArgument(ctx_, arg);
         }
     }
 
@@ -66,7 +65,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
 }
 
 /// List all goals showing their ID and title.
-pub fn run(ctx_: *Context, list_type_: u8) !void {
+pub fn run(ctx_: *const Context, list_type_: u8) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 

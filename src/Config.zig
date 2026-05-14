@@ -8,7 +8,7 @@ const Config = @This();
 base_dir: []const u8,
 editor: []const u8,
 
-_ctx: *Context,
+_ctx: *const Context,
 
 pub fn deinit(self_: *Config) void {
     self_._ctx.alloc.free(self_.base_dir);
@@ -18,7 +18,7 @@ pub fn deinit(self_: *Config) void {
 /// Loads the goal config file or default config values if there's no config file.
 ///
 /// Caller is responsible for freeing memory with `config.deinit()`.
-pub fn load(ctx_: *Context) !Config {
+pub fn load(ctx_: *const Context) !Config {
     const config_file = config_file: {
         const config_path = try getConfigPath(ctx_);
         defer ctx_.alloc.free(config_path);
@@ -171,7 +171,7 @@ pub fn setKey(self_: *Config, key_: ConfigKey, val_: []const u8) !void {
     }
 }
 
-fn init(ctx_: *Context, base_dir_: ?[]const u8, editor_: ?[]const u8) !Config {
+fn init(ctx_: *const Context, base_dir_: ?[]const u8, editor_: ?[]const u8) !Config {
     const base_dir = if (base_dir_) |dir| dir else try defaultBaseDir(ctx_);
     errdefer ctx_.alloc.free(base_dir); // in case default editor fails
     const editor = if (editor_) |edit| edit else try defaultEditor(ctx_);
@@ -182,7 +182,7 @@ fn init(ctx_: *Context, base_dir_: ?[]const u8, editor_: ?[]const u8) !Config {
     };
 }
 
-fn defaultBaseDir(ctx_: *Context) ![]const u8 {
+fn defaultBaseDir(ctx_: *const Context) ![]const u8 {
     // Priority 1: Environment variable
     if (try optionalEnvVarOwned(ctx_, "GOAL_BASE_DIR")) |base_dir| {
         defer ctx_.alloc.free(base_dir);
@@ -198,7 +198,7 @@ fn defaultBaseDir(ctx_: *Context) ![]const u8 {
     return std.Io.Dir.path.join(ctx_.alloc, &.{ home_path, ".goal" });
 }
 
-fn defaultEditor(ctx_: *Context) ![]const u8 {
+fn defaultEditor(ctx_: *const Context) ![]const u8 {
     // Priority 1: GOAL_EDITOR environment variable
     if (try optionalEnvVarOwned(ctx_, "GOAL_EDITOR")) |editor| {
         if (editor.len > 0) return editor;
@@ -233,7 +233,7 @@ fn defaultEditor(ctx_: *Context) ![]const u8 {
 }
 
 // TODO: move to src/git.zig
-fn getGitEditor(ctx_: *Context) !?[]const u8 {
+fn getGitEditor(ctx_: *const Context) !?[]const u8 {
     const argv = [_][]const u8{ "git", "config", "--get", "core.editor" };
     const result = try std.process.run(ctx_.alloc, ctx_.io, .{
         .argv = &argv,
@@ -255,7 +255,7 @@ fn getGitEditor(ctx_: *Context) !?[]const u8 {
     };
 }
 
-fn isEditorAvailable(ctx_: *Context, editor_: []const u8) bool {
+fn isEditorAvailable(ctx_: *const Context, editor_: []const u8) bool {
     const result = std.process.run(ctx_.alloc, ctx_.io, .{
         .argv = &.{ if (builtin.os.tag == .windows) "where" else "which", editor_ },
     }) catch return false;
@@ -270,14 +270,16 @@ fn isEditorAvailable(ctx_: *Context, editor_: []const u8) bool {
     };
 }
 
-fn optionalEnvVarOwned(ctx_: *Context, key_: []const u8) !?[]const u8 {
+fn optionalEnvVarOwned(ctx_: *const Context, key_: []const u8) !?[]const u8 {
     if (ctx_.environ_map.get(key_)) |val| return try ctx_.alloc.dupe(u8, val);
     return null;
 }
 
-fn getConfigPath(ctx_: *Context) ![]const u8 {
+fn getConfigPath(ctx_: *const Context) ![]const u8 {
     // Priority 1: XDG_CONFIG_HOME/goal/config (Linux/macOS)
     if (builtin.os.tag != .windows) {
+        // FIXME: no need to dupe env var (same for all uses of `optionalEnvVarOwned` I think)
+        // if (ctx_.environ_map.get("XDG_CONFIG_HOME")) |xdg_config| { // < this is fine because we alloc again anyway
         if (try optionalEnvVarOwned(ctx_, "XDG_CONFIG_HOME")) |xdg_config| {
             defer ctx_.alloc.free(xdg_config);
             if (xdg_config.len > 0) {

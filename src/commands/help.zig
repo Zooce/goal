@@ -1,16 +1,17 @@
 const std = @import("std");
+const Context = @import("../Context.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 const stringToCommand2 = @import("../args.zig").stringToCommand2;
 
 const Self = Command.help;
 
-pub fn main(stdout_: *std.Io.Writer, iter_: *ArgIter) !void {
-    const cmd = try parseArgs(iter_);
-    try run(stdout_, cmd);
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    const cmd = try parseArgs(ctx_, iter_);
+    try run(ctx_.stdout, cmd);
 }
 
-pub fn parseArgs(iter_: *ArgIter) !?Command {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !?Command {
     // goal -h init
     // goal help init
 
@@ -18,7 +19,7 @@ pub fn parseArgs(iter_: *ArgIter) !?Command {
         if (stringToCommand2(arg)) |cmd| {
             return cmd;
         }
-        return Self.unexpectedArgument(arg);
+        return Self.unexpectedArgument(ctx_, arg);
     }
 
     return null;

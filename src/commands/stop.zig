@@ -13,8 +13,8 @@ const help = @import("help.zig");
 
 const Self = Command.stop;
 
-pub fn main(ctx_: *Context, iter_: *ArgIter) !void {
-    switch (try parseArgs(iter_)) {
+pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
+    switch (try parseArgs(ctx_, iter_)) {
         .help => try help.run(ctx_.stdout, Self),
         .run => |later| try run(ctx_, later),
     }
@@ -25,7 +25,7 @@ const Args = union(enum) {
     run: bool,
 };
 
-pub fn parseArgs(iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal stop
     // goal stop -h
     // goal stop help
@@ -36,10 +36,10 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
             .help => return Args.help,
-            else => return Self.unexpectedSubcommand(cmd),
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
 
-        if (later) return Self.tooManyArguments();
+        if (later) return Self.tooManyArguments(ctx_);
         if (std.mem.eql(u8, arg, "--later")) {
             later = true;
         }
@@ -48,7 +48,7 @@ pub fn parseArgs(iter_: *ArgIter) !Args {
     return .{ .run = later };
 }
 
-pub fn run(ctx_: *Context, later_: bool) !void {
+pub fn run(ctx_: *const Context, later_: bool) !void {
     var dirs = try Directories.open(ctx_, .{});
     defer dirs.close();
 

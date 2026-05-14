@@ -13,7 +13,7 @@ const Goal = @import("../Goal.zig");
 ///
 /// This is used by the git `prepare-commit-msg` hook.
 /// Exits silently (no output, no error) if there is no active goal.
-pub fn main(ctx_: *Context) !void {
+pub fn main(ctx_: *const Context) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
