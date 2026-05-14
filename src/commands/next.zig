@@ -56,7 +56,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
         // only later goals can be promoted to next
         // active goals must be stopped explicitly to get into next
         if (try dirs.later.list(ctx_) == 0) {
-            std.debug.print(
+            try ctx_.stderr.print(
                 \\
                 \\Sorry, but you can only promote later goals to
                 \\next and it turns out there aren't any right now.
@@ -69,7 +69,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
         if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
             break :id choice;
         }
-        std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
+        try ctx_.stderr.print("\nWelp... you didn't choose a goal.\n", .{});
         return error.NoGoalChosen;
     };
     defer if (id_ == null) ctx_.alloc.free(id);
@@ -78,7 +78,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
 
     var goal = Goal.init(ctx_, dirs.later.dir, id, .{}) catch |err| {
         if (err == error.FileNotFound) {
-            std.debug.print(
+            try ctx_.stderr.print(
                 \\
                 \\Goal #{s} isn't in the "later" category.
                 \\
@@ -93,4 +93,58 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
     try std.Io.Dir.rename(dirs.later.dir, id, dirs.next.dir, id, ctx_.io);
 
     try ctx_.stdout.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init_cmd = @import("init.zig");
+const new_cmd = @import("new.zig");
+const next_cmd = @This();
+
+test "next command promotes goal from later to next" {
+    // Setup: init, create goal in .goal/<uuid>/l/
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const filename = try new_cmd.run(&env.ctx, "fix the bug");
+    defer env.ctx.alloc.free(filename);
+
+    // Run: next with goal ID
+    try next_cmd.run(&env.ctx, filename);
+
+    // Verify: goal moved to .goal/<uuid>/n/
+    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    defer env.alloc.free(goal_id);
+    var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    try std.testing.expect(try env.pathExists(try std.fmt.bufPrint(&path_buf, ".goal/{s}/n/1", .{goal_id})));
+}
+
+test "next with no arguments shows error" {
+    // Setup: init with no goals
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+
+    // Run: next with no ID
+    // Verify: errors because there are no later goals to promote
+    try std.testing.expectError(error.NoLaterGoalsToPromote, next_cmd.run(&env.ctx, null));
+}
+
+test "next with invalid goal ID shows error" {
+    // Setup: init with no goals
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+
+    // Run: next with a non-existent goal ID
+    // Verify: errors because no goal file exists in later/
+    try std.testing.expectError(error.FileNotFound, next_cmd.run(&env.ctx, "999"));
 }

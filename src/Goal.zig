@@ -45,7 +45,7 @@ _ctx: *const Context,
 /// ```
 pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Goal {
     const goal_file = dir_.openFile(ctx_.io, id_, .{}) catch |err| {
-        if (!opts_.quiet) std.debug.print("\nUnable to open goal file: {s}\n", .{id_});
+        if (!opts_.quiet) try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id_});
         return err;
     };
     defer goal_file.close(ctx_.io);

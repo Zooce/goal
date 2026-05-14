@@ -58,6 +58,7 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     };
     errdefer local.close(ctx_);
 
+    // TODO: this needs to move somewhere else so I can get the goal id when I need it
     // get the goal id
     var goal_id: [uuid.SLICE_LEN]u8 = undefined;
     uuid_blk: {

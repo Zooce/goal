@@ -113,7 +113,7 @@ const TestEnv = @import("../TestEnv.zig");
 const uuid = @import("../uuid.zig");
 
 test "init installs hook even if already initialized" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // First init — fresh
@@ -140,7 +140,7 @@ test "init installs hook even if already initialized" {
 }
 
 test "init command" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // Run init (accepting default project name "proj")
@@ -191,7 +191,7 @@ test "init command" {
 }
 
 test "init shows already initialized message when re-run" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // first init — fresh
@@ -204,7 +204,7 @@ test "init shows already initialized message when re-run" {
 }
 
 test "init fails in non-git directory" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
     defer env.resetStderr();
 

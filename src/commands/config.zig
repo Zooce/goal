@@ -175,7 +175,7 @@ const init_cmd = @import("init.zig");
 const config_cmd = @This();
 
 test "config command lists settings" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // Initialize goal so local/global metadata exist.
@@ -192,7 +192,7 @@ test "config command lists settings" {
 }
 
 test "config command shows specific setting" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // Initialize goal so local/global metadata exist.
@@ -210,7 +210,7 @@ test "config command shows specific setting" {
 }
 
 test "config command sets setting value" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // Initialize goal so local/global metadata exist.

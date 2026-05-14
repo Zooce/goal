@@ -40,7 +40,7 @@ const TestEnv = @import("../TestEnv.zig");
 const commands = @import("../commands.zig");
 
 test "commitmsg outputs tag when active goal exists" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     try commands.init.run(&env.ctx);
@@ -65,7 +65,7 @@ test "commitmsg outputs tag when active goal exists" {
 }
 
 test "commitmsg produces no output when no active goal" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     try commands.init.run(&env.ctx);

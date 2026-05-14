@@ -119,7 +119,7 @@ const uuid = @import("../uuid.zig");
 const init = @import("init.zig");
 
 test "new command creates goal with title" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     try init.run(&env.ctx);
@@ -150,7 +150,7 @@ test "new command creates goal with title" {
 }
 
 test "new with empty title shows error" {
-    var env = try TestEnv.init(&.{.{ .buffer = "\n" }});
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
     defer env.resetStderr();
 
