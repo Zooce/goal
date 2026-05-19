@@ -116,13 +116,13 @@ pub fn run(ctx_: *const Context, title_: ?[]const u8) ![]const u8 {
 const TestEnv = @import("../TestEnv.zig");
 const uuid = @import("../uuid.zig");
 
-const init = @import("init.zig");
+const init_cmd = @import("init.zig");
 
 test "new command creates goal with title" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     const title = "fix the bug";
 
@@ -134,17 +134,12 @@ test "new command creates goal with title" {
     }
 
     // 2. New goals are created in the "later" directory
-    const rel_path = rel_path: {
-        const goal_id = try env.readFile("proj/.goal/.goal_id");
-        defer env.alloc.free(goal_id);
-
-        var path_buf: [uuid.SLICE_LEN + 10]u8 = undefined;
-        break :rel_path try std.fmt.bufPrint(&path_buf, ".goal/{s}/l/1", .{goal_id});
-    };
-    try std.testing.expect(try env.pathExists(rel_path));
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/1", .{goal_id}));
 
     // 3. The content in this case is just the goal title
-    const content = try env.readFile(rel_path);
+    const content = try env.readFile(".goal/{s}/l/1", .{goal_id});
     defer env.alloc.free(content);
     try std.testing.expectEqualStrings(title, content);
 }
@@ -154,7 +149,7 @@ test "new with empty title shows error" {
     defer env.deinit();
     defer env.resetStderr();
 
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     try std.testing.expectError(error.EmptyGoalTitle, run(&env.ctx, ""));
 }

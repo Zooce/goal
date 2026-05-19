@@ -241,7 +241,7 @@ test "deinit command" {
     try init.run(&env.ctx);
 
     // Capture goal id before deinit removes it
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     // Reset stdout so init output doesn't pollute our assertions
@@ -251,19 +251,15 @@ test "deinit command" {
     try deinit.run(&env.ctx, .{});
 
     // 1. Local .goal/ directory is gone
-    try std.testing.expect(!try env.pathExists("proj/.goal/"));
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
 
     // 2. Global goal directory is gone
-    {
-        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
-        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
-        try std.testing.expect(!try env.pathExists(global_path));
-        // sanity check - /.goal/ should still exist
-        try std.testing.expect(try env.pathExists(".goal/"));
-    }
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
+    // sanity check - /.goal/ should still exist
+    try std.testing.expect(try env.pathExists(".goal/", .{}));
 
     // 3. Git hook is gone
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // 4. Deinit commit exists in local repo
     {
@@ -286,7 +282,7 @@ test "deinit fails when not initialized" {
     defer env.resetStderr();
 
     // Sanity check: project .goal/ doesn't exist
-    try std.testing.expect(!try env.pathExists("proj/.goal/"));
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
 
     // Run deinit without running init first.
     try std.testing.expectError(error.GoalNotInitialized, deinit.run(&env.ctx, .{}));
@@ -305,7 +301,7 @@ test "deinit with --no-local-commit skips local commit" {
     try init.run(&env.ctx);
 
     // Capture goal id before deinit removes local metadata.
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -315,15 +311,11 @@ test "deinit with --no-local-commit skips local commit" {
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Skipping local commit") != null);
 
     // Git hook is deleted
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // Local and global directories should still be deleted.
-    try std.testing.expect(!try env.pathExists("proj/.goal/"));
-    {
-        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
-        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
-        try std.testing.expect(!try env.pathExists(global_path));
-    }
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
 
     // Local commit is skipped
     {
@@ -352,7 +344,7 @@ test "deinit with --no-global-commit skips global commit" {
     try init.run(&env.ctx);
 
     // Capture goal id before deinit removes local metadata.
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -362,15 +354,11 @@ test "deinit with --no-global-commit skips global commit" {
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Skipping global commit") != null);
 
     // Git hook is deleted
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // Local and global directories should both be deleted.
-    try std.testing.expect(!try env.pathExists("proj/.goal/"));
-    {
-        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
-        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
-        try std.testing.expect(!try env.pathExists(global_path));
-    }
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
 
     // Local commit is NOT skipped
     {
@@ -399,7 +387,7 @@ test "deinit with --no-commit skips both commits" {
     try init.run(&env.ctx);
 
     // Capture goal id before deinit removes local metadata.
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -411,15 +399,11 @@ test "deinit with --no-commit skips both commits" {
     try std.testing.expect(std.mem.indexOf(u8, stdout, "Skipping global commit") != null);
 
     // Git hook is deleted
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // Directories should still be deleted.
-    try std.testing.expect(!try env.pathExists("proj/.goal/"));
-    {
-        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
-        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
-        try std.testing.expect(!try env.pathExists(global_path));
-    }
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
 
     // Both local and global commits are skipped.
     {
@@ -446,7 +430,7 @@ test "deinit cancelled at local confirmation" {
     try init.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -454,13 +438,9 @@ test "deinit cancelled at local confirmation" {
 
     // Deinit should cancel and leave everything in place.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
-    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
-    try std.testing.expect(try env.pathExists("proj/.goal/"));
-    {
-        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
-        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
-        try std.testing.expect(try env.pathExists(global_path));
-    }
+    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
+    try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}", .{goal_id}));
 
     // Neither repo should get a deinit commit.
     {
@@ -488,7 +468,7 @@ test "deinit cancelled at global confirmation" {
     try init.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -496,13 +476,9 @@ test "deinit cancelled at global confirmation" {
 
     // Deinit should cancel before any deletion work starts.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
-    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg"));
-    try std.testing.expect(try env.pathExists("proj/.goal/"));
-    {
-        var global_path_buf: [uuid.SLICE_LEN + 6]u8 = undefined;
-        const global_path = try std.fmt.bufPrint(&global_path_buf, ".goal/{s}", .{goal_id});
-        try std.testing.expect(try env.pathExists(global_path));
-    }
+    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
+    try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}", .{goal_id}));
 
     // Neither repo should get a deinit commit.
     {

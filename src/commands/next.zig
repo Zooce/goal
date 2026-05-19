@@ -111,16 +111,15 @@ test "next command promotes goal from later to next" {
 
     try init_cmd.run(&env.ctx);
     const filename = try new_cmd.run(&env.ctx, "fix the bug");
-    defer env.ctx.alloc.free(filename);
+    defer env.alloc.free(filename);
 
     // Run: next with goal ID
     try next_cmd.run(&env.ctx, filename);
 
     // Verify: goal moved to .goal/<uuid>/n/
-    const goal_id = try env.readFile("proj/.goal/.goal_id");
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
-    var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-    try std.testing.expect(try env.pathExists(try std.fmt.bufPrint(&path_buf, ".goal/{s}/n/1", .{goal_id})));
+    try std.testing.expect(try env.pathExists(".goal/{s}/n/1", .{goal_id}));
 }
 
 test "next with no arguments shows error" {

@@ -46,6 +46,8 @@ ctx: Context,
 
 _state: *State,
 
+_path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined,
+
 /// Create an isolated test environment.
 ///
 /// Sets up a temporary directory tree with:
@@ -150,12 +152,16 @@ pub fn deinit(self_: *TestEnv) void {
     self_.tmp_dir.cleanup();
 }
 
+// TODO: readFile is mostly being used to read "proj/.goal/.goal_id" .. env.readGoalId()...
+
 /// Read a file from the temporary directory tree.
 ///
-/// `rel_path_` is relative to the tmp root (e.g. `"proj/.goal/config"`).
+/// `rel_path_fmt_` is relative to the tmp root (e.g. `"proj/.goal/config"`).
+/// Overwrites an internal path buffer.
 /// Returns an allocated copy of the file contents.  Caller must free.
-pub fn readFile(self_: *TestEnv, rel_path_: []const u8) ![]const u8 {
-    const path = try std.Io.Dir.path.join(self_.alloc, &.{ self_.tmp_path, rel_path_ });
+pub fn readFile(self_: *TestEnv, comptime rel_path_fmt_: []const u8, fmt_args_: anytype) ![]const u8 {
+    const rel_path = try std.fmt.bufPrint(&self_._path_buf, rel_path_fmt_, fmt_args_);
+    const path = try std.Io.Dir.path.join(self_.alloc, &.{ self_.tmp_path, rel_path });
     defer self_.alloc.free(path);
 
     return std.Io.Dir.cwd().readFileAlloc(self_.io, path, self_.alloc, .unlimited);
@@ -182,11 +188,14 @@ pub fn writeFile(self_: *TestEnv, rel_path_: []const u8, content_: []const u8) !
 
 /// Check whether a path exists in the temporary directory tree.
 ///
-/// `rel_path_` is relative to the tmp root.  Returns `true` if the path
+/// `rel_path_fmt_` is relative to the tmp root.  Returns `true` if the path
 /// is accessible, `false` if it does not exist.  Propagates other errors
 /// (e.g. permission denied).
-pub fn pathExists(self_: *TestEnv, rel_path_: []const u8) !bool {
-    const path = try std.Io.Dir.path.join(self_.alloc, &.{ self_.tmp_path, rel_path_ });
+/// Overwrites an internal path buffer.
+pub fn pathExists(self_: *TestEnv, comptime rel_path_fmt_: []const u8, fmt_args_: anytype) !bool {
+    const rel_path = try std.fmt.bufPrint(&self_._path_buf, rel_path_fmt_, fmt_args_);
+
+    const path = try std.Io.Dir.path.join(self_.alloc, &.{ self_.tmp_path, rel_path });
     defer self_.alloc.free(path);
 
     std.Io.Dir.accessAbsolute(self_.io, path, .{}) catch |err| switch (err) {
@@ -252,26 +261,26 @@ test "TestEnv.init creates isolated workspace" {
     defer env.deinit();
 
     // verify test dirs were created
-    try std.testing.expect(try env.pathExists(".goal/"));
-    try std.testing.expect(try env.pathExists("xdg/"));
-    try std.testing.expect(try env.pathExists("proj/"));
+    try std.testing.expect(try env.pathExists(".goal/", .{}));
+    try std.testing.expect(try env.pathExists("xdg/", .{}));
+    try std.testing.expect(try env.pathExists("proj/", .{}));
 
     // verify git was initialized
     var email = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.email" }, .cwd = env.base_path });
     try std.testing.expectEqualStrings("test@example.com", email);
-    env.ctx.alloc.free(email);
+    env.alloc.free(email);
 
     var user = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.name" }, .cwd = env.base_path });
     try std.testing.expectEqualStrings("test", user);
-    env.ctx.alloc.free(user);
+    env.alloc.free(user);
 
     email = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.email" } });
     try std.testing.expectEqualStrings("test@example.com", email);
-    env.ctx.alloc.free(email);
+    env.alloc.free(email);
 
     user = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.name" } });
     try std.testing.expectEqualStrings("test", user);
-    env.ctx.alloc.free(user);
+    env.alloc.free(user);
 
     // verify environment variables
     try std.testing.expectEqualStrings(env.tmp_path, env.ctx.environ_map.get("GOAL_BASE_DIR").?);
@@ -285,7 +294,7 @@ test "writeFile and readFile round-trip" {
     // write to a nested path (creates parent dirs automatically)
     try env.writeFile("proj/hello.txt", "hello world\n");
 
-    const content = try env.readFile("proj/hello.txt");
+    const content = try env.readFile("proj/hello.txt", .{});
     defer env.alloc.free(content);
     try std.testing.expectEqualStrings("hello world\n", content);
 }
@@ -294,11 +303,11 @@ test "pathExists returns false for missing files" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    try std.testing.expect(!try env.pathExists("nonexistent"));
-    try std.testing.expect(!try env.pathExists("proj/does-not-exist.txt"));
+    try std.testing.expect(!try env.pathExists("nonexistent", .{}));
+    try std.testing.expect(!try env.pathExists("proj/does-not-exist.txt", .{}));
 
     // but the directories should exist
-    try std.testing.expect(try env.pathExists("proj/"));
+    try std.testing.expect(try env.pathExists("proj/", .{}));
 }
 
 test "stdout capture and reset" {
@@ -327,8 +336,8 @@ test "multiple isolated environments don't interfere" {
 
     // writing in one doesn't affect the other
     try env_a.writeFile("proj/test.txt", "from A");
-    try std.testing.expect(try env_a.pathExists("proj/test.txt"));
-    try std.testing.expect(!try env_b.pathExists("proj/test.txt"));
+    try std.testing.expect(try env_a.pathExists("proj/test.txt", .{}));
+    try std.testing.expect(!try env_b.pathExists("proj/test.txt", .{}));
 }
 
 test "stdin mock replays calls" {
