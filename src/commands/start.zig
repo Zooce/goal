@@ -452,3 +452,65 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         try ctx_.stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init_cmd = @import("init.zig");
+const new_cmd = @import("new.zig");
+const start_cmd = @This();
+
+test "start command activates goal from next/" {
+    // Setup: init goal, create goal, move to next/
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const filename = try new_cmd.run(&env.ctx, "fix the bug");
+    // No need to free `filename` here - args.deinit(env.alloc) will do it
+    // defer env.alloc.free(filename);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    // no active id yet
+    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}/a/{s}", .{ goal_id, filename }));
+
+    // Run: start with goal ID
+    const args: Args = .{ .id_type = .{ .id = filename } };
+    defer args.deinit(env.alloc);
+    try start_cmd.run(&env.ctx, args);
+
+    // Verify: goal moved to active/, .active_id file contains goal ID
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/{s}", .{ goal_id, filename }));
+    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    const active_id = try env.readFile("proj/.goal/.active_id", .{});
+    defer env.alloc.free(active_id);
+    try std.testing.expectEqualStrings(filename, active_id);
+}
+
+test "cannot start goal if one is already started" {
+    // Setup: init, create goal and start it, create a second goal
+    // Run: start second goal
+    // Verify: error.NoActiveGoal
+}
+
+test "start with invalid goal ID shows error" {
+    // Setup: init, goal exists
+    // Run: start 999
+    // Verify: goal not found error
+}
+
+test "can only start if there are inactive goals to start" {
+    // should error with NoInactiveGoalsToStart
+}
+
+test "start + new creates a new goal and starts it" {
+    // init
+    // start (new)
+    // verify active goal
+}
