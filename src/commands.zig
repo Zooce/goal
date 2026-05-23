@@ -9,9 +9,6 @@ pub const sync = @import("commands/sync.zig");
 pub const commitmsg = @import("commands/commitmsg.zig");
 pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
-pub const stage = @import("commands/stage.zig");
-pub const unstage = @import("commands/unstage.zig");
-pub const discard = @import("commands/discard.zig");
 pub const list = @import("commands/list.zig");
 pub const complete = @import("commands/complete.zig");
 pub const stop = @import("commands/stop.zig");
@@ -46,10 +43,6 @@ pub const Command = enum {
     later,
 
     commitmsg,
-
-    stage,
-    unstage,
-    discard,
 
     batman, // just for development
     config,

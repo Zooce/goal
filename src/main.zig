@@ -81,9 +81,6 @@ fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.Arg
 
         // Git Commands
 
-        .stage => try commands.stage.main(ctx_, iter_),
-        .unstage => try commands.unstage.main(ctx_, iter_),
-        .discard => try commands.discard.main(ctx_, iter_),
         .commitmsg => try commands.commitmsg.main(ctx_),
 
         .config => try commands.config.main(ctx_, iter_),
