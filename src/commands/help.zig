@@ -65,8 +65,6 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         \\    stage      Stage changes. (git add)
         \\    unstage    Unstage staged changes. (git restore --staged)
         \\    discard    Discard unstaged changes. (git restore)
-        \\    commit     Commit staged changes while including the
-        \\               goal tag in the commit message. (git commit)
         \\
         \\Environment Variables:
         \\
@@ -537,35 +535,6 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
             \\    For `git restore` help (pipe this to `less`, trust me):
             \\
             \\        goal discard --git-help | less
-            \\
-            ,
-            .commit, .save =>
-            \\
-            \\The `commit` Command
-            \\
-            \\
-            \\Commits (saves) all staged files with the active goal tag in the commit message.
-            \\
-            \\
-            \\Alias: `save`
-            \\
-            \\Usage:
-            \\
-            \\    goal commit [--complete] [-m <message>]
-            \\
-            \\Options:
-            \\
-            \\    --complete      Also complete the goal.
-            \\    -m <message>    Like `git commit -m <message>`. Be careful of
-            \\                    the type of quotes you use around <message>.
-            \\
-            \\Help:
-            \\
-            \\    To show this message use one of the following:
-            \\
-            \\        goal commit [help | -h | --help]
-            \\    OR
-            \\        goal help commit
             \\
             ,
             .config =>

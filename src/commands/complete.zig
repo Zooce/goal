@@ -11,8 +11,6 @@ const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const commit = @import("commit.zig");
-
 const help = @import("help.zig");
 
 const Self = Command.complete;
@@ -66,21 +64,50 @@ pub fn run(ctx_: *const Context) !void {
 
     if (try git.hasChanges(ctx_, .{ .kinds = &[_]git.ChangeKind{.staged} })) {
         if (try cli.confirm(ctx_, "\nCommit staged changes as part of completing this goal?")) {
-            try commit.run(ctx_, .{ ._goal = goal, .complete = true });
-            try ctx_.stdout.writeAll("\nCongrats! You did it.\n");
-        } else if (try cli.confirm(ctx_, "\nComplete the goal anyways?")) {
             try ActiveId.clear(ctx_, dirs.local.dir);
 
-            try proc.run(ctx_, .{
-                .argv = &.{ "git", "add", ".goal/.active_id" },
-            });
+            // don't try to commit the active goal file if it's being ignored by git
+            proc.run(ctx_, .{
+                .argv = &.{ "git", "check-ignore", ".goal/.active_id" },
+                .quiet = true,
+            }) catch {
+                try proc.run(ctx_, .{
+                    .argv = &.{ "git", "add", ".goal/.active_id" },
+                });
+            };
 
             const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
             defer ctx_.alloc.free(commit_subject);
 
             try proc.run(ctx_, .{
-                .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+                .argv = &.{ "git", "commit", "-m", commit_subject, "--edit" },
             });
+
+            std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io) catch |err| {
+                std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
+                return err;
+            };
+
+            try ctx_.stdout.writeAll("\nCongrats! You did it.\n");
+        } else if (try cli.confirm(ctx_, "\nComplete the goal anyways?")) {
+            try ActiveId.clear(ctx_, dirs.local.dir);
+
+            // don't try to commit the active goal file if it's being ignored by git
+            proc.run(ctx_, .{
+                .argv = &.{ "git", "check-ignore", ".goal/.active_id" },
+                .quiet = true,
+            }) catch {
+                try proc.run(ctx_, .{
+                    .argv = &.{ "git", "add", ".goal/.active_id" },
+                });
+
+                const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
+                defer ctx_.alloc.free(commit_subject);
+
+                try proc.run(ctx_, .{
+                    .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+                });
+            };
 
             std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io) catch |err| {
                 std.debug.print("\nUnable to delete Goal ${s}\n", .{goal.id});
@@ -108,18 +135,123 @@ pub fn run(ctx_: *const Context) !void {
 
     try ActiveId.clear(ctx_, dirs.local.dir);
 
-    try proc.run(ctx_, .{
-        .argv = &.{ "git", "add", ".goal/.active_id" },
-    });
+    // don't try to commit the active goal file if it's being ignored by git
+    proc.run(ctx_, .{
+        .argv = &.{ "git", "check-ignore", ".goal/.active_id" },
+        .quiet = true,
+    }) catch {
+        try proc.run(ctx_, .{
+            .argv = &.{ "git", "add", ".goal/.active_id" },
+        });
 
-    const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
-    defer ctx_.alloc.free(commit_subject);
+        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
+        defer ctx_.alloc.free(commit_subject);
 
-    try proc.run(ctx_, .{
-        .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
-    });
+        try proc.run(ctx_, .{
+            .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+        });
+    };
 
     try std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io);
 
     try ctx_.stdout.print("\nGoal #{s} is now complete! I'm so proud of you. You did it!\n", .{goal.id});
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init_cmd = @import("init.zig");
+const start_cmd = @import("start.zig");
+const complete_cmd = @This();
+
+test "completing a goal" {
+    var env = try TestEnv.init(&.{
+        .{ .buffer = "\n" },
+        .{ .buffer = "yes\n" },
+    });
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+
+    try complete_cmd.run(&env.ctx);
+
+    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
+}
+
+test "completeing a goal ignoring staged changes" {
+    var env = try TestEnv.init(&.{
+        .{ .buffer = "\n" },
+        // we only test this case because if we respond with "yes" then an editor opens and we can't send test commands to it
+        .{ .buffer = "no\n" },
+        .{ .buffer = "yes\n" },
+    });
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+
+    try env.writeFile("proj/file.txt", "a new file");
+    try proc.run(&env.ctx, .{
+        .argv = &.{ "git", "add", "file.txt" },
+    });
+
+    try complete_cmd.run(&env.ctx);
+
+    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
+}
+
+test "completing a goal ignoring unstaged changes" {
+    var env = try TestEnv.init(&.{
+        .{ .buffer = "\n" },
+        .{ .buffer = "no\n" },
+        .{ .buffer = "yes\n" },
+    });
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+
+    try env.writeFile("proj/file.txt", "a new file");
+    // don't git add this so we have unstaged changes
+
+    try complete_cmd.run(&env.ctx);
+
+    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
+}
+
+test "completing a goal without ignoring unstaged changes" {
+    var env = try TestEnv.init(&.{
+        .{ .buffer = "\n" },
+        .{ .buffer = "yes\n" },
+    });
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+
+    try env.writeFile("proj/file.txt", "a new file");
+    // don't git add this so we have unstaged changes
+
+    try complete_cmd.run(&env.ctx);
+
+    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));
 }
