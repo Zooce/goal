@@ -7,6 +7,7 @@ pub const RunOptions = struct {
     label: ?[]const u8 = null,
     cwd: ?[]const u8 = null,
     custom_stdout_fn: ?*const fn (ctx_: *const Context, output_: []const u8) anyerror!void = null,
+    quiet: bool = false,
 };
 
 /// Runs a command and prints stdout.
@@ -20,9 +21,9 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
         ctx_.alloc.free(res.stdout);
     }
 
-    try checkError(ctx_, res, opts_.argv);
+    try checkError(ctx_, res, opts_.argv, opts_.quiet);
 
-    if (res.stdout.len > 0) {
+    if (res.stdout.len > 0 and !opts_.quiet) {
         if (opts_.label) |label| try ctx_.stdout.print("\n{s}", .{label});
         if (opts_.custom_stdout_fn) |stdout_fn| {
             try stdout_fn(ctx_, res.stdout);
@@ -36,6 +37,7 @@ pub const ExecOptions = struct {
     argv: []const []const u8,
     cwd: ?[]const u8 = null,
     trim: bool = true,
+    quiet: bool = false,
 };
 
 /// Execute a command and return stdout. Caller is responsible for returned memory.
@@ -50,7 +52,7 @@ pub fn exec(ctx_: *const Context, opts_: ExecOptions) ![]const u8 {
         ctx_.alloc.free(res.stdout);
     }
 
-    try checkError(ctx_, res, opts_.argv);
+    try checkError(ctx_, res, opts_.argv, opts_.quiet);
 
     if (opts_.trim) {
         const trimmed = std.mem.trim(u8, res.stdout, " \t\r\n");
@@ -59,7 +61,7 @@ pub fn exec(ctx_: *const Context, opts_: ExecOptions) ![]const u8 {
     return ctx_.alloc.dupe(u8, res.stdout);
 }
 
-inline fn checkError(ctx_: *const Context, res_: std.process.RunResult, argv_: []const []const u8) !void {
+inline fn checkError(ctx_: *const Context, res_: std.process.RunResult, argv_: []const []const u8, quiet_: bool) !void {
     const err_code: ?u32 = switch (res_.term) {
         .exited => |code| if (code != 0) code else null,
         .signal => |code| @intFromEnum(code),
@@ -68,11 +70,13 @@ inline fn checkError(ctx_: *const Context, res_: std.process.RunResult, argv_: [
     };
 
     if (err_code) |code| {
-        if (res_.stderr.len > 0) try ctx_.stderr.print("\nExit code: {d}\n{s}", .{ code, res_.stderr });
-        const cmd = try std.mem.join(ctx_.alloc, " ", argv_);
-        defer ctx_.alloc.free(cmd);
-        try ctx_.stderr.print("\nCommand: {s}\n", .{cmd});
-        try ctx_.stderr.flush();
+        if (!quiet_) {
+            if (res_.stderr.len > 0) try ctx_.stderr.print("\nExit code: {d}\n{s}", .{ code, res_.stderr });
+            const cmd = try std.mem.join(ctx_.alloc, " ", argv_);
+            defer ctx_.alloc.free(cmd);
+            try ctx_.stderr.print("\nCommand: {s}\n", .{cmd});
+            try ctx_.stderr.flush();
+        }
         return error.ProcError;
     }
 }

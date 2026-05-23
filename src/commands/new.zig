@@ -114,7 +114,6 @@ pub fn run(ctx_: *const Context, title_: ?[]const u8) ![]const u8 {
 // ---------------------------------------------------------------------------
 
 const TestEnv = @import("../TestEnv.zig");
-const uuid = @import("../uuid.zig");
 
 const init_cmd = @import("init.zig");
 

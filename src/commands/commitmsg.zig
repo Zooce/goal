@@ -48,10 +48,7 @@ test "commitmsg outputs tag when active goal exists" {
     const filename = try commands.new.run(&env.ctx, "something");
     defer env.alloc.free(filename);
 
-    const start_args: commands.start.Args = .{
-        .id_type = .{ .id = try env.alloc.dupe(u8, filename) },
-    };
-    defer start_args.deinit(env.alloc);
+    const start_args: commands.start.Args = .{ .id = filename };
     try commands.start.run(&env.ctx, start_args);
 
     env.resetStdout();

@@ -63,12 +63,23 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
 
         try std.Io.Dir.rename(dirs.active.dir, id, if (later_) dirs.later.dir else dirs.next.dir, id, ctx_.io);
 
-        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
-        defer ctx_.alloc.free(commit_subject);
+        // don't try to commit the active goal file if it's being ignored by git
+        proc.run(ctx_, .{
+            .argv = &.{ "git", "check-ignore", ".goal/.active_id" },
+            .quiet = true,
+        }) catch {
+            // commit active id file
+            try proc.run(ctx_, .{
+                .argv = &.{ "git", "add", ".goal/.active_id" },
+            });
 
-        try proc.run(ctx_, .{
-            .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
-        });
+            const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
+            defer ctx_.alloc.free(commit_subject);
+
+            try proc.run(ctx_, .{
+                .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
+            });
+        };
 
         if (later_) {
             try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
