@@ -68,11 +68,6 @@ fn splitByNewline(ctx_: *const Context, output_: []const u8) !void {
     }
 }
 
-/// A helper functions for getting help docs for a git command.
-pub fn help(ctx_: *const Context, comptime cmd_: []const u8) !void {
-    try proc.run(ctx_, .{ .argv = &.{ "git", cmd_, "--help" } });
-}
-
 /// Runs `git log --all --graph --decorate --oneline --grep 'Goal #{id}' --grep '{git user email}' --all-match`
 /// showing the output in stdout.
 ///
