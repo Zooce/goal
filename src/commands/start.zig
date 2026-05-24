@@ -21,12 +21,13 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
         .help => return try help.run(ctx_.stdout, Self),
         .args => |args| args,
     };
-    if (args) |_args| {
-        defer switch (_args) {
+    // we are responsible for the id or title from parseArgs
+    defer if (args) |_args| {
+        switch (_args) {
             .id => |id| ctx_.alloc.free(id),
             .new => |run_new| if (run_new.title) |t| ctx_.alloc.free(t),
-        };
-    }
+        }
+    };
     try run(ctx_, args);
 }
 
