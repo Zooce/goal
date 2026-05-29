@@ -27,7 +27,7 @@ Perferr immutable (const) pointers as function parameters.
 
 ## Testing
 
-Quick: `zig build test --summary all --test-timeout 500ms`
+Quick: `mise test`
 
 When creating a test, use `TestEnv` and the normal flow a user would to set things up, `goal init`, `goal new 'something new'`, `goal start 1`, etc.. and remember each command has a public `run` function that tests can call directly to invoke commands programmatically.
 
