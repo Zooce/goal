@@ -9,9 +9,35 @@ const Command = @import("../commands.zig").Command;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const ArgIter = @import("../args.zig").ArgIter;
 const optionalArgOrCommand = @import("../args.zig").optionalArgOrCommand;
-const help = @import("help.zig");
-
 const Self = Command.delete;
+
+pub const help_text =
+    \\
+    \\The `delete` Command
+    \\
+    \\
+    \\Deletes a goal.
+    \\
+    \\If no goal ID is given you'll select one from the list of goals.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal delete [id]
+    \\
+    \\Arguments:
+    \\
+    \\    [id]    The goal ID (optional).
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal delete [help | -h | --help]
+    \\    OR
+    \\        goal help delete
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
@@ -19,7 +45,7 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
 
     var ids = switch (try parseArgs(ctx_, iter_, dirs)) {
         .args => |ids| ids,
-        .help => return try help.run(ctx_.stdout, Self),
+        .help => return try ctx_.stdout.writeAll(help_text),
     };
     defer ids.deinit(ctx_.alloc);
 

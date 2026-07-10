@@ -5,13 +5,42 @@ const Directories = @import("../Directories.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.list;
+
+pub const help_text =
+    \\
+    \\The `list` Command
+    \\
+    \\
+    \\Lists your goals. Shows the active and next goals by default.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal list [--active | --next | --later | --all]
+    \\
+    \\Arguments:
+    \\
+    \\    [--active]    List the active goals. (default)
+    \\    [--next]      List the next goals. (default)
+    \\    [--later]     List the later goals.
+    \\    [--all]       List all goals.
+    \\
+    \\    NOTE: Any combinations of these arguments can be provided.
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal list [help | -h | --help]
+    \\    OR
+    \\        goal help list
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => |list_type| try run(ctx_, list_type),
     }
 }

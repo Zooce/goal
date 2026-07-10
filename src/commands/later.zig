@@ -7,13 +7,48 @@ const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
 
 const cli = @import("../cli.zig");
-const help = @import("help.zig");
 
 const Self = Command.later;
 
+pub const help_text =
+    \\
+    \\The `later` Command
+    \\
+    \\
+    \\Demotes a goal from the Next list to the Later list.
+    \\
+    \\Only Next goals can be demoted. If a goal is currently active and you want
+    \\it to go straight to Later, stop it with `goal stop --later`.
+    \\
+    \\If no goal ID is given you'll select one from the list of Next goals.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal later [id]
+    \\
+    \\Arguments:
+    \\
+    \\    [id]    The goal ID (optional). If omitted, you'll pick from the Next list.
+    \\
+    \\Examples:
+    \\
+    \\    goal later        # pick from Next list interactively
+    \\    goal later 3      # demote goal #3 from Next to Later
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal later [help | -h | --help]
+    \\    OR
+    \\        goal help later
+    \\
+;
+
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     const id = switch (try parseArgs(ctx_, iter_)) {
-        .help => return try help.run(ctx_.stdout, Self),
+        .help => return try ctx_.stdout.writeAll(help_text),
         .run => |id| id,
     };
     defer if (id) |i| ctx_.alloc.free(i);

@@ -1,168 +1,124 @@
 const std = @import("std");
+
 const Context = @import("../Context.zig");
-const Config = @import("../Config.zig");
-const ConfigKey = @import("../Config.zig").ConfigKey;
-const Meta = @import("../Meta.zig");
-const Directories = @import("../Directories.zig");
-const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const stringToCommand = @import("../args.zig").stringToCommand;
-const help = @import("help.zig");
+const Command = @import("../commands.zig").Command;
+pub const list = @import("config/list.zig");
+pub const get = @import("config/get.zig");
+pub const set = @import("config/set.zig");
+pub const unset = @import("config/unset.zig");
+pub const defaults = @import("config/defaults.zig");
 
 const Self = Command.config;
 
-pub const Setting = struct {
-    key: ConfigKey,
-    val: ?[]const u8,
+pub const help_text =
+    \\
+    \\The `config` Command
+    \\
+    \\
+    \\Manage configuration settings for goal.
+    \\
+    \\Configuration is layered: env vars > project config > global config > defaults.
+    \\Use subcommands to inspect or change settings. Writes are surgical (only the
+    \\requested key is modified).
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal config list [--global]              Show configuration values
+    \\    goal config get <key> [--global]         Print a raw value
+    \\    goal config set <key> <value> [--global] Set a value
+    \\    goal config unset <key>... [--global]    Remove explicit value(s)
+    \\    goal config defaults                     Show built-in defaults
+    \\
+    \\Subcommands:
+    \\
+    \\    list        Show effective (merged) config, or --global file only
+    \\    get         Print a single key's raw value
+    \\    set         Write a key (project config by default; --global for global)
+    \\    unset       Remove a key from the target scope
+    \\    defaults    Show built-in default values only
+    \\
+    \\Settings:
+    \\
+    \\    base-dir    Directory for goal storage
+    \\    editor      Default editor for goal editing
+    \\    commit      Whether goal info is appended to commit messages
+    \\
+    \\Flags:
+    \\
+    \\    --global    Target the global config file (list/get/set/unset)
+    \\
+    \\Environment Variables:
+    \\
+    \\    GOAL_BASE_DIR    Override the base-dir setting
+    \\    GOAL_EDITOR      Override the editor setting
+    \\    GOAL_COMMIT      Override the commit setting
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal config [help | -h | --help]
+    \\    OR
+    \\        goal help config
+    \\
+;
 
-    pub fn deinit(self_: Setting, alloc_: std.mem.Allocator) void {
-        if (self_.val) |v| alloc_.free(v);
+pub const Subcommand = enum {
+    list,
+    get,
+    set,
+    unset,
+    defaults,
+
+    pub fn fromString(str_: []const u8) ?Subcommand {
+        return std.meta.stringToEnum(Subcommand, str_);
     }
 };
 
-pub const Args = union(enum) {
-    list: void,
-    setting: Setting,
-};
+pub const Args = Subcommand;
 
+/// Dispatcher for `goal config <subcommand> ...`.
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
-    const args = switch (try parseArgs(ctx_, iter_)) {
-        .help => return try help.run(ctx_.stdout, Self),
-        .args => |args| args,
-    };
-    defer switch (args) {
-        .setting => |setting| setting.deinit(ctx_.alloc),
+    switch (try parseArgs(ctx_, iter_)) {
+        .help => return try ctx_.stdout.writeAll(help_text),
+        .args => |sub| try run(ctx_, sub, iter_),
+    }
+}
+
+/// Parses the subcommand name only. Remaining args are left on `iter_` for the subcommand.
+/// Bare `goal config` (or help flags) returns `.help`.
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
+    const arg = iter_.next() orelse return .help;
+
+    // help takes precedence over everything else
+    if (Command.fromString(arg)) |cmd| switch (cmd) {
+        .help => return .help,
         else => {},
     };
-    try run(ctx_, args);
-}
 
-pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
-    var list = false;
-    var key: ?ConfigKey = null;
-    var val: ?[]const u8 = null;
-
-    var count: u8 = 0;
-    while (iter_.next()) |arg| : (count += 1) {
-        // --help can be anywhere in the args
-        if (stringToCommand(arg)) |sub| switch (sub) {
-            .help => {
-                // we might have allocated memory for val that we don't need anymore
-                if (val) |v| ctx_.alloc.free(v);
-                return .help;
-            },
-            else => return Self.unexpectedSubcommand(ctx_, sub),
-        } else |_| {} // ignore error
-
-        // --list
-        if (std.mem.eql(u8, arg, "--list") or std.mem.eql(u8, arg, "-l")) {
-            if (list) return Self.duplicateFlag(ctx_, arg);
-            if (key != null) return Self.unexpectedArgument(ctx_, arg);
-            list = true;
-            continue;
-        }
-
-        // setting
-        if (std.mem.eql(u8, arg, "base-dir")) {
-            if (list or key != null) return Self.tooManyArguments(ctx_);
-            key = .base_dir;
-            continue;
-        }
-
-        if (std.mem.eql(u8, arg, "editor")) {
-            if (list or key != null) return Self.tooManyArguments(ctx_);
-            key = .editor;
-            continue;
-        }
-
-        if (std.mem.eql(u8, arg, "project-name")) {
-            if (list or key != null) return Self.tooManyArguments(ctx_);
-            key = .project_name;
-            continue;
-        }
-
-        // value
-        if (list or key == null) return Self.unexpectedArgument(ctx_, arg);
-        val = try ctx_.alloc.dupe(u8, arg);
+    // "list" is also a top-level Command, so subcommands are matched next
+    if (Subcommand.fromString(arg)) |sub| {
+        return .{ .args = sub };
     }
 
-    if (list or count == 0) {
-        return .{ .args = .list };
+    if (Command.fromString(arg)) |cmd| {
+        return Self.unexpectedSubcommand(ctx_, cmd);
     }
 
-    if (key) |k| {
-        const setting: Setting = .{
-            .key = k,
-            .val = val,
-        };
-
-        return .{ .args = .{ .setting = setting } };
-    }
-
-    unreachable;
+    return Self.unexpectedArgument(ctx_, arg);
 }
 
-test "config with unknown setting shows error" {
-    var env = try TestEnv.init(&.{});
-    defer env.deinit();
-    defer env.resetStderr();
-
-    // TODO: figure out a way to get args into TestEnv
-    const argv = [_][*:0]const u8{ "notasetting", "value" };
-    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
-    defer iter.deinit();
-
-    try std.testing.expectError(error.UnexpectedArgument, parseArgs(&env.ctx, &iter));
-}
-
-test "config shows error for duplicate flags" {
-    var env = try TestEnv.init(&.{});
-    defer env.deinit();
-    defer env.resetStderr();
-
-    const argv = [_][*:0]const u8{ "--list", "--list" };
-    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
-    defer iter.deinit();
-
-    try std.testing.expectError(error.DuplicateFlag, parseArgs(&env.ctx, &iter));
-}
-
-/// NOTE: This does not take ownership of args memory!
-pub fn run(ctx_: *const Context, args_: Args) !void {
-    var dirs = try Directories.open(ctx_, .{});
-    defer dirs.close();
-
-    var meta = try Meta.load(ctx_, dirs.base.dir);
-    defer meta.deinit();
-
-    var config = try Config.load(ctx_);
-    defer config.deinit();
-
-    switch (args_) {
-        .list => {
-            return config.print(null, meta.project_name);
-        },
-        .setting => |setting| {
-            switch (setting.key) {
-                .project_name => {
-                    if (setting.val) |val| {
-                        try meta.setProjectName(val);
-                        try meta.store();
-                    }
-
-                    return try config.print(setting.key, meta.project_name);
-                },
-                .base_dir, .editor => {
-                    if (setting.val) |val| {
-                        try config.setKey(setting.key, val);
-                        try config.store();
-                    }
-
-                    return try config.print(setting.key, null);
-                },
-            }
-        },
+/// Delegates to the chosen subcommand's `main` (which does its own parseArgs + run).
+pub fn run(ctx_: *const Context, sub_: Args, iter_: *ArgIter) !void {
+    switch (sub_) {
+        .list => try list.main(ctx_, iter_),
+        .get => try get.main(ctx_, iter_),
+        .set => try set.main(ctx_, iter_),
+        .unset => try unset.main(ctx_, iter_),
+        .defaults => try defaults.main(ctx_, iter_),
     }
 }
 
@@ -174,56 +130,143 @@ const TestEnv = @import("../TestEnv.zig");
 const init_cmd = @import("init.zig");
 const config_cmd = @This();
 
-test "config command lists settings" {
+test "'parseArgs' with no subcommand returns help" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    // Initialize goal so local/global metadata exist.
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try config_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .help);
+}
+
+test "'parseArgs' accepts help" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    // All help forms (-h, --help, help) are covered by Command.fromString tests.
+    const argv = [_][*:0]const u8{"help"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try config_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .help);
+}
+
+test "'parseArgs' accepts each subcommand" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    inline for (.{
+        .{ "list", .list },
+        .{ "get", .get },
+        .{ "set", .set },
+        .{ "unset", .unset },
+        .{ "defaults", .defaults },
+    }) |case| {
+        const argv = [_][*:0]const u8{case[0]};
+        var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+        defer iter.deinit();
+
+        const res = try config_cmd.parseArgs(&env.ctx, &iter);
+        try std.testing.expect(res == .args);
+        try std.testing.expect(res.args == case[1]);
+    }
+}
+
+test "'parseArgs' leaves remaining args for the subcommand" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    // After taking "get", "editor" and "--global" must still be on the iterator.
+    const argv = [_][*:0]const u8{ "get", "editor", "--global" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try config_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .args);
+    try std.testing.expect(res.args == .get);
+
+    try std.testing.expectEqualStrings("editor", iter.next().?);
+    try std.testing.expectEqualStrings("--global", iter.next().?);
+    try std.testing.expect(iter.next() == null);
+}
+
+test "'parseArgs' rejects unknown arguments and other commands" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    // Not a config subcommand and not a top-level command name.
+    {
+        const argv = [_][*:0]const u8{"not-a-subcommand"};
+        var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+        defer iter.deinit();
+
+        try std.testing.expectError(error.UnexpectedArgument, config_cmd.parseArgs(&env.ctx, &iter));
+    }
+
+    // A real top-level command that is not a config subcommand.
+    {
+        const argv = [_][*:0]const u8{"init"};
+        var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+        defer iter.deinit();
+
+        try std.testing.expectError(error.UnexpectedSubcommand, config_cmd.parseArgs(&env.ctx, &iter));
+    }
+}
+
+test "'run' delegates list" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
     try init_cmd.run(&env.ctx);
+    try env.setEnv("GOAL_EDITOR", "nvim");
+
+    // Remaining args after the subcommand name (none for bare list).
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
 
     env.resetStdout();
-    try config_cmd.run(&env.ctx, .list);
+    try config_cmd.run(&env.ctx, .list, &iter);
 
     const stdout = env.readStdout();
-    try std.testing.expect(std.mem.indexOf(u8, stdout, "Current configuration") != null);
-    try std.testing.expect(std.mem.indexOf(u8, stdout, "base-dir =") != null);
-    try std.testing.expect(std.mem.indexOf(u8, stdout, "editor =") != null);
-    try std.testing.expect(std.mem.indexOf(u8, stdout, "project-name = proj") != null);
+    try std.testing.expect(std.mem.indexOf(u8, stdout, "Effective configuration") != null);
+    try std.testing.expect(std.mem.indexOf(u8, stdout, "editor = nvim") != null);
 }
 
-test "config command shows specific setting" {
+test "'run' delegates get with remaining args" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    // Initialize goal so local/global metadata exist.
     try init_cmd.run(&env.ctx);
+    try env.setEnv("GOAL_EDITOR", "nvim");
 
-    var config = try Config.load(&env.ctx);
-    defer config.deinit();
+    const argv = [_][*:0]const u8{"editor"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
 
     env.resetStdout();
-    try config_cmd.run(&env.ctx, .{ .setting = .{ .key = .editor, .val = null } });
+    try config_cmd.run(&env.ctx, .get, &iter);
 
-    var expected_buf: [256]u8 = undefined;
-    const expected = try std.fmt.bufPrint(&expected_buf, "editor = {s}", .{config.editor});
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), expected) != null);
+    try std.testing.expectEqualStrings("nvim", env.readStdout());
 }
 
-test "config command sets setting value" {
+test "'run' delegates defaults" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    // Initialize goal so local/global metadata exist.
     try init_cmd.run(&env.ctx);
 
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
     env.resetStdout();
-    try config_cmd.run(&env.ctx, .{ .setting = .{ .key = .editor, .val = "helllyea" } });
+    try config_cmd.run(&env.ctx, .defaults, &iter);
 
-    // Verify stdout reflects new value.
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "editor = helllyea") != null);
-
-    // Verify the value persisted in config.
-    var config = try Config.load(&env.ctx);
-    defer config.deinit();
-    try std.testing.expectEqualStrings("helllyea", config.editor);
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Built-in default values:") != null);
 }

@@ -214,6 +214,14 @@ pub fn readStdout(self_: *const TestEnv) []const u8 {
     return self_.ctx.stdout.buffered();
 }
 
+/// Return all stderr captured so far as a string slice.
+///
+/// The returned slice is valid until the next call to `resetStderr`
+/// or `deinit`.
+pub fn readStderr(self_: *const TestEnv) []const u8 {
+    return self_.ctx.stderr.buffered();
+}
+
 /// Clear the captured stdout buffer.
 ///
 /// Useful between test assertions to isolate output from individual
@@ -228,6 +236,16 @@ pub fn resetStdout(self_: *TestEnv) void {
 /// need to see the output in these cases.
 pub fn resetStderr(self_: *TestEnv) void {
     _ = self_.ctx.stderr.consumeAll();
+}
+
+/// Set an environment variable in this test environment.
+pub fn setEnv(self_: *TestEnv, key_: []const u8, value_: []const u8) !void {
+    try self_._state.environ_map.put(key_, value_);
+}
+
+/// Remove an environment variable from this test environment.
+pub fn unsetEnv(self_: *TestEnv, key_: []const u8) void {
+    _ = self_._state.environ_map.swapRemove(key_);
 }
 
 fn ensureDir(io_: std.Io, path_: []const u8) !void {
@@ -322,6 +340,23 @@ test "stdout capture and reset" {
 
     try env.ctx.stdout.print("second output", .{});
     try std.testing.expectEqualStrings("second output", env.readStdout());
+}
+
+test "stderr capture and reset" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try env.ctx.stderr.print("first error", .{});
+    try std.testing.expectEqualStrings("first error", env.readStderr());
+
+    env.resetStderr();
+    try std.testing.expectEqualStrings("", env.readStderr());
+
+    try env.ctx.stderr.print("second error", .{});
+    try std.testing.expectEqualStrings("second error", env.readStderr());
+
+    // deinit dumps leftover stderr; clear after asserting capture works
+    env.resetStderr();
 }
 
 test "multiple isolated environments don't interfere" {

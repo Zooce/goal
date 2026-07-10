@@ -11,13 +11,35 @@ const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.complete;
+
+pub const help_text =
+    \\
+    \\The `complete` Command
+    \\
+    \\
+    \\Completes the active goal.
+    \\
+    \\This also deletes the goal.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal complete
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal complete [help | -h | --help]
+    \\    OR
+    \\        goal help complete
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => try run(ctx_),
     }
 }

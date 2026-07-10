@@ -9,13 +9,39 @@ const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.stop;
+
+pub const help_text =
+    \\
+    \\The `stop` Command
+    \\
+    \\
+    \\Stop working on the active goal.
+    \\
+    \\The goal will be moved into the Next list.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal stop [--later]
+    \\
+    \\Arguments:
+    \\
+    \\    [--later]    Move the goal to the Later list.
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal stop [help | -h | --help]
+    \\    OR
+    \\        goal help stop
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => |later| try run(ctx_, later),
     }
 }

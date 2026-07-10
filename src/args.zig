@@ -61,14 +61,6 @@ pub fn stringToCommand(arg_: []const u8) !commands.Command {
 
 // TODO: clean this file up.... good god...
 
-// TODO: use Command.fromString() instead
-pub fn stringToCommand2(arg_: []const u8) ?commands.Command {
-    if (std.mem.eql(u8, arg_, "-h") or std.mem.eql(u8, arg_, "--help")) {
-        return .help;
-    }
-    return std.meta.stringToEnum(commands.Command, arg_);
-}
-
 pub const ArgOrHelp = union(enum) {
     arg: []const u8,
     help,

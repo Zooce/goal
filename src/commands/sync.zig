@@ -5,13 +5,35 @@ const proc = @import("../proc.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.sync;
+
+pub const help_text =
+    \\
+    \\The `sync` Command
+    \\
+    \\
+    \\Syncs your `~/.goal/` directory with its Git remote.
+    \\
+    \\This is for your convenience.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal sync
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal sync [help | -h | --help]
+    \\    OR
+    \\        goal help sync
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => try run(ctx_),
     }
 }

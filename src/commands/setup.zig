@@ -9,13 +9,37 @@ const Command = @import("../commands.zig").Command;
 const Config = @import("../Config.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.setup;
+
+pub const help_text =
+    \\
+    \\The `setup` Command
+    \\
+    \\
+    \\Does `goal`'s  initial setup on your system, creating the goal base directory,
+    \\initializing it as a Git project, and walking you through configuration setup.
+    \\The goal base directory (default: ~/.goal/) is where all of your `goal`
+    \\projects will live. Use the GOAL_BASE_DIR environment variable to customize the
+    \\storage location.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal setup
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal setup [help | -h | --help]
+    \\    OR
+    \\        goal help setup
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => try run(ctx_),
     }
 }

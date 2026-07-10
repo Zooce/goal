@@ -8,13 +8,40 @@ const Config = @import("../Config.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.edit;
+
+pub const help_text =
+    \\
+    \\The `edit` Command
+    \\
+    \\
+    \\Opens your editor to edit the details of a goal.
+    \\
+    \\
+    \\Alias: open
+    \\
+    \\Usage:
+    \\
+    \\    goal edit [id]
+    \\
+    \\Arguments:
+    \\
+    \\    [id]    The goal ID (optional). If no goal ID is given you'll pick one from
+    \\            the list of goals.
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal edit [help | -h | --help]
+    \\    OR
+    \\        goal help edit
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     const id = switch (try parseArgs(ctx_, iter_)) {
-        .help => return try help.run(ctx_.stdout, Self),
+        .help => return try ctx_.stdout.writeAll(help_text),
         .run => |id| id,
     };
     defer if (id) |i| ctx_.alloc.free(i);

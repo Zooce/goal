@@ -12,13 +12,49 @@ const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 
 const new = @import("new.zig");
-const help = @import("help.zig");
 
 const Self = Command.start;
 
+pub const help_text =
+    \\
+    \\The `start` Command
+    \\
+    \\Activates a goal (and optionally creates a new one).
+    \\
+    \\If no goal ID is given you'll select from the list of goals.
+    \\
+    \\If you're in a Git project, ID and details of this activated goal will be
+    \\appended to commit messages as long as this goal is activated.
+    \\
+    \\Usage:
+    \\
+    \\    goal start [id | new [title]]
+    \\
+    \\Arguments:
+    \\
+    \\    [id]             The goal ID.
+    \\    [new [title]]    Start a new goal. See `goal help new`.
+    \\
+    \\Examples:
+    \\
+    \\    goal start
+    \\    goal start 3
+    \\    gaol start new
+    \\    goal start new "fix the bug"
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal start [help | -h | --help]
+    \\    OR
+    \\        goal help start
+    \\
+;
+
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     const args = switch (try parseArgs(ctx_, iter_)) {
-        .help => return try help.run(ctx_.stdout, Self),
+        .help => return try ctx_.stdout.writeAll(help_text),
         .args => |args| args,
     };
     // we are responsible for the id or title from parseArgs

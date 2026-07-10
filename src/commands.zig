@@ -108,3 +108,23 @@ pub const Command = enum {
         return error.TooManyArguments;
     }
 };
+
+test "Command.fromString accepts all help forms" {
+    // All accepted spellings of help map to .help
+    try std.testing.expectEqual(Command.help, Command.fromString("help").?);
+    try std.testing.expectEqual(Command.help, Command.fromString("-h").?);
+    try std.testing.expectEqual(Command.help, Command.fromString("--help").?);
+}
+
+test "Command.fromString maps known command names" {
+    try std.testing.expectEqual(Command.init, Command.fromString("init").?);
+    try std.testing.expectEqual(Command.config, Command.fromString("config").?);
+    try std.testing.expectEqual(Command.start, Command.fromString("start").?);
+}
+
+test "Command.fromString returns null for unknown strings" {
+    try std.testing.expect(Command.fromString("not-a-command") == null);
+    try std.testing.expect(Command.fromString("") == null);
+    try std.testing.expect(Command.fromString("-help") == null);
+    try std.testing.expect(Command.fromString("--h") == null);
+}

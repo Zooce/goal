@@ -7,13 +7,49 @@ const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
 
 const cli = @import("../cli.zig");
-const help = @import("help.zig");
 
 const Self = Command.next;
 
+pub const help_text =
+    \\
+    \\The `next` Command
+    \\
+    \\
+    \\Promotes a goal from the Later list to the Next list.
+    \\
+    \\Only Later goals can be promoted. If a goal is currently active, stop it
+    \\first with `goal stop` (which moves it to Next automatically) or
+    \\`goal stop --later` (which moves it to Later).
+    \\
+    \\If no goal ID is given you'll select one from the list of Later goals.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal next [id]
+    \\
+    \\Arguments:
+    \\
+    \\    [id]    The goal ID (optional). If omitted, you'll pick from the Later list.
+    \\
+    \\Examples:
+    \\
+    \\    goal next        # pick from Later list interactively
+    \\    goal next 3      # promote goal #3 from Later to Next
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal next [help | -h | --help]
+    \\    OR
+    \\        goal help next
+    \\
+;
+
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     const id = switch (try parseArgs(ctx_, iter_)) {
-        .help => return try help.run(ctx_.stdout, Self),
+        .help => return try ctx_.stdout.writeAll(help_text),
         .run => |id| id,
     };
     defer if (id) |i| ctx_.alloc.free(i);

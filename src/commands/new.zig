@@ -8,13 +8,46 @@ const Config = @import("../Config.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.new;
+
+pub const help_text =
+    \\
+    \\The `new` Command
+    \\
+    \\
+    \\Creates a new goal (duh).
+    \\
+    \\If no title is given the goal file will be opened in your configured editor. The
+    \\first line in the file is the goal's title while all subsequent lines form the
+    \\goal's description.
+    \\
+    \\If `title` is provided it cannot match a command. For example, the following
+    \\would be invalid.
+    \\
+    \\    goal new "new"
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal new [title]
+    \\
+    \\Arguments:
+    \\
+    \\    [title]    The title of the goal (optional).
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal new [help | -h | --help]
+    \\    OR
+    \\        goal help new
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     const title = switch (try parseArgs(ctx_, iter_)) {
-        .help => return try help.run(ctx_.stdout, Self),
+        .help => return try ctx_.stdout.writeAll(help_text),
         .run => |title| title,
     };
     defer if (title) |t| ctx_.alloc.free(t);

@@ -11,13 +11,37 @@ const Directories = @import("../Directories.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
 
-const help = @import("help.zig");
-
 const Self = Command.init;
+
+pub const help_text =
+    \\
+    \\The `init` Command
+    \\
+    \\
+    \\Initializes `goal` in your project.
+    \\
+    \\All `goal` files can be found in the ~/.goal/<goal_id> directory, where the
+    \\.goal_id file is found in either the result of `git rev-parse --show-toplevel`
+    \\or the directory from which you run this `init` command.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal init
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal init [help | -h | --help]
+    \\    OR
+    \\        goal help init
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => try run(ctx_),
     }
 }

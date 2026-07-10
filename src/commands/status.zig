@@ -8,13 +8,36 @@ const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
-const help = @import("help.zig");
-
 const Self = Command.status;
+
+pub const help_text =
+    \\
+    \\The `status` Command
+    \\
+    \\
+    \\Shows the status of your active goal.
+    \\
+    \\If you're in a Git project, this will also list the set of commits that contain
+    \\the active goal's details.
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal status
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal status [help | -h | --help]
+    \\    OR
+    \\        goal help status
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => try run(ctx_),
     }
 }

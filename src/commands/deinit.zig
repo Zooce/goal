@@ -11,13 +11,41 @@ const Meta = @import("../Meta.zig");
 const ArgIter = @import("../args.zig").ArgIter;
 const Command = @import("../commands.zig").Command;
 
-const help = @import("help.zig");
-
 const Self = Command.deinit;
+
+pub const help_text =
+    \\
+    \\The `deinit` Command
+    \\
+    \\
+    \\Reverses `goal init` by removing the local `.goal/` directory and the global
+    \\`~/.goal/<goal_id>/` directory, committing each removal to their respective git
+    \\repos (local: "goal deinit", global: "goal deinit - <project-name>").
+    \\
+    \\
+    \\Usage:
+    \\
+    \\    goal deinit [--no-local-commit] [--no-global-commit] [--no-commit]
+    \\
+    \\Arguments:
+    \\
+    \\    [--no-local-commit]     Skip local git commit after deleting .goal/
+    \\    [--no-global-commit]    Skip global git commit after deleting ~/.goal/<goal_id>/
+    \\    [--no-commit]           Skip both local and global git commits
+    \\
+    \\Help:
+    \\
+    \\    To show this message use one of the following:
+    \\
+    \\        goal deinit [help | -h | --help]
+    \\    OR
+    \\        goal help deinit
+    \\
+;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     switch (try parseArgs(ctx_, iter_)) {
-        .help => try help.run(ctx_.stdout, Self),
+        .help => try ctx_.stdout.writeAll(help_text),
         .run => |opts| try run(ctx_, opts),
     }
 }
