@@ -37,23 +37,26 @@ pub fn main(ctx_: *const Context) !void {
 // ---------------------------------------------------------------------------
 
 const TestEnv = @import("../TestEnv.zig");
-const commands = @import("../commands.zig");
+const init_cmd = @import("init.zig");
+const new_cmd = @import("new.zig");
+const start_cmd = @import("start.zig");
+const commitmsg_cmd = @This();
 
 test "commitmsg outputs tag when active goal exists" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    try commands.init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
-    const filename = try commands.new.run(&env.ctx, "something");
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "something" });
     defer env.alloc.free(filename);
 
-    const start_args: commands.start.Args = .{ .id = filename };
-    try commands.start.run(&env.ctx, start_args);
+    const start_args: start_cmd.Args = .{ .id = filename };
+    try start_cmd.run(&env.ctx, start_args);
 
     env.resetStdout();
 
-    try main(&env.ctx);
+    try commitmsg_cmd.main(&env.ctx);
 
     try std.testing.expectEqualStrings(
         "Goal #1 (test@example.com) - something\n",
@@ -65,16 +68,16 @@ test "commitmsg produces no output when no active goal" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
-    try commands.init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
-    const filename = try commands.new.run(&env.ctx, "something");
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "something" });
     defer env.alloc.free(filename);
 
     // NOT starting the goal — no active goal
 
     env.resetStdout();
 
-    try main(&env.ctx);
+    try commitmsg_cmd.main(&env.ctx);
 
     try std.testing.expectEqualStrings("", env.readStdout());
 }

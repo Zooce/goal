@@ -28,7 +28,7 @@ pub const help_text =
     \\
     \\    <key>    One of: base-dir, editor, commit
     \\
-    \\Flags:
+    \\Options:
     \\
     \\    --global    Read from the global config file only
     \\

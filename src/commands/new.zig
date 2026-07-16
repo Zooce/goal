@@ -5,8 +5,10 @@ const Directories = @import("../Directories.zig");
 const Meta = @import("../Meta.zig");
 const Goal = @import("../Goal.zig");
 const Config = @import("../Config.zig");
+const cli = @import("../cli.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
+const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 
 const Self = Command.new;
 
@@ -17,12 +19,17 @@ pub const help_text =
     \\
     \\Creates a new goal (duh).
     \\
-    \\If no title is given the goal file will be opened in your configured editor. The
-    \\first line in the file is the goal's title while all subsequent lines form the
-    \\goal's description.
+    \\If no content is given and stdin is a terminal, the goal file is opened in
+    \\your configured editor. The first line is the title; the rest is the body.
     \\
-    \\If `title` is provided it cannot match a command. For example, the following
-    \\would be invalid.
+    \\For scripts and pipes, pass content with --file or via stdin (non-TTY):
+    \\
+    \\    goal new --file notes.md
+    \\    echo "title\n\nbody" | goal new
+    \\    goal new "just a title"
+    \\
+    \\If a title argument is provided it cannot match a command. For example,
+    \\the following would be invalid:
     \\
     \\    goal new "new"
     \\
@@ -30,10 +37,15 @@ pub const help_text =
     \\Usage:
     \\
     \\    goal new [title]
+    \\    goal new --file <path>
     \\
     \\Arguments:
     \\
-    \\    [title]    The title of the goal (optional).
+    \\    [title]    The title (or full body) of the goal (optional).
+    \\
+    \\Options:
+    \\
+    \\    --file <path>    Create the goal from a file's contents (not with title).
     \\
     \\Help:
     \\
@@ -46,48 +58,91 @@ pub const help_text =
 ;
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
-    const title = switch (try parseArgs(ctx_, iter_)) {
+    const args = switch (try parseArgs(ctx_, iter_)) {
         .help => return try ctx_.stdout.writeAll(help_text),
-        .run => |title| title,
+        .args => |a| a,
     };
-    defer if (title) |t| ctx_.alloc.free(t);
-    const filename = try run(ctx_, title);
+    defer if (args.content) |c| ctx_.alloc.free(c);
+
+    const filename = try run(ctx_, args);
     ctx_.alloc.free(filename);
 }
 
-const Args = union(enum) {
-    help: void,
-    run: ?[]const u8,
+/// Parsed inputs for `run`. `content` is owned by the caller (from `parseArgs`).
+/// When `content` is null, `run` opens the editor.
+pub const Args = struct {
+    content: ?[]const u8 = null,
 };
 
-pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
+pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
     // goal new
     // goal new "fix the bug"
+    // goal new --file path
     // goal new -h
     // goal new --help "fix the bug"
     // goal new "fix the bug" help
 
-    var title: ?[]const u8 = null;
+    var text: ?[]const u8 = null;
+    defer if (text) |t| ctx_.alloc.free(t);
+    var file_path: ?[]const u8 = null;
+    defer if (file_path) |f| ctx_.alloc.free(f);
 
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
-            .help => return Args.help,
+            .help => return .help,
             else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
 
-        if (title != null) return Self.tooManyArguments(ctx_);
-        title = try ctx_.alloc.dupe(u8, arg);
+        if (std.mem.eql(u8, arg, "--file")) {
+            if (file_path != null) return Self.duplicateFlag(ctx_, arg);
+            const path = iter_.next() orelse return Self.missingArgument(ctx_);
+            file_path = try ctx_.alloc.dupe(u8, path);
+            continue;
+        }
+
+        if (text != null) return Self.tooManyArguments(ctx_);
+        text = try ctx_.alloc.dupe(u8, arg);
     }
 
-    return .{ .run = title };
+    if (text != null and file_path != null) {
+        try ctx_.stderr.writeAll(
+            \\
+            \\Cannot combine a title argument with --file.
+            \\
+        );
+        return error.ConflictingArguments;
+    }
+
+    // Resolve content: --file > title arg > non-TTY stdin > editor (null)
+    const content: ?[]const u8 = content: {
+        if (file_path) |path| break :content try cli.readPathAll(ctx_, path);
+        if (text) |t| {
+            text = null; // transfer ownership to content (caller frees via Args)
+            break :content t;
+        }
+        if (!ctx_.stdin_is_tty) {
+            break :content try cli.readStdinAll(ctx_);
+        }
+        break :content null;
+    };
+    errdefer if (content) |c| ctx_.alloc.free(c);
+
+    if (content) |c| {
+        if (cli.firstLineTitle(c).len == 0) {
+            try ctx_.stderr.print("\nGoal content cannot be empty! You're so funny.\n", .{});
+            return error.EmptyGoalTitle;
+        }
+    }
+
+    return .{ .args = .{ .content = content } };
 }
 
-/// Creates a new goal file. If a title is included then that title is written
-/// to the file otherwise an editor is opened to edit the file.
+/// Creates a new goal file. If `args_.content` is set it is written to the file;
+/// otherwise an editor is opened to edit the file.
 ///
 /// Returns the file name so the caller is responsible for calling
 /// `allocator.free(filename)`.
-pub fn run(ctx_: *const Context, title_: ?[]const u8) ![]const u8 {
+pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
     var dirs = try Directories.open(ctx_, .{});
     defer dirs.close();
 
@@ -101,17 +156,19 @@ pub fn run(ctx_: *const Context, title_: ?[]const u8) ![]const u8 {
 
     // TODO: feels like the rest of this could be cleaned up a bit
 
-    if (title_) |t| {
-        // TODO: trim t
-        if (t.len > 0) {
-            const goal_file = try dirs.later.dir.createFile(ctx_.io, file_name, .{ .exclusive = true });
-            defer goal_file.close(ctx_.io);
-            try goal_file.writeStreamingAll(ctx_.io, t);
-            try ctx_.stdout.print("\nGoal #{d} - {s}\n", .{ meta.next_id, t });
-        } else {
-            try ctx_.stderr.print("\nGoal title cannot be empty! You're so funny.\n", .{});
+    if (args_.content) |raw| {
+        // First line is the title; the rest is the body/description.
+        // Validate here so direct `run` callers (e.g. start) cannot skip the rule.
+        const title = cli.firstLineTitle(raw);
+        if (title.len == 0) {
+            try ctx_.stderr.print("\nGoal content cannot be empty! You're so funny.\n", .{});
             return error.EmptyGoalTitle;
         }
+        const goal_file = try dirs.later.dir.createFile(ctx_.io, file_name, .{ .exclusive = true });
+        defer goal_file.close(ctx_.io);
+        try goal_file.writeStreamingAll(ctx_.io, raw);
+        try goal_file.sync(ctx_.io);
+        try ctx_.stdout.print("\nGoal #{d} - {s}\n", .{ meta.next_id, title });
     } else {
         // open the new goal file in an editor
         const file_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dirs.later.path, file_name });
@@ -149,6 +206,7 @@ pub fn run(ctx_: *const Context, title_: ?[]const u8) ![]const u8 {
 const TestEnv = @import("../TestEnv.zig");
 
 const init_cmd = @import("init.zig");
+const new_cmd = @This();
 
 test "new command creates goal with title" {
     var env = try TestEnv.init(&.{});
@@ -160,7 +218,7 @@ test "new command creates goal with title" {
 
     // 1. Creating a new goal returns its filename/goal number
     {
-        const filename = try run(&env.ctx, title);
+        const filename = try new_cmd.run(&env.ctx, .{ .content = title });
         defer env.alloc.free(filename);
         try std.testing.expectEqualStrings("1", filename);
     }
@@ -176,12 +234,171 @@ test "new command creates goal with title" {
     try std.testing.expectEqualStrings(title, content);
 }
 
-test "new with empty title shows error" {
+test "new with multi-line content writes full body" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    // run only sees opaque content (title, --file, and stdin all look the same)
+    const body =
+        \\ship it
+        \\
+        \\- step one
+        \\- step two
+    ;
+    const filename = try new_cmd.run(&env.ctx, .{ .content = body });
+    defer env.alloc.free(filename);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    const content = try env.readFile(".goal/{s}/l/{s}", .{ goal_id, filename });
+    defer env.alloc.free(content);
+    try std.testing.expectEqualStrings(body, content);
+
+    // Success line uses the first line as the title
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Goal #1 - ship it") != null);
+}
+
+test "parseArgs title becomes content" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    const argv = [_][*:0]const u8{"fix the bug"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try new_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .args);
+    defer if (res.args.content) |c| env.alloc.free(c);
+
+    try std.testing.expectEqualStrings("fix the bug", res.args.content.?);
+}
+
+test "parseArgs --file reads file into content" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    const body =
+        \\from file
+        \\
+        \\more details
+    ;
+    try env.writeFile("proj/goal-body.md", body);
+
+    const argv = [_][*:0]const u8{ "--file", "goal-body.md" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try new_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .args);
+    defer if (res.args.content) |c| env.alloc.free(c);
+
+    try std.testing.expectEqualStrings(body, res.args.content.?);
+}
+
+test "parseArgs non-TTY stdin becomes content" {
+    const body =
+        \\piped title
+        \\
+        \\piped body
+    ;
+    var env = try TestEnv.init(&.{
+        .{ .buffer = body },
+    });
+    defer env.deinit();
+
+    // No argv: non-TTY (default) → read stdin
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expect(!env.ctx.stdin_is_tty);
+    const res = try new_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .args);
+    defer if (res.args.content) |c| env.alloc.free(c);
+
+    try std.testing.expectEqualStrings(body, res.args.content.?);
+}
+
+test "parseArgs TTY with no args yields null content (editor)" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    env.ctx.stdin_is_tty = true;
+
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try new_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .args);
+    try std.testing.expect(res.args.content == null);
+}
+
+test "parseArgs rejects empty content" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    const argv = [_][*:0]const u8{""};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.EmptyGoalTitle, new_cmd.parseArgs(&env.ctx, &iter));
+}
+
+test "run rejects empty content and blank first-line title" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
     defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
 
-    try std.testing.expectError(error.EmptyGoalTitle, run(&env.ctx, ""));
+    // Direct run callers (e.g. start) skip parseArgs — validation must live here.
+    // Empty buffer, blank first line, and whitespace-only first line all fail.
+    try std.testing.expectError(error.EmptyGoalTitle, new_cmd.run(&env.ctx, .{ .content = "" }));
+    try std.testing.expectError(error.EmptyGoalTitle, new_cmd.run(&env.ctx, .{ .content = "\nbody" }));
+    try std.testing.expectError(error.EmptyGoalTitle, new_cmd.run(&env.ctx, .{ .content = "   \nbody" }));
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    // No goal file left behind
+    try std.testing.expect(!try env.pathExists(".goal/{s}/l/1", .{goal_id}));
+
+    // next_id must not advance on failure
+    {
+        var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const base_dir = try env.tmp_dir.dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+        defer base_dir.close(env.io);
+        var meta = try Meta.load(&env.ctx, base_dir);
+        defer meta.deinit();
+        try std.testing.expectEqual(@as(u8, 1), meta.next_id);
+    }
+}
+
+test "parseArgs rejects title combined with --file" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    const argv = [_][*:0]const u8{ "a title", "--file", "x.md" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.ConflictingArguments, new_cmd.parseArgs(&env.ctx, &iter));
+}
+
+test "parseArgs requires path after --file" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    const argv = [_][*:0]const u8{"--file"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.MissingArgument, new_cmd.parseArgs(&env.ctx, &iter));
 }

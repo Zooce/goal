@@ -46,7 +46,7 @@ pub const help_text =
     \\    editor      Default editor for goal editing
     \\    commit      Whether goal info is appended to commit messages
     \\
-    \\Flags:
+    \\Options:
     \\
     \\    --global    Target the global config file (list/get/set/unset)
     \\

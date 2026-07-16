@@ -28,7 +28,7 @@ pub const help_text =
     \\
     \\    <key>...    One or more of: base-dir, editor, commit
     \\
-    \\Flags:
+    \\Options:
     \\
     \\    --global    Remove from the global config file
     \\

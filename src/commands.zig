@@ -19,6 +19,7 @@ pub const start = @import("commands/start.zig");
 pub const config = @import("commands/config.zig");
 pub const next = @import("commands/next.zig");
 pub const later = @import("commands/later.zig");
+pub const show = @import("commands/show.zig");
 
 pub const Command = enum {
     help,
@@ -30,6 +31,7 @@ pub const Command = enum {
 
     list,
     status,
+    show,
     complete,
     new,
 

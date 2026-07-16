@@ -22,7 +22,7 @@ pub const help_text =
     \\
     \\    goal config list [--global]
     \\
-    \\Flags:
+    \\Options:
     \\
     \\    --global    Show only keys present in the global config file
     \\

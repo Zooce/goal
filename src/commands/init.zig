@@ -135,13 +135,14 @@ pub fn run(ctx_: *const Context) !void {
 
 const TestEnv = @import("../TestEnv.zig");
 const uuid = @import("../uuid.zig");
+const init_cmd = @This();
 
 test "init installs hook even if already initialized" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     // First init — fresh
-    try run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Delete the hook to simulate a missing hook
     const hook_path = try std.Io.Dir.path.join(env.alloc, &.{ env.proj_path, ".git", "hooks", "prepare-commit-msg" });
@@ -157,7 +158,7 @@ test "init installs hook even if already initialized" {
 
     // Second init — already initialized, should still reinstall the hook
     env.resetStdout();
-    try run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Verify hook was recreated
     try std.Io.Dir.accessAbsolute(env.io, hook_path, .{});
@@ -168,7 +169,7 @@ test "init command" {
     defer env.deinit();
 
     // Run init (accepting default project name "proj")
-    try run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // 1. Local .goal/ directory was created
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
@@ -219,11 +220,11 @@ test "init shows already initialized message when re-run" {
     defer env.deinit();
 
     // first init — fresh
-    try run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // second init — already initialized, should show message instead of failing
     env.resetStdout();
-    try run(&env.ctx);
+    try init_cmd.run(&env.ctx);
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "already initialized") != null);
 }
 
@@ -234,14 +235,14 @@ test "init fails in non-git directory" {
 
     env.ctx.cwd = "/tmp"; // assuming Linux/MacOS - Windows sucks
 
-    try std.testing.expectError(error.ProcError, run(&env.ctx));
+    try std.testing.expectError(error.ProcError, init_cmd.run(&env.ctx));
 }
 
 test "init with custom project name" {
     var env = try TestEnv.init(&.{.{ .buffer = "my-project\n" }});
     defer env.deinit();
 
-    try run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // verify meta uses custom project name, not default "proj"
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});

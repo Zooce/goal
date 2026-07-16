@@ -29,3 +29,31 @@ pub fn getAnswer(ctx_: *const Context, prompt_: []const u8) !?[]const u8 {
     const trimmed = std.mem.trim(u8, answer, " \t");
     return if (trimmed.len > 0) try ctx_.alloc.dupe(u8, trimmed) else null;
 }
+
+/// Read all remaining stdin into an allocated buffer. Caller frees.
+pub fn readStdinAll(ctx_: *const Context) ![]u8 {
+    var aw: std.Io.Writer.Allocating = .init(ctx_.alloc);
+    errdefer aw.deinit();
+    _ = try ctx_.stdin.streamRemaining(&aw.writer);
+    return try aw.toOwnedSlice();
+}
+
+/// Read a whole file into an allocated buffer. Paths are resolved relative to
+/// `ctx_.cwd` when set (tests), otherwise the process cwd. Caller frees.
+pub fn readPathAll(ctx_: *const Context, path_: []const u8) ![]u8 {
+    if (std.fs.path.isAbsolute(path_)) {
+        return std.Io.Dir.cwd().readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited);
+    }
+    if (ctx_.cwd) |cwd| {
+        var dir = try std.Io.Dir.openDirAbsolute(ctx_.io, cwd, .{});
+        defer dir.close(ctx_.io);
+        return dir.readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited);
+    }
+    return std.Io.Dir.cwd().readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited);
+}
+
+/// First line of goal content (trimmed), used as the title for messages.
+pub fn firstLineTitle(content_: []const u8) []const u8 {
+    const line = if (std.mem.indexOfScalar(u8, content_, '\n')) |i| content_[0..i] else content_;
+    return std.mem.trim(u8, line, " \t\r");
+}

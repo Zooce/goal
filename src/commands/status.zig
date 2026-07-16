@@ -152,7 +152,7 @@ test "status with no active goal" {
     env.resetStdout();
 
     // Create a goal and promote to Next → next-list nudge
-    const filename = try new_cmd.run(&env.ctx, "something later");
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "something later" });
     defer env.alloc.free(filename);
     try next_cmd.run(&env.ctx, filename);
 
@@ -168,7 +168,7 @@ test "status --full prints active goal file contents at the end" {
     try init_cmd.run(&env.ctx);
 
     // Goal with title + multi-line description written via the goal file
-    const filename = try new_cmd.run(&env.ctx, "ship the feature");
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "ship the feature" });
     defer env.alloc.free(filename);
 
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -216,7 +216,7 @@ test "parseArgs accepts --full once" {
         const argv = [_][*:0]const u8{};
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
-        const parsed = try parseArgs(&env.ctx, &iter);
+        const parsed = try status_cmd.parseArgs(&env.ctx, &iter);
         try std.testing.expectEqual(false, parsed.run);
     }
 
@@ -224,7 +224,7 @@ test "parseArgs accepts --full once" {
         const argv = [_][*:0]const u8{"--full"};
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
-        const parsed = try parseArgs(&env.ctx, &iter);
+        const parsed = try status_cmd.parseArgs(&env.ctx, &iter);
         try std.testing.expectEqual(true, parsed.run);
     }
 }
@@ -238,13 +238,13 @@ test "parseArgs rejects duplicate --full and unknown args" {
         const argv = [_][*:0]const u8{ "--full", "--full" };
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
-        try std.testing.expectError(error.DuplicateFlag, parseArgs(&env.ctx, &iter));
+        try std.testing.expectError(error.DuplicateFlag, status_cmd.parseArgs(&env.ctx, &iter));
     }
 
     {
         const argv = [_][*:0]const u8{"--nope"};
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
-        try std.testing.expectError(error.UnexpectedArgument, parseArgs(&env.ctx, &iter));
+        try std.testing.expectError(error.UnexpectedArgument, status_cmd.parseArgs(&env.ctx, &iter));
     }
 }

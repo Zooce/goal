@@ -29,7 +29,7 @@ pub const help_text =
     \\    <key>      One of: base-dir, editor, commit
     \\    <value>    The value to store
     \\
-    \\Flags:
+    \\Options:
     \\
     \\    --global    Write to the global config file
     \\

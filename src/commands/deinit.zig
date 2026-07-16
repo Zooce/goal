@@ -253,8 +253,8 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 // ---------------------------------------------------------------------------
 
 const TestEnv = @import("../TestEnv.zig");
-const init = @import("init.zig");
-const deinit = @This();
+const init_cmd = @import("init.zig");
+const deinit_cmd = @This();
 
 test "deinit command" {
     // stdin order: init prompt, deinit local confirm, deinit global confirm
@@ -266,7 +266,7 @@ test "deinit command" {
     defer env.deinit();
 
     // Use goal init to set up the project normally
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Capture goal id before deinit removes it
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -276,7 +276,7 @@ test "deinit command" {
     env.resetStdout();
 
     // Run deinit
-    try deinit.run(&env.ctx, .{});
+    try deinit_cmd.run(&env.ctx, .{});
 
     // 1. Local .goal/ directory is gone
     try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
@@ -313,7 +313,7 @@ test "deinit fails when not initialized" {
     try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
 
     // Run deinit without running init first.
-    try std.testing.expectError(error.GoalNotInitialized, deinit.run(&env.ctx, .{}));
+    try std.testing.expectError(error.GoalNotInitialized, deinit_cmd.run(&env.ctx, .{}));
 }
 
 test "deinit with --no-local-commit skips local commit" {
@@ -326,14 +326,14 @@ test "deinit with --no-local-commit skips local commit" {
     defer env.deinit();
 
     // Set up using the normal init flow.
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Capture goal id before deinit removes local metadata.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit.run(&env.ctx, .{ .local_commit = false });
+    try deinit_cmd.run(&env.ctx, .{ .local_commit = false });
 
     // Output should mention the local commit was skipped.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Skipping local commit") != null);
@@ -369,14 +369,14 @@ test "deinit with --no-global-commit skips global commit" {
     defer env.deinit();
 
     // Set up using the normal init flow.
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Capture goal id before deinit removes local metadata.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit.run(&env.ctx, .{ .global_commit = false });
+    try deinit_cmd.run(&env.ctx, .{ .global_commit = false });
 
     // Output should mention the global commit was skipped.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Skipping global commit") != null);
@@ -412,14 +412,14 @@ test "deinit with --no-commit skips both commits" {
     defer env.deinit();
 
     // Set up using the normal init flow.
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Capture goal id before deinit removes local metadata.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit.run(&env.ctx, .{ .local_commit = false, .global_commit = false });
+    try deinit_cmd.run(&env.ctx, .{ .local_commit = false, .global_commit = false });
 
     // Output should mention both skipped commits.
     const stdout = env.readStdout();
@@ -455,14 +455,14 @@ test "deinit cancelled at local confirmation" {
     defer env.deinit();
 
     // Set up using the normal init flow.
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit.run(&env.ctx, .{});
+    try deinit_cmd.run(&env.ctx, .{});
 
     // Deinit should cancel and leave everything in place.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
@@ -493,14 +493,14 @@ test "deinit cancelled at global confirmation" {
     defer env.deinit();
 
     // Set up using the normal init flow.
-    try init.run(&env.ctx);
+    try init_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit.run(&env.ctx, .{});
+    try deinit_cmd.run(&env.ctx, .{});
 
     // Deinit should cancel before any deletion work starts.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);

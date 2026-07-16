@@ -147,7 +147,7 @@ test "later command demotes goal from next to later" {
 
     try init_cmd.run(&env.ctx);
 
-    const filename = try new_cmd.run(&env.ctx, "fix the bug");
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "fix the bug" });
     defer env.alloc.free(filename);
 
     try next_cmd.run(&env.ctx, filename);
