@@ -2,7 +2,7 @@
 
 ## Git Rules
 
-You may NOT run any Git commands that change anything in the repo at all.
+You may NOT run any Git commands that change anything in the repo at all, unless I ask explicitly.
 
 ## Platform
 
