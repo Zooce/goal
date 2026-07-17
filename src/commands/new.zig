@@ -22,11 +22,10 @@ pub const help_text =
     \\If no content is given and stdin is a terminal, the goal file is opened in
     \\your configured editor. The first line is the title; the rest is the body.
     \\
-    \\For scripts and pipes, pass content with --file or via stdin (non-TTY):
+    \\For scripts, pass a title argument or --file:
     \\
-    \\    goal new --file notes.md
-    \\    echo "title\n\nbody" | goal new
     \\    goal new "just a title"
+    \\    goal new --file notes.md
     \\
     \\If a title argument is provided it cannot match a command. For example,
     \\the following would be invalid:
@@ -113,7 +112,7 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
         return error.ConflictingArguments;
     }
 
-    // Resolve content: --file > title arg > non-TTY stdin > editor (null)
+    // Resolve content: --file > title arg > editor (null on TTY only)
     const content: ?[]const u8 = content: {
         if (file_path) |path| break :content try cli.readPathAll(ctx_, path);
         if (text) |t| {
@@ -121,7 +120,16 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
             break :content t;
         }
         if (!ctx_.stdin_is_tty) {
-            break :content try cli.readStdinAll(ctx_);
+            try ctx_.stderr.writeAll(
+                \\
+                \\goal new requires a title or --file when stdin is not a terminal
+                \\(or run on a TTY to open the editor).
+                \\
+                \\Usage: goal new <title>
+                \\       goal new --file <path>
+                \\
+            );
+            return error.MissingArgument;
         }
         break :content null;
     };
@@ -240,7 +248,7 @@ test "new with multi-line content writes full body" {
 
     try init_cmd.run(&env.ctx);
 
-    // run only sees opaque content (title, --file, and stdin all look the same)
+    // run only sees opaque content (title and --file look the same)
     const body =
         \\ship it
         \\
@@ -298,28 +306,17 @@ test "parseArgs --file reads file into content" {
     try std.testing.expectEqualStrings(body, res.args.content.?);
 }
 
-test "parseArgs non-TTY stdin becomes content" {
-    const body =
-        \\piped title
-        \\
-        \\piped body
-    ;
-    var env = try TestEnv.init(&.{
-        .{ .buffer = body },
-    });
+test "parseArgs non-TTY without title or --file requires content" {
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
+    defer env.resetStderr();
 
-    // No argv: non-TTY (default) → read stdin
     const argv = [_][*:0]const u8{};
     var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
     defer iter.deinit();
 
     try std.testing.expect(!env.ctx.stdin_is_tty);
-    const res = try new_cmd.parseArgs(&env.ctx, &iter);
-    try std.testing.expect(res == .args);
-    defer if (res.args.content) |c| env.alloc.free(c);
-
-    try std.testing.expectEqualStrings(body, res.args.content.?);
+    try std.testing.expectError(error.MissingArgument, new_cmd.parseArgs(&env.ctx, &iter));
 }
 
 test "parseArgs TTY with no args yields null content (editor)" {

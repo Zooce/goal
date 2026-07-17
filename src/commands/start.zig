@@ -144,10 +144,9 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
         const id = if (args_) |args| switch (args) {
             .id => |_id| _id,
             // TODO: `start new` is not script-friendly — it only passes an optional
-            // title into new.run and never goes through new.parseArgs. Script inputs
-            // (--file, non-TTY stdin body) work for `goal new` but not for
-            // `goal start new`. Share content resolution with new.parseArgs (or a
-            // shared helper) so scripting is consistent.
+            // title into new.run and never goes through new.parseArgs. --file works
+            // for `goal new` but not for `goal start new`. Share content resolution
+            // with new.parseArgs (or a shared helper) so scripting is consistent.
             .new => |_new| try new.run(ctx_, .{ .content = _new.title }),
         } else null orelse id: {
             var count = try dirs.next.list(ctx_);

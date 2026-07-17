@@ -24,8 +24,8 @@ stderr: *std.Io.Writer,
 /// Standard input reader for interactive prompts.
 stdin: *std.Io.Reader,
 
-/// Whether stdin is a terminal. Used to decide interactive prompts vs
-/// script-friendly behavior (require IDs, read content from stdin, etc.).
+/// Whether stdin is a terminal. Used to decide interactive prompts (pickers,
+/// confirms, editor) vs script-friendly behavior (require IDs / --file, no hang).
 /// Set from `std.Io.File.stdin().isTty` in `main`; tests default to `false`.
 stdin_is_tty: bool = false,
 

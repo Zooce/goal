@@ -11,7 +11,7 @@ Arch Linux (via Omarchy)
 
 ## Research
 
-Learn Zig: Visit https://ziglang.org/documentation/0.16.0/ or run `zig std`
+Learn Zig: Visit https://ziglang.org/documentation/0.16.0/ or run `zig std` (which will print its URL to stdout)
 
 ## Conventions
 
@@ -32,11 +32,12 @@ Prefer plain language in help text, comments, and tests: **goal ID**, **active g
 When a command accepts an optional goal ID, explicit sources beat defaults:
 
 1. Command-line id
-2. Non-TTY stdin as a goal ID only when that is the intended channel (read **all** of stdin, trim, accept only if `std.fmt.parseInt` succeeds) — e.g. `echo 92 | goal show`
-3. Active goal (when that command’s default is the active goal: `show`, later `edit`)
-4. TTY picker, or error when not a TTY
+2. Active goal (when that command’s default is the active goal: `show`, `edit`)
+3. TTY picker, or error when not a TTY
 
-TTY checks only apply when the goal ID is still unresolved. Never open a picker or read an id from stdin when `stdin_is_tty` is false (no hangs). Never treat TTY stdin as a silent id line (would steal interactive input).
+No stdin-as-id. No stdin-as-body for `new` / `edit` — content is a title arg (`new`) or `--file`. Compose IDs with argv / `$()`, not pipes.
+
+TTY checks only apply when the goal ID is still unresolved. Never open a picker when `stdin_is_tty` is false (no hangs).
 
 Do not default `start` / `next` / `later` / `delete` to the active goal.
 
@@ -48,7 +49,7 @@ When creating a test, use `TestEnv` and the normal flow a user would to set thin
 
 When creating a test, always comment on each section of the test that tests something interesting.
 
-Name tests after the real-world case when possible, e.g. `echo 1 | goal show`, `goal show (active goal)`, `goal show (no active goal, non-TTY)` — not long internal prose like “uses active before TTY picker”.
+Name tests after the real-world case when possible, e.g. `goal show (active goal)`, `goal show (no active goal, non-TTY)`, `goal edit --file (active goal)` — not long internal prose like “uses active before TTY picker”.
 
 Never create useless tests such as:
 

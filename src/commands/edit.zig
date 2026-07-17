@@ -2,6 +2,7 @@ const std = @import("std");
 
 const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");
+const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
 const Config = @import("../Config.zig");
@@ -17,14 +18,23 @@ pub const help_text =
     \\
     \\
     \\Opens your editor to edit the details of a goal, or replaces the goal file
-    \\from a script-friendly source:
+    \\from a file:
     \\
+    \\    goal edit 3
     \\    goal edit 3 --file notes.md
-    \\    echo "new title\n\nbody" | goal edit 3
+    \\    goal edit --file notes.md
     \\
-    \\When stdin is a terminal and no --file is given, the editor is used.
-    \\When stdin is not a terminal, an ID is required and content comes from
-    \\--file or stdin.
+    \\When no goal ID argument is given, the ID is chosen as follows:
+    \\
+    \\    1. the active goal, if one is set
+    \\    2. TTY picker, or error when stdin is not a terminal
+    \\
+    \\An ID on the command line always wins.
+    \\
+    \\Content source:
+    \\
+    \\    --file <path>    replace the goal file with this file's contents
+    \\    no --file        open the editor (TTY only)
     \\
     \\
     \\Alias: open
@@ -35,8 +45,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]    The goal ID (optional on a TTY). If omitted interactively,
-    \\            you'll pick one from the list of goals.
+    \\    [id]    The goal ID. Optional: see above when omitted.
     \\
     \\Options:
     \\
@@ -67,7 +76,7 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
 
 /// Parsed inputs for `run`. Fields owned by the caller (from `parseArgs`).
 /// When `content` is null, `run` opens the editor. When `id` is null, `run`
-/// prompts for a choice (TTY only — non-TTY without id fails in `run`).
+/// resolves the goal ID: active goal → TTY picker / error.
 pub const Args = struct {
     id: ?[]const u8 = null,
     content: ?[]const u8 = null,
@@ -78,6 +87,7 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
     // goal edit 3
     // goal edit 3 --file path
     // goal edit --file path 3
+    // goal edit --file path          (active goal)
     // goal edit -h
     // goal edit --help 3
     // goal edit 3 help
@@ -108,22 +118,20 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
         id = try ctx_.alloc.dupe(u8, arg);
     }
 
-    if (id == null and !ctx_.stdin_is_tty) {
-        try ctx_.stderr.writeAll(
-            \\
-            \\goal edit requires a goal ID when stdin is not a terminal.
-            \\
-            \\Usage: goal edit <id> [--file <path>]
-            \\
-        );
-        return error.MissingArgument;
-    }
-
-    // Resolve content: --file > non-TTY stdin > editor (null on TTY)
+    // Content: --file only. No --file means editor (TTY) or error (non-TTY).
     const content: ?[]const u8 = content: {
         if (file_path) |path| break :content try cli.readPathAll(ctx_, path);
         if (!ctx_.stdin_is_tty) {
-            break :content try cli.readStdinAll(ctx_);
+            try ctx_.stderr.writeAll(
+                \\
+                \\goal edit requires --file when stdin is not a terminal
+                \\(or run on a TTY to open the editor).
+                \\
+                \\Usage: goal edit [id] --file <path>
+                \\       goal edit --file <path>
+                \\
+            );
+            return error.MissingArgument;
         }
         break :content null;
     };
@@ -145,13 +153,18 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
+    // Goal ID: argv → active → picker (TTY) / error.
     const id = args_.id orelse id: {
+        if (try ActiveId.load(ctx_, dirs.local.dir)) |active| break :id active;
+
         if (!ctx_.stdin_is_tty) {
             try ctx_.stderr.writeAll(
                 \\
-                \\goal edit requires a goal ID when stdin is not a terminal.
+                \\goal edit requires a goal ID when there is no active goal
+                \\and stdin is not a terminal.
                 \\
                 \\Usage: goal edit <id> [--file <path>]
+                \\       goal edit --file <path>
                 \\
             );
             return error.MissingArgument;
@@ -167,7 +180,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
             break :id choice;
         }
-        std.debug.print("\nWelp... you didn't choose a goal.\n", .{});
+        try ctx_.stderr.writeAll("\nWelp... you didn't choose a goal.\n");
         return error.NoGoalChosen;
     };
     defer if (args_.id == null) ctx_.alloc.free(id);
@@ -242,6 +255,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
 const TestEnv = @import("../TestEnv.zig");
 const init_cmd = @import("init.zig");
 const new_cmd = @import("new.zig");
+const start_cmd = @import("start.zig");
 const edit_cmd = @This();
 
 test "edit with content replaces goal file" {
@@ -253,7 +267,7 @@ test "edit with content replaces goal file" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = "old title" });
     defer env.alloc.free(filename);
 
-    // run only sees opaque content (--file and stdin look the same)
+    // run only sees opaque content (from --file via parseArgs)
     const body =
         \\new title
         \\
@@ -292,26 +306,85 @@ test "run rejects empty content and blank first-line title" {
     try std.testing.expectEqualStrings("keep me", written);
 }
 
-test "edit without id on non-TTY requires an ID" {
+// How the goal ID is chosen when omitted on the command line:
+//   1. the active goal                            (goal edit --file …)
+//   2. TTY picker, or error when not a TTY
+
+test "goal edit (no active goal, non-TTY)" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
     defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
-    // Direct run callers skip parseArgs — non-TTY must still require an id
-    try std.testing.expectError(error.MissingArgument, edit_cmd.run(&env.ctx, .{ .id = null, .content = null }));
+    try std.testing.expectError(error.MissingArgument, edit_cmd.run(&env.ctx, .{ .id = null, .content = "body" }));
 }
 
-test "parseArgs requires id on non-TTY" {
+test "goal edit --file (active goal)" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const later_id = try new_cmd.run(&env.ctx, .{ .content = "later goal" });
+    defer env.alloc.free(later_id);
+    const active_id = try new_cmd.run(&env.ctx, .{ .content = "active goal" });
+    defer env.alloc.free(active_id);
+    try start_cmd.run(&env.ctx, .{ .id = active_id });
+
+    const body =
+        \\updated active
+        \\
+        \\from --file
+    ;
+    env.resetStdout();
+    try edit_cmd.run(&env.ctx, .{ .id = null, .content = body });
+
+    const goal_uuid = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_uuid);
+    const written = try env.readFile(".goal/{s}/a/{s}", .{ goal_uuid, active_id });
+    defer env.alloc.free(written);
+    try std.testing.expectEqualStrings(body, written);
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Updated Goal #2 - updated active") != null);
+
+    // later goal must be untouched
+    const later = try env.readFile(".goal/{s}/l/{s}", .{ goal_uuid, later_id });
+    defer env.alloc.free(later);
+    try std.testing.expectEqualStrings("later goal", later);
+}
+
+test "goal edit 1 --file x (active goal is 2)" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const later_id = try new_cmd.run(&env.ctx, .{ .content = "later goal" });
+    defer env.alloc.free(later_id);
+    const active_id = try new_cmd.run(&env.ctx, .{ .content = "active goal" });
+    defer env.alloc.free(active_id);
+    try start_cmd.run(&env.ctx, .{ .id = active_id });
+
+    const body = "explicit id wins";
+    env.resetStdout();
+    try edit_cmd.run(&env.ctx, .{ .id = later_id, .content = body });
+
+    const goal_uuid = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_uuid);
+    const written = try env.readFile(".goal/{s}/l/{s}", .{ goal_uuid, later_id });
+    defer env.alloc.free(written);
+    try std.testing.expectEqualStrings(body, written);
+}
+
+test "goal edit --file (no active goal, non-TTY)" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
     defer env.resetStderr();
 
-    const argv = [_][*:0]const u8{};
-    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
-    defer iter.deinit();
+    try init_cmd.run(&env.ctx);
+    const id = try new_cmd.run(&env.ctx, .{ .content = "some goal" });
+    defer env.alloc.free(id);
 
-    try std.testing.expectError(error.MissingArgument, edit_cmd.parseArgs(&env.ctx, &iter));
+    try std.testing.expectError(error.MissingArgument, edit_cmd.run(&env.ctx, .{ .id = null, .content = "would update" }));
 }
 
 test "parseArgs --file reads file into content" {
@@ -340,30 +413,16 @@ test "parseArgs --file reads file into content" {
     try std.testing.expectEqualStrings(body, res.args.content.?);
 }
 
-test "parseArgs non-TTY stdin becomes content" {
-    const body =
-        \\stdin title
-        \\
-        \\stdin body
-    ;
-    var env = try TestEnv.init(&.{
-        .{ .buffer = body },
-    });
+test "parseArgs non-TTY without --file requires --file" {
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
+    defer env.resetStderr();
 
-    const argv = [_][*:0]const u8{"7"};
+    const argv = [_][*:0]const u8{"3"};
     var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
     defer iter.deinit();
 
-    const res = try edit_cmd.parseArgs(&env.ctx, &iter);
-    try std.testing.expect(res == .args);
-    defer {
-        if (res.args.id) |i| env.alloc.free(i);
-        if (res.args.content) |c| env.alloc.free(c);
-    }
-
-    try std.testing.expectEqualStrings("7", res.args.id.?);
-    try std.testing.expectEqualStrings(body, res.args.content.?);
+    try std.testing.expectError(error.MissingArgument, edit_cmd.parseArgs(&env.ctx, &iter));
 }
 
 test "parseArgs TTY with id and no --file yields null content (editor)" {
@@ -382,6 +441,26 @@ test "parseArgs TTY with id and no --file yields null content (editor)" {
 
     try std.testing.expectEqualStrings("3", res.args.id.?);
     try std.testing.expect(res.args.content == null);
+}
+
+test "parseArgs --file without id is allowed (active goal in run)" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try env.writeFile("proj/x.md", "title\n");
+
+    const argv = [_][*:0]const u8{ "--file", "x.md" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const res = try edit_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .args);
+    defer {
+        if (res.args.id) |i| env.alloc.free(i);
+        if (res.args.content) |c| env.alloc.free(c);
+    }
+    try std.testing.expect(res.args.id == null);
+    try std.testing.expectEqualStrings("title\n", res.args.content.?);
 }
 
 test "parseArgs rejects empty content from --file" {

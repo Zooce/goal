@@ -22,9 +22,8 @@ pub const help_text =
     \\
     \\When no goal ID argument is given, the ID is chosen as follows:
     \\
-    \\    1. non-TTY stdin — whole contents, if they parse as an integer
-    \\    2. the active goal, if one is set
-    \\    3. TTY picker, or error when stdin is not a terminal
+    \\    1. the active goal, if one is set
+    \\    2. TTY picker, or error when stdin is not a terminal
     \\
     \\An ID on the command line always wins.
     \\
@@ -32,7 +31,6 @@ pub const help_text =
     \\Usage:
     \\
     \\    goal show [id]
-    \\    echo 92 | goal show
     \\
     \\Arguments:
     \\
@@ -108,35 +106,17 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
-    // Goal ID: argv → non-TTY stdin (integer) → active → picker (TTY) / error.
-    // Argv and piped stdin beat the active default so scripts can compose:
-    // `echo 92 | goal show`.
+    // Goal ID: argv → active → picker (TTY) / error.
     const id = id_ orelse id: {
-        // Piped/script stdin can supply the goal ID (never on TTY — that would
-        // steal interactive input or hang waiting for data).
-        if (!ctx_.stdin_is_tty) {
-            const raw = try cli.readStdinAll(ctx_);
-            defer ctx_.alloc.free(raw);
-            const trimmed = std.mem.trim(u8, raw, " \t\r\n");
-            if (trimmed.len > 0) {
-                // Only treat stdin as a goal ID when the whole contents parse
-                // as an integer (allows trailing newline from `echo`).
-                if (std.fmt.parseInt(u64, trimmed, 10)) |_| {
-                    break :id try ctx_.alloc.dupe(u8, trimmed);
-                } else |_| {}
-            }
-        }
-
         if (try ActiveId.load(ctx_, dirs.local.dir)) |active| break :id active;
 
         if (!ctx_.stdin_is_tty) {
             try ctx_.stderr.writeAll(
                 \\
-                \\goal show requires a goal ID (argument or stdin) when there is
-                \\no active goal and stdin is not a terminal.
+                \\goal show requires a goal ID when there is no active goal
+                \\and stdin is not a terminal.
                 \\
                 \\Usage: goal show <id>
-                \\       echo <id> | goal show
                 \\
             );
             return error.MissingArgument;
@@ -272,9 +252,8 @@ test "show finds goals in active, next, later, and deleted" {
 }
 
 // How the goal ID is chosen when omitted on the command line:
-//   1. non-TTY stdin, if it parses as an integer  (echo 1 | goal show)
-//   2. the active goal                            (goal show)
-//   3. TTY picker, or error when not a TTY
+//   1. the active goal                            (goal show)
+//   2. TTY picker, or error when not a TTY
 
 test "goal show (no active goal, non-TTY)" {
     var env = try TestEnv.init(&.{});
@@ -305,45 +284,6 @@ test "goal show (no active goal, TTY picks)" {
 
 test "goal show (active goal)" {
     var env = try TestEnv.init(&.{});
-    defer env.deinit();
-
-    try init_cmd.run(&env.ctx);
-
-    const active_id = try new_cmd.run(&env.ctx, .{ .content = "active body" });
-    defer env.alloc.free(active_id);
-    try start_cmd.run(&env.ctx, .{ .id = active_id });
-
-    env.resetStdout();
-    try show_cmd.run(&env.ctx, null);
-    try std.testing.expectEqualStrings("active body", env.readStdout());
-}
-
-test "echo 1 | goal show" {
-    var env = try TestEnv.init(&.{
-        .{ .buffer = "\n" },
-        .{ .buffer = "1\n" },
-    });
-    defer env.deinit();
-
-    try init_cmd.run(&env.ctx);
-
-    const later_id = try new_cmd.run(&env.ctx, .{ .content = "later goal body" });
-    defer env.alloc.free(later_id);
-    const active_id = try new_cmd.run(&env.ctx, .{ .content = "active goal body" });
-    defer env.alloc.free(active_id);
-    try start_cmd.run(&env.ctx, .{ .id = active_id });
-
-    try std.testing.expectEqualStrings("1", later_id);
-    env.resetStdout();
-    try show_cmd.run(&env.ctx, null);
-    try std.testing.expectEqualStrings("later goal body", env.readStdout());
-}
-
-test "echo not-an-id | goal show (active goal)" {
-    var env = try TestEnv.init(&.{
-        .{ .buffer = "\n" },
-        .{ .buffer = "not-an-id\n" },
-    });
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -392,25 +332,6 @@ test "goal show 1 (active goal is 2)" {
     env.resetStdout();
     try show_cmd.run(&env.ctx, later_id);
     try std.testing.expectEqualStrings("later goal body", env.readStdout());
-}
-
-test "echo 1 | goal show 2" {
-    var env = try TestEnv.init(&.{
-        .{ .buffer = "\n" },
-        .{ .buffer = "1\n" },
-    });
-    defer env.deinit();
-
-    try init_cmd.run(&env.ctx);
-
-    const first_id = try new_cmd.run(&env.ctx, .{ .content = "first goal body" });
-    defer env.alloc.free(first_id);
-    const second_id = try new_cmd.run(&env.ctx, .{ .content = "second goal body" });
-    defer env.alloc.free(second_id);
-
-    env.resetStdout();
-    try show_cmd.run(&env.ctx, second_id);
-    try std.testing.expectEqualStrings("second goal body", env.readStdout());
 }
 
 test "goal show 99 (missing)" {

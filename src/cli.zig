@@ -30,14 +30,6 @@ pub fn getAnswer(ctx_: *const Context, prompt_: []const u8) !?[]const u8 {
     return if (trimmed.len > 0) try ctx_.alloc.dupe(u8, trimmed) else null;
 }
 
-/// Read all remaining stdin into an allocated buffer. Caller frees.
-pub fn readStdinAll(ctx_: *const Context) ![]u8 {
-    var aw: std.Io.Writer.Allocating = .init(ctx_.alloc);
-    errdefer aw.deinit();
-    _ = try ctx_.stdin.streamRemaining(&aw.writer);
-    return try aw.toOwnedSlice();
-}
-
 /// Read a whole file into an allocated buffer. Paths are resolved relative to
 /// `ctx_.cwd` when set (tests), otherwise the process cwd. Caller frees.
 pub fn readPathAll(ctx_: *const Context, path_: []const u8) ![]u8 {
