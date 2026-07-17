@@ -25,6 +25,21 @@ Keep things simple. No clever tricks unless they unlock something profoundly use
 
 Perferr immutable (const) pointers as function parameters.
 
+Prefer plain language in help text, comments, and tests: **goal ID**, **active goal** — not jargon like “subject”, and not bare “active” / “no active” when you mean the active goal.
+
+## Composition / scripting
+
+When a command accepts an optional goal ID, explicit sources beat defaults:
+
+1. Command-line id
+2. Non-TTY stdin as a goal ID only when that is the intended channel (read **all** of stdin, trim, accept only if `std.fmt.parseInt` succeeds) — e.g. `echo 92 | goal show`
+3. Active goal (when that command’s default is the active goal: `show`, later `edit`)
+4. TTY picker, or error when not a TTY
+
+TTY checks only apply when the goal ID is still unresolved. Never open a picker or read an id from stdin when `stdin_is_tty` is false (no hangs). Never treat TTY stdin as a silent id line (would steal interactive input).
+
+Do not default `start` / `next` / `later` / `delete` to the active goal.
+
 ## Testing
 
 Quick: `mise test`
@@ -32,6 +47,8 @@ Quick: `mise test`
 When creating a test, use `TestEnv` and the normal flow a user would to set things up, `goal init`, `goal new 'something new'`, `goal start 1`, etc.. and remember each command has a public `run` function that tests can call directly to invoke commands programmatically.
 
 When creating a test, always comment on each section of the test that tests something interesting.
+
+Name tests after the real-world case when possible, e.g. `echo 1 | goal show`, `goal show (active goal)`, `goal show (no active goal, non-TTY)` — not long internal prose like “uses active before TTY picker”.
 
 Never create useless tests such as:
 
