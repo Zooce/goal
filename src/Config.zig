@@ -48,7 +48,7 @@ pub fn load(ctx_: *const Context) !Config {
         if (line.len == 1 or line[0] == '#') continue;
 
         const eq_pos = std.mem.findScalar(u8, line, '=') orelse {
-            std.debug.print(
+            try ctx_.stderr.print(
                 \\
                 \\Invalid config format on line {d}:
                 \\
@@ -61,7 +61,7 @@ pub fn load(ctx_: *const Context) !Config {
 
         if (std.mem.eql(u8, key, "base-dir")) {
             if (base_dir != null) {
-                std.debug.print(
+                try ctx_.stderr.print(
                     \\
                     \\Duplicate base-dir key on line {d}:
                     \\
@@ -72,7 +72,7 @@ pub fn load(ctx_: *const Context) !Config {
             base_dir = try ctx_.alloc.dupe(u8, val);
         } else if (std.mem.eql(u8, key, "editor")) {
             if (editor != null) {
-                std.debug.print(
+                try ctx_.stderr.print(
                     \\
                     \\Duplicate editor key on line {d}:
                     \\
@@ -85,7 +85,7 @@ pub fn load(ctx_: *const Context) !Config {
     } else |err| switch (err) {
         error.EndOfStream => {},
         else => {
-            std.debug.print("\nError while reading config file...\n", .{});
+            try ctx_.stderr.writeAll("\nError while reading config file...\n");
             return err;
         },
     }
@@ -103,13 +103,13 @@ pub fn store(self_: Config) !void {
     std.Io.Dir.createDirAbsolute(self_._ctx.io, config_dir, .default_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
         else => {
-            std.debug.print("\nUnable to create config dir: {s}", .{config_dir});
+            try self_._ctx.stderr.print("\nUnable to create config dir: {s}", .{config_dir});
             return err;
         },
     };
 
     const config_file = std.Io.Dir.createFileAbsolute(self_._ctx.io, config_path, .{}) catch |err| {
-        std.debug.print("\nUnable to create config file: {s}\n", .{config_path});
+        try self_._ctx.stderr.print("\nUnable to create config file: {s}\n", .{config_path});
         return err;
     };
     defer config_file.close(self_._ctx.io);
@@ -301,7 +301,7 @@ fn getConfigPath(ctx_: *const Context) ![]const u8 {
     // Fallback: ~/.config/goal/config
     const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
     const home = try optionalEnvVarOwned(ctx_, home_var) orelse {
-        std.debug.print(
+        try ctx_.stderr.print(
             \\
             \\Unable to get config file path.
             \\

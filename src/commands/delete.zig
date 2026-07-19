@@ -159,7 +159,7 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
     // - can't be any active goal
     for (args_.ids.items) |id| {
         if (active_id) |active| if (std.mem.eql(u8, active, id)) {
-            std.debug.print(
+            try ctx_.stderr.print(
                 \\
                 \\Goal #{s} is active in your current branch!
                 \\
@@ -172,14 +172,14 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
         dirs_.active.dir.access(ctx_.io, id, .{}) catch {
             dirs_.next.dir.access(ctx_.io, id, .{}) catch {
                 dirs_.later.dir.access(ctx_.io, id, .{}) catch |err| {
-                    std.debug.print("\nI can't access Goal #{s}!\n", .{id});
+                    try ctx_.stderr.print("\nI can't access Goal #{s}!\n", .{id});
                     return err;
                 };
                 continue;
             };
             continue;
         };
-        std.debug.print("\nGoal #{s} is already active in another branch!\n", .{id});
+        try ctx_.stderr.print("\nGoal #{s} is already active in another branch!\n", .{id});
         return error.CannotDeleteActiveGoal;
     }
 
@@ -215,7 +215,7 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
     for (args_.ids.items) |id| {
         std.Io.Dir.rename(dirs_.later.dir, id, dirs_.deleted.dir, id, ctx_.io) catch {
             std.Io.Dir.rename(dirs_.next.dir, id, dirs_.deleted.dir, id, ctx_.io) catch |err| {
-                std.debug.print("\nUnable to delete goal {s}.\n", .{id});
+                try ctx_.stderr.print("\nUnable to delete goal {s}.\n", .{id});
                 return err;
             };
         };

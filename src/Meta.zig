@@ -29,18 +29,18 @@ const M = struct {
 pub fn load(ctx_: *const Context, base_dir_: std.Io.Dir) !Meta {
     const meta_file = base_dir_.readFileAllocOptions(ctx_.io, "m", ctx_.alloc, .unlimited, .of(u8), 0) catch |err| switch (err) {
         error.FileNotFound => {
-            std.debug.print("\nThe 'm' file doesn't exist! Run `goal init`.\n", .{});
+            try ctx_.stderr.writeAll("\nThe 'm' file doesn't exist! Run `goal init`.\n");
             return err;
         },
         else => {
-            std.debug.print("\nUnable to read m file!\n", .{});
+            try ctx_.stderr.writeAll("\nUnable to read m file!\n");
             return err;
         },
     };
     defer ctx_.alloc.free(meta_file);
 
     const m = std.zon.parse.fromSliceAlloc(M, ctx_.alloc, meta_file, null, .{}) catch |err| {
-        std.debug.print("\nUnable to parse m file!\n", .{});
+        try ctx_.stderr.writeAll("\nUnable to parse m file!\n");
         return err;
     };
     defer std.zon.parse.free(ctx_.alloc, m);

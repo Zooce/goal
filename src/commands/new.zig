@@ -212,7 +212,7 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
         defer goal.deinit();
 
         if (goal.title.len == 0) {
-            std.debug.print("\nGoal title cannot be empty!\n", .{});
+            try ctx_.stderr.writeAll("\nGoal title cannot be empty!\n");
             try dirs.later.dir.deleteFile(ctx_.io, goal.id);
             return error.EmptyGoalTitle;
         }

@@ -35,7 +35,7 @@ pub fn clear(ctx_: *const Context, local_dir_: std.Io.Dir) !void {
     local_dir_.deleteFile(ctx_.io, ".active_id") catch |err| switch (err) {
         error.FileNotFound => {}, // ignore
         else => {
-            std.debug.print("Unable to delete .active_id!", .{});
+            try ctx_.stderr.writeAll("Unable to delete .active_id!\n");
             return err;
         },
     };

@@ -81,11 +81,11 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
 
                 break :uuid_blk;
             } else {
-                std.debug.print("\nThere's no .goal_id file. Run `goal init`.\n", .{});
+                try ctx_.stderr.writeAll("\nThere's no .goal_id file. Run `goal init`.\n");
                 return err;
             },
             else => {
-                std.debug.print("\nUnable to open .goal_id file: {s}\n", .{goal_id_path});
+                try ctx_.stderr.print("\nUnable to open .goal_id file: {s}\n", .{goal_id_path});
                 return err;
             },
         };
@@ -173,13 +173,13 @@ pub const Dir = struct {
                 std.Io.Dir.createDirAbsolute(ctx_.io, path_, .default_dir) catch |err| switch (err) {
                     error.PathAlreadyExists => {},
                     else => {
-                        std.debug.print("\nUnable to create directory: {s}\n", .{path_});
+                        try ctx_.stderr.print("\nUnable to create directory: {s}\n", .{path_});
                         return err;
                     },
                 };
             }
             break :dir std.Io.Dir.openDirAbsolute(ctx_.io, path_, .{ .iterate = opts_.iterate }) catch |err| {
-                std.debug.print("\nUnable to open directory: {s}\n", .{path_});
+                try ctx_.stderr.print("\nUnable to open directory: {s}\n", .{path_});
                 return err;
             };
         };

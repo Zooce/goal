@@ -8,16 +8,17 @@ pub fn main(init_: std.process.Init) !u8 {
     var stdout_buf: [2048]u8 = undefined;
     var stdout_writer = std.Io.File.stdout().writer(init_.io, &stdout_buf);
     const stdout = &stdout_writer.interface;
-    defer stdout.flush() catch |err| {
-        std.debug.print("\nERROR: stdout flush error: {t}\n", .{err});
+    defer stdout.flush() catch {
+        // Last-resort: buffered stderr may also be broken.
+        std.Io.File.stderr().writeStreamingAll(init_.io, "\nERROR: stdout flush error\n") catch {};
     };
 
     // setup stderr
     var stderr_buf: [2048]u8 = undefined;
     var stderr_writer = std.Io.File.stderr().writer(init_.io, &stderr_buf);
     const stderr = &stderr_writer.interface;
-    defer stderr.flush() catch |err| {
-        std.debug.print("\nERROR: stderr flush error: {t}\n", .{err});
+    defer stderr.flush() catch {
+        std.Io.File.stderr().writeStreamingAll(init_.io, "\nERROR: stderr flush error\n") catch {};
     };
 
     // setup stdin
@@ -91,7 +92,7 @@ fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.Arg
         // Just for debugging - obviously
 
         .batman => {
-            std.debug.print("\nWhat are you doing here?!\n", .{});
+            try ctx_.stderr.writeAll("\nWhat are you doing here?!\n");
         },
     }
 }
