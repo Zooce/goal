@@ -1,5 +1,9 @@
 # AGENTS.md
 
+## Session start
+
+At the start of every new session, run `goal status --full` to get context on the current state of work.
+
 ## Git Rules
 
 You may NOT run any Git commands that change anything in the repo at all, unless I ask explicitly.
