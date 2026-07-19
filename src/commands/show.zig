@@ -367,7 +367,7 @@ test "show finds goals in active, next, later, and deleted" {
     var ids: std.ArrayList([]const u8) = .empty;
     defer ids.deinit(env.alloc);
     try ids.append(env.alloc, later_id);
-    try delete_cmd.run(&env.ctx, dirs, ids);
+    try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     env.resetStdout();
     try show_cmd.run(&env.ctx, .{ .id = later_id });
@@ -574,7 +574,7 @@ test "goal show --category (active next later deleted)" {
     var ids: std.ArrayList([]const u8) = .empty;
     defer ids.deinit(env.alloc);
     try ids.append(env.alloc, later_id);
-    try delete_cmd.run(&env.ctx, dirs, ids);
+    try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     env.resetStdout();
     try show_cmd.run(&env.ctx, .{

@@ -51,6 +51,23 @@ Quick: `mise test`
 
 When creating a test, use `TestEnv` and the normal flow a user would to set things up, `goal init`, `goal new 'something new'`, `goal start 1`, etc.. and remember each command has a public `run` function that tests can call directly to invoke commands programmatically.
 
+In a command module’s tests, always call that command’s `run` / `parseArgs` via a `_cmd` alias — never bare `run(...)` / `parseArgs(...)`:
+
+```zig
+const delete_cmd = @This();
+const init_cmd = @import("init.zig");
+const new_cmd = @import("new.zig");
+
+// local command under test
+try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
+
+// other commands used for setup
+try init_cmd.run(&env.ctx);
+const id = try new_cmd.run(&env.ctx, .{ .content = "title" });
+```
+
+Same pattern for other modules: `const show_cmd = @This();`, `const new_cmd = @This();`, etc.
+
 When creating a test, always comment on each section of the test that tests something interesting.
 
 Name tests after the real-world case when possible, e.g. `goal show (active goal)`, `goal show (no active goal, non-TTY)`, `goal edit --file (active goal)` — not long internal prose like “uses active before TTY picker”.
