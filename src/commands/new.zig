@@ -191,7 +191,7 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
         try goal_file.writeStreamingAll(ctx_.io, raw);
         try goal_file.sync(ctx_.io);
         if (args_.quiet) {
-            // Bare id for scripts: id=$(goal new "…" -q)
+            // Bare id for scripts: id=$(goal new "title" -q)
             try ctx_.stdout.print("{d}\n", .{meta.next_id});
         } else {
             try ctx_.stdout.print("\nGoal #{d} - {s}\n", .{ meta.next_id, title });

@@ -29,12 +29,13 @@ pub const help_text =
     \\
     \\Usage:
     \\
-    \\    goal start [id | new [title]]
+    \\    goal start [id | new ...]
     \\
     \\Arguments:
     \\
-    \\    [id]             The goal ID. Required when stdin is not a terminal.
-    \\    [new [title]]    Start a new goal. See `goal help new`.
+    \\    [id]     The goal ID. Required when stdin is not a terminal.
+    \\    [new ...]  Create and start a new goal. Same options as `goal new`
+    \\             (title, --file, -q/--quiet). See `goal help new`.
     \\
     \\Examples:
     \\
@@ -42,6 +43,7 @@ pub const help_text =
     \\    goal start 3
     \\    goal start new
     \\    goal start new "fix the bug"
+    \\    goal start new --file notes.md
     \\
     \\Help:
     \\
@@ -58,11 +60,11 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
         .help => return try ctx_.stdout.writeAll(help_text),
         .args => |args| args,
     };
-    // we are responsible for the id or title from parseArgs
+    // we are responsible for the id or new content from parseArgs
     defer if (args) |_args| {
         switch (_args) {
             .id => |id| ctx_.alloc.free(id),
-            .new => |run_new| if (run_new.title) |t| ctx_.alloc.free(t),
+            .new => |run_new| if (run_new.content) |c| ctx_.alloc.free(c),
         }
     };
     try run(ctx_, args);
@@ -70,14 +72,15 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
 
 pub const Args = union(enum) {
     id: []const u8,
-    new: struct {
-        title: ?[]const u8 = null,
-    },
+    /// Same shape as `goal new` (content + quiet).
+    new: new.Args,
 };
 
 pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(?Args) {
     // goal start new
     // goal start new "fix the bug"
+    // goal start new --file path
+    // goal start new -q --file path
     // goal start new -h
     // goal start new --help "fix the bug"
     // goal start new "fix the bug" help
@@ -88,38 +91,32 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(?Args) {
     // goal start --help 3
     // goal start 3 help
 
-    var id_or_title: ?[]const u8 = null;
-    errdefer if (id_or_title) |str| ctx_.alloc.free(str);
-    var run_new = false;
+    var id: ?[]const u8 = null;
+    errdefer if (id) |i| ctx_.alloc.free(i);
 
     while (iter_.next()) |arg| {
-        // help or new
         if (Command.fromString(arg)) |sub| switch (sub) {
             .help => {
-                if (id_or_title) |str| ctx_.alloc.free(str);
+                if (id) |i| ctx_.alloc.free(i);
                 return .help;
             },
             .new => {
-                // can't have a id already
-                if (id_or_title != null) return Self.unexpectedSubcommand(ctx_, sub);
-                // can't have a "new" already
-                if (run_new) return error.DuplicateArgument;
-                run_new = true;
-                continue;
+                // can't already have a goal ID
+                if (id != null) return Self.unexpectedSubcommand(ctx_, sub);
+                // remaining args use the same rules as `goal new`
+                return switch (try new.parseArgs(ctx_, iter_)) {
+                    .help => .help,
+                    .args => |new_args| .{ .args = .{ .new = new_args } },
+                };
             },
             else => return Self.unexpectedSubcommand(ctx_, sub),
         };
 
-        // can't have an id or title already
-        if (id_or_title != null) return Self.unexpectedArgument(ctx_, arg);
-
-        // id or title
-        id_or_title = try ctx_.alloc.dupe(u8, arg);
+        if (id != null) return Self.unexpectedArgument(ctx_, arg);
+        id = try ctx_.alloc.dupe(u8, arg);
     }
 
-    return .{
-        .args = if (run_new) .{ .new = .{ .title = id_or_title } } else if (id_or_title) |id| .{ .id = id } else null,
-    };
+    return .{ .args = if (id) |i| .{ .id = i } else null };
 }
 
 pub fn run(ctx_: *const Context, args_: ?Args) !void {
@@ -144,11 +141,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
     var goal = goal: {
         const id = if (args_) |args| switch (args) {
             .id => |_id| _id,
-            // TODO: `start new` is not script-friendly — it only passes an optional
-            // title into new.run and never goes through new.parseArgs. --file works
-            // for `goal new` but not for `goal start new`. Share content resolution
-            // with new.parseArgs (or a shared helper) so scripting is consistent.
-            .new => |_new| try new.run(ctx_, .{ .content = _new.title }),
+            .new => |_new| try new.run(ctx_, _new),
         } else null orelse id: {
             var count = try dirs.next.list(ctx_);
             count += try dirs.later.list(ctx_);
@@ -169,6 +162,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
                     \\
                     \\Usage: goal start <id>
                     \\       goal start new [title]
+                    \\       goal start new --file <path>
                     \\
                 );
                 return error.MissingArgument;
@@ -193,7 +187,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
     defer goal.deinit();
 
     std.Io.Dir.rename(goal.dir, goal.id, dirs.active.dir, goal.id, ctx_.io) catch |err| {
-        std.debug.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
+        try ctx_.stderr.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
         return err;
     };
 
@@ -337,7 +331,7 @@ test "start + new creates a new goal and starts it" {
     defer env.alloc.free(goal_id);
 
     // start (new)
-    const args: Args = .{ .new = .{ .title = "fix the bug" } };
+    const args: Args = .{ .new = .{ .content = "fix the bug" } };
     try start_cmd.run(&env.ctx, args);
 
     // verify active goal
@@ -361,9 +355,65 @@ test "start does not commit the active id file if it's git ignored" {
 
     try env.writeFile("proj/.gitignore", ".goal/");
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
     defer env.alloc.free(log);
     try std.testing.expect(std.mem.indexOf(u8, log, "Started Goal #1 - fix the bug") == null);
+}
+
+test "goal start new --file (non-TTY)" {
+    // start new shares content resolution with goal new (title / --file / quiet).
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    try env.writeFile("proj/notes.md",
+        \\ship it
+        \\
+        \\details here
+    );
+
+    const argv = [_][*:0]const u8{ "new", "--file", "notes.md" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const parsed = try start_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(parsed == .args);
+    const args = parsed.args.?;
+    defer if (args == .new) if (args.new.content) |c| env.alloc.free(c);
+
+    try start_cmd.run(&env.ctx, args);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));
+    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+
+    const body = try env.readFile(".goal/{s}/a/1", .{goal_id});
+    defer env.alloc.free(body);
+    try std.testing.expect(std.mem.indexOf(u8, body, "ship it") != null);
+    try std.testing.expect(std.mem.indexOf(u8, body, "details here") != null);
+}
+
+test "parseArgs start new --file yields new content" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try env.writeFile("proj/body.md", "from file");
+
+    const argv = [_][*:0]const u8{ "new", "--file", "body.md", "-q" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    const parsed = try start_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(parsed == .args);
+    const args = parsed.args.?;
+    defer if (args == .new) if (args.new.content) |c| env.alloc.free(c);
+
+    try std.testing.expect(args == .new);
+    try std.testing.expect(args.new.quiet);
+    try std.testing.expectEqualStrings("from file", args.new.content.?);
 }

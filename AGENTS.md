@@ -29,7 +29,9 @@ Keep things simple. No clever tricks unless they unlock something profoundly use
 
 Perferr immutable (const) pointers as function parameters.
 
-Prefer plain language in help text, comments, and tests: **goal ID**, **active goal** — not jargon like “subject”, and not bare “active” / “no active” when you mean the active goal.
+Prefer plain language in help text, comments, and tests: **goal ID**, **active goal** - not jargon like "subject", and not bare "active" / "no active" when you mean the active goal.
+
+Use plain ASCII in source, help text, comments, and tests. No special Unicode characters (ellipsis, fancy dashes, smart quotes, arrows, and so on). Write `...`, `-` / `--`, and straight quotes instead.
 
 ## Composition / scripting
 

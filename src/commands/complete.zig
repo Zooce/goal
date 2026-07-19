@@ -237,7 +237,7 @@ test "completing a goal" {
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try complete_cmd.run(&env.ctx, .{});
 
@@ -260,7 +260,7 @@ test "completeing a goal ignoring staged changes" {
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try env.writeFile("proj/file.txt", "a new file");
     try proc.run(&env.ctx, .{
@@ -287,7 +287,7 @@ test "completing a goal ignoring unstaged changes" {
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try env.writeFile("proj/file.txt", "a new file");
     // don't git add this so we have unstaged changes
@@ -311,7 +311,7 @@ test "completing a goal without ignoring unstaged changes" {
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try env.writeFile("proj/file.txt", "a new file");
     // don't git add this so we have unstaged changes
@@ -333,7 +333,7 @@ test "goal complete --yes (non-TTY)" {
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try std.testing.expect(!env.ctx.stdin_is_tty);
     try complete_cmd.run(&env.ctx, .{ .yes = true });
@@ -353,7 +353,7 @@ test "goal complete --yes with staged changes (non-TTY)" {
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(goal_id);
 
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try env.writeFile("proj/file.txt", "a new file");
     try proc.run(&env.ctx, .{
@@ -377,7 +377,7 @@ test "goal complete without --yes (non-TTY)" {
     defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
-    try start_cmd.run(&env.ctx, .{ .new = .{ .title = "fix the bug" } });
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try std.testing.expectError(error.ConfirmationRequired, complete_cmd.run(&env.ctx, .{}));
 }

@@ -307,7 +307,7 @@ test "run rejects empty content and blank first-line title" {
 }
 
 // How the goal ID is chosen when omitted on the command line:
-//   1. the active goal                            (goal edit --file …)
+//   1. the active goal                            (goal edit --file ...)
 //   2. TTY picker, or error when not a TTY
 
 test "goal edit (no active goal, non-TTY)" {
