@@ -81,6 +81,9 @@ pub fn run(ctx_: *const Context) !void {
         defer ctx_.alloc.free(proj_root);
 
         const repo_name = std.Io.Dir.path.basename(proj_root);
+        // Non-TTY: use the repo name without prompting (scripts / TestEnv).
+        if (!ctx_.stdin_is_tty) break :project_name try ctx_.alloc.dupe(u8, repo_name);
+
         const prompt = try std.fmt.allocPrint(ctx_.alloc, "Project name (default: {s})", .{repo_name});
         defer ctx_.alloc.free(prompt);
 
@@ -239,8 +242,11 @@ test "init fails in non-git directory" {
 }
 
 test "init with custom project name" {
+    // TTY so init prompts for project name; answer "my-project".
     var env = try TestEnv.init(&.{.{ .buffer = "my-project\n" }});
     defer env.deinit();
+    defer env.resetStderr();
+    env.ctx.stdin_is_tty = true;
 
     try init_cmd.run(&env.ctx);
 

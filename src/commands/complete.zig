@@ -231,6 +231,7 @@ test "completing a goal" {
         .{ .buffer = "yes\n" },
     });
     defer env.deinit();
+    defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
     try init_cmd.run(&env.ctx);
@@ -254,6 +255,7 @@ test "completeing a goal ignoring staged changes" {
         .{ .buffer = "yes\n" },
     });
     defer env.deinit();
+    defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
     try init_cmd.run(&env.ctx);
@@ -281,6 +283,7 @@ test "completing a goal ignoring unstaged changes" {
         .{ .buffer = "yes\n" },
     });
     defer env.deinit();
+    defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
     try init_cmd.run(&env.ctx);
@@ -305,6 +308,7 @@ test "completing a goal without ignoring unstaged changes" {
         .{ .buffer = "yes\n" },
     });
     defer env.deinit();
+    defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
     try init_cmd.run(&env.ctx);

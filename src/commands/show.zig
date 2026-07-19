@@ -390,11 +390,12 @@ test "goal show (no active goal, non-TTY)" {
 }
 
 test "goal show (no active goal, TTY picks)" {
+    // Picker answer only - non-TTY init does not consume stdin.
     var env = try TestEnv.init(&.{
-        .{ .buffer = "\n" },
         .{ .buffer = "1\n" },
     });
     defer env.deinit();
+    defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
     const filename = try new_cmd.run(&env.ctx, .{ .content = "pick me" });
@@ -410,6 +411,7 @@ test "goal show (no active goal, TTY picks)" {
 test "goal show (active goal)" {
     var env = try TestEnv.init(&.{});
     defer env.deinit();
+    defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
 
@@ -423,9 +425,8 @@ test "goal show (active goal)" {
 }
 
 test "goal show (active goal, TTY)" {
-    var env = try TestEnv.init(&.{
-        .{ .buffer = "\n" },
-    });
+    // Active goal is used without a picker; TTY only asserts that path still works.
+    var env = try TestEnv.init(&.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);

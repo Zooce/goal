@@ -136,10 +136,17 @@ pub fn init(stdin_calls_: []const std.testing.Reader.Call) !TestEnv {
 
 /// Free all resources owned by the test environment.
 pub fn deinit(self_: *TestEnv) void {
-    // it's useful to see stderr if there was any
-    // - if you're testing an error scenario, then call `resetStderr()` instead
-    if (self_.ctx.stderr.buffered().len > 0) {
-        std.Io.File.stderr().writeStreamingAll(self_.io, self_.ctx.stderr.buffered()) catch {};
+    // Tests must leave stderr empty. Expected prompts/errors: call resetStderr()
+    // after the step that produced them. Leftover stderr is a test bug - show it
+    // and panic so it cannot be ignored.
+    const leftover = self_.ctx.stderr.buffered();
+    if (leftover.len > 0) {
+        std.Io.File.stderr().writeStreamingAll(self_.io, leftover) catch {};
+        std.Io.File.stderr().writeStreamingAll(
+            self_.io,
+            "\nTestEnv: leftover stderr at test env deinit - call resetStderr() after expected stderr\n",
+        ) catch {};
+        @panic("TestEnv: stderr not empty at test env deinit");
     }
     self_._state.environ_map.deinit();
     self_.alloc.destroy(self_._state);
@@ -232,8 +239,9 @@ pub fn resetStdout(self_: *TestEnv) void {
 
 /// Clear the captured stderr buffer.
 ///
-/// Useful for tests that expect to encounter an error - we don't
-/// need to see the output in these cases.
+/// Call this after any step that intentionally writes to stderr (error
+/// messages, interactive prompts on a TTY). Tests must not leave expected
+/// stderr in the buffer - see deinit.
 pub fn resetStderr(self_: *TestEnv) void {
     _ = self_.ctx.stderr.consumeAll();
 }

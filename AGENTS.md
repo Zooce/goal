@@ -72,6 +72,8 @@ Same pattern for other modules: `const show_cmd = @This();`, `const new_cmd = @T
 
 When creating a test, always comment on each section of the test that tests something interesting.
 
+**No leftover stderr.** `TestEnv.deinit` panics if the stderr buffer is non-empty. After any intentional stderr (error messages, TTY prompts from `confirm` / `getAnswer`), call `env.resetStderr()`. Do not leave expected stderr for deinit to “show later” - there is no dump-on-success path.
+
 Name tests after the real-world case when possible, e.g. `goal show (active goal)`, `goal show (no active goal, non-TTY)`, `goal edit --file (active goal)` — not long internal prose like “uses active before TTY picker”.
 
 Never create useless tests such as:
