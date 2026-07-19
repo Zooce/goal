@@ -20,7 +20,8 @@ pub const help_text =
     \\Only Next goals can be demoted. If a goal is currently active and you want
     \\it to go straight to Later, stop it with `goal stop --later`.
     \\
-    \\If no goal ID is given you'll select one from the list of Next goals.
+    \\If no goal ID is given and stdin is a terminal, you'll select one from the
+    \\Next list. Scripts and non-TTY runs must pass a goal ID.
     \\
     \\
     \\Usage:
@@ -29,11 +30,11 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]    The goal ID (optional). If omitted, you'll pick from the Next list.
+    \\    [id]    The goal ID. Optional on a TTY (picker); required when not a TTY.
     \\
     \\Examples:
     \\
-    \\    goal later        # pick from Next list interactively
+    \\    goal later        # pick from Next list interactively (TTY)
     \\    goal later 3      # demote goal #3 from Next to Later
     \\
     \\Help:
@@ -100,6 +101,17 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
                 \\
             , .{});
             return error.NoNextGoalsToDemote;
+        }
+        // Picker only on TTY — never hang when stdin is a pipe/script.
+        if (!ctx_.stdin_is_tty) {
+            try ctx_.stderr.writeAll(
+                \\
+                \\goal later requires a goal ID when stdin is not a terminal.
+                \\
+                \\Usage: goal later <id>
+                \\
+            );
+            return error.MissingArgument;
         }
         if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
             break :id choice;
@@ -185,4 +197,19 @@ test "later with invalid goal ID shows error" {
     // Run: later 999
     // Verify: goal not found error
     try std.testing.expectError(error.FileNotFound, later_cmd.run(&env.ctx, "999"));
+}
+
+test "goal later (no id, non-TTY)" {
+    // Next goals exist but no id given and stdin is not a TTY — must not hang on picker.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "queued work" });
+    defer env.alloc.free(filename);
+    try next_cmd.run(&env.ctx, filename);
+
+    try std.testing.expect(!env.ctx.stdin_is_tty);
+    try std.testing.expectError(error.MissingArgument, later_cmd.run(&env.ctx, null));
 }

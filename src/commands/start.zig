@@ -21,7 +21,8 @@ pub const help_text =
     \\
     \\Activates a goal (and optionally creates a new one).
     \\
-    \\If no goal ID is given you'll select from the list of goals.
+    \\If no goal ID is given and stdin is a terminal, you'll select from the list
+    \\of goals. Scripts and non-TTY runs must pass a goal ID (or `new`).
     \\
     \\If you're in a Git project, ID and details of this activated goal will be
     \\appended to commit messages as long as this goal is activated.
@@ -32,14 +33,14 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]             The goal ID.
+    \\    [id]             The goal ID. Required when stdin is not a terminal.
     \\    [new [title]]    Start a new goal. See `goal help new`.
     \\
     \\Examples:
     \\
-    \\    goal start
+    \\    goal start              # pick interactively (TTY)
     \\    goal start 3
-    \\    gaol start new
+    \\    goal start new
     \\    goal start new "fix the bug"
     \\
     \\Help:
@@ -159,6 +160,18 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
                     \\
                 , .{});
                 return error.NoInactiveGoalsToStart;
+            }
+            // Picker only on TTY — never hang when stdin is a pipe/script.
+            if (!ctx_.stdin_is_tty) {
+                try ctx_.stderr.writeAll(
+                    \\
+                    \\goal start requires a goal ID when stdin is not a terminal.
+                    \\
+                    \\Usage: goal start <id>
+                    \\       goal start new [title]
+                    \\
+                );
+                return error.MissingArgument;
             }
             if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
                 break :id choice; // need to free this memory
@@ -297,6 +310,20 @@ test "can only start if there are inactive goals to start" {
 
     // should error with NoInactiveGoalsToStart
     try std.testing.expectError(error.NoInactiveGoalsToStart, start_cmd.run(&env.ctx, null));
+}
+
+test "goal start (no id, non-TTY)" {
+    // Inactive goals exist but no id given and stdin is not a TTY — must not hang on picker.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "something to start" });
+    defer env.alloc.free(filename);
+
+    try std.testing.expect(!env.ctx.stdin_is_tty);
+    try std.testing.expectError(error.MissingArgument, start_cmd.run(&env.ctx, null));
 }
 
 test "start + new creates a new goal and starts it" {

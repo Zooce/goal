@@ -18,16 +18,17 @@ pub const help_text =
     \\
     \\Deletes a goal.
     \\
-    \\If no goal ID is given you'll select one from the list of goals.
+    \\If no goal ID is given and stdin is a terminal, you'll select from the list
+    \\of goals. Scripts and non-TTY runs must pass one or more goal IDs.
     \\
     \\
     \\Usage:
     \\
-    \\    goal delete [id]
+    \\    goal delete [id...]
     \\
     \\Arguments:
     \\
-    \\    [id]    The goal ID (optional).
+    \\    [id...]    Goal ID(s). Optional on a TTY (picker); required when not a TTY.
     \\
     \\Help:
     \\
@@ -81,15 +82,26 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
         var count = try dirs_.next.list(ctx_);
         count += try dirs_.later.list(ctx_);
         if (count == 0) {
-            std.debug.print(
+            try ctx_.stderr.writeAll(
                 \\
                 \\Sorry, but you can only delete goals that are currently
                 \\inactive and it turns out there aren't any right now.
                 \\
                 \\Guess I'll see ya later then..
                 \\
-            , .{});
+            );
             return error.NoInactiveGoalsToDelete;
+        }
+        // Picker only on TTY — never hang when stdin is a pipe/script.
+        if (!ctx_.stdin_is_tty) {
+            try ctx_.stderr.writeAll(
+                \\
+                \\goal delete requires a goal ID when stdin is not a terminal.
+                \\
+                \\Usage: goal delete <id> [id...]
+                \\
+            );
+            return error.MissingArgument;
         }
         if (try cli.getAnswer(ctx_, "\nChoose goals (space or comma separated list of numbers)")) |answer| {
             var choices = std.mem.splitAny(u8, answer, ", \t");
@@ -103,11 +115,11 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
             }
 
             if (count == 0) {
-                std.debug.print("\nOkay... cool bro...\n", .{});
+                try ctx_.stderr.writeAll("\nOkay... cool bro...\n");
                 return error.NoGoalChosen;
             }
         } else {
-            std.debug.print("\nI guess no choice is as good as any. See ya!\n", .{});
+            try ctx_.stderr.writeAll("\nI guess no choice is as good as any. See ya!\n");
             return error.NoGoalChosen;
         }
     }
@@ -174,4 +186,33 @@ pub fn run(ctx_: *const Context, dirs_: Directories, ids_: std.ArrayList([]const
     }
 
     try ctx_.stdout.writeAll("\nAll done! Smell ya later!\n");
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init_cmd = @import("init.zig");
+const new_cmd = @import("new.zig");
+
+test "goal delete (no id, non-TTY)" {
+    // Inactive goals exist but no id given and stdin is not a TTY — must not hang on picker.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "do not delete via picker" });
+    defer env.alloc.free(filename);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expect(!env.ctx.stdin_is_tty);
+    try std.testing.expectError(error.MissingArgument, parseArgs(&env.ctx, &iter, dirs));
 }
