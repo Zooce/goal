@@ -364,12 +364,12 @@ test "goal complete --yes with staged changes (non-TTY)" {
 
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
-    // staged file still staged / present — we did not commit it as part of complete
+    // staged file still staged / present - we did not commit it as part of complete
     try std.testing.expect(try env.pathExists("proj/file.txt", .{}));
 }
 
 test "goal complete without --yes (non-TTY)" {
-    // Non-TTY must not hang on confirm — require --yes.
+    // Non-TTY must not hang on confirm - require --yes.
     var env = try TestEnv.init(&.{
         .{ .buffer = "\n" },
     });
