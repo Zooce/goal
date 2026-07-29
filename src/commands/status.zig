@@ -6,7 +6,7 @@ const git = @import("../git.zig");
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
 const Goal = @import("../Goal.zig");
-
+const Note = @import("../Note.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 
@@ -22,7 +22,8 @@ pub const help_text =
     \\If you're in a Git project, this will also list the set of commits that contain
     \\the active goal's details.
     \\
-    \\With `--full`, also prints the active goal file contents at the end — useful for
+    \\Notes on the active goal are listed by id and title. With `--full`, also prints
+    \\the active goal file contents and full note bodies at the end - useful for
     \\AI agents and scripts that need the full goal details programmatically.
     \\
     \\
@@ -115,6 +116,22 @@ pub fn run(ctx_: *const Context, full_: bool) !void {
                 \\
             , .{contents});
         }
+
+        // Notes: brief titles by default; full bodies with --full.
+        {
+            var notes_dir: ?Directories.Dir = dirs.notes(id, .{ .iterate = true }) catch |err| switch (err) {
+                error.FileNotFound => null,
+                else => return err,
+            };
+            if (notes_dir) |*nd| {
+                defer nd.close(ctx_);
+                _ = try nd.listItems(ctx_, Note, .{
+                    .incl_desc = full_,
+                    .sort = true,
+                    .show_none = false,
+                });
+            }
+        }
     } else {
         const count = try dirs.next.list(ctx_);
 
@@ -136,6 +153,7 @@ const init_cmd = @import("init.zig");
 const new_cmd = @import("new.zig");
 const start_cmd = @import("start.zig");
 const next_cmd = @import("next.zig");
+const note_cmd = @import("note.zig");
 const status_cmd = @This();
 
 test "status with no active goal" {
@@ -247,4 +265,36 @@ test "parseArgs rejects duplicate --full and unknown args" {
         defer iter.deinit();
         try std.testing.expectError(error.UnexpectedArgument, status_cmd.parseArgs(&env.ctx, &iter));
     }
+}
+
+test "status lists note titles; --full includes note bodies" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const id = try new_cmd.run(&env.ctx, .{ .content = "active pad" });
+    defer env.alloc.free(id);
+    try start_cmd.run(&env.ctx, .{ .id = id });
+
+    const n1 = try note_cmd.run(&env.ctx, .{ .content =
+        \\agent update
+        \\
+        \\found related code
+    });
+    defer env.alloc.free(n1);
+
+    env.resetStdout();
+    try status_cmd.run(&env.ctx, false);
+    const brief = env.readStdout();
+    try std.testing.expect(std.mem.indexOf(u8, brief, "Goal #1 - active pad") != null);
+    try std.testing.expect(std.mem.indexOf(u8, brief, "Notes:") != null);
+    try std.testing.expect(std.mem.indexOf(u8, brief, "1. agent update") != null);
+    // Body not dumped without --full
+    try std.testing.expect(std.mem.indexOf(u8, brief, "found related code") == null);
+
+    env.resetStdout();
+    try status_cmd.run(&env.ctx, true);
+    const full = env.readStdout();
+    try std.testing.expect(std.mem.indexOf(u8, full, "Note #1 - agent update") != null);
+    try std.testing.expect(std.mem.indexOf(u8, full, "found related code") != null);
 }

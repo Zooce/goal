@@ -4,6 +4,7 @@ const Context = @import("../Context.zig");
 const cli = @import("../cli.zig");
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
+const Note = @import("../Note.zig");
 const Command = @import("../commands.zig").Command;
 const ArgIter = @import("../args.zig").ArgIter;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
@@ -18,7 +19,9 @@ pub const help_text =
     \\Prints the full contents of a goal file, or selected fields for scripts.
     \\
     \\Searches Active, Next, Later, and Deleted. Deleted goals are labeled so
-    \\scripts and humans can tell them apart (full output only).
+    \\scripts and humans can tell them apart (full output only). After the goal
+    \\body, any notes attached to that goal are listed with their full text.
+    \\Field flags (--id, --title, ...) do not include notes.
     \\
     \\When no goal ID argument is given, the ID is chosen as follows:
     \\
@@ -264,6 +267,28 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             try ctx_.stdout.print("Deleted Goal #{s}\n\n", .{id});
         }
         try ctx_.stdout.writeAll(contents);
+        // List notes so agents re-entering a session see accumulated context.
+        {
+            var notes_dir: ?Directories.Dir = dirs.notes(id, .{ .iterate = true }) catch |err| switch (err) {
+                error.FileNotFound => null,
+                else => return err,
+            };
+            if (notes_dir) |*nd| {
+                defer nd.close(ctx_);
+                if (!try nd.isEmpty(ctx_)) {
+                    // listItems starts with a leading newline; end the body line
+                    // first so there is a blank line before the Notes section.
+                    if (contents.len == 0 or contents[contents.len - 1] != '\n') {
+                        try ctx_.stdout.writeAll("\n");
+                    }
+                    _ = try nd.listItems(ctx_, Note, .{
+                        .incl_desc = true,
+                        .sort = true,
+                        .show_none = false,
+                    });
+                }
+            }
+        }
         return;
     }
 
@@ -295,6 +320,7 @@ const new_cmd = @import("new.zig");
 const next_cmd = @import("next.zig");
 const start_cmd = @import("start.zig");
 const delete_cmd = @import("delete.zig");
+const note_cmd = @import("note.zig");
 const show_cmd = @This();
 
 test "show prints full raw goal file contents" {
@@ -623,6 +649,59 @@ test "goal show --id (active goal)" {
         .fields_len = 1,
     });
     try std.testing.expectEqualStrings("1\n", env.readStdout());
+}
+
+test "goal show lists notes after goal body" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const id = try new_cmd.run(&env.ctx, .{ .content = "goal body" });
+    defer env.alloc.free(id);
+    try start_cmd.run(&env.ctx, .{ .id = id });
+
+    const n1 = try note_cmd.run(&env.ctx, .{ .content = "first note" });
+    defer env.alloc.free(n1);
+    const n2 = try note_cmd.run(&env.ctx, .{ .content =
+        \\second note
+        \\
+        \\more detail
+    });
+    defer env.alloc.free(n2);
+
+    env.resetStdout();
+    try show_cmd.run(&env.ctx, .{ .id = id });
+    try std.testing.expectEqualStrings(
+        \\goal body
+        \\
+        \\Notes:
+        \\
+        \\  Note #1 - first note
+        \\
+        \\  Note #2 - second note
+        \\  more detail
+        \\
+    , env.readStdout());
+}
+
+test "goal show field mode does not list notes" {
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const id = try new_cmd.run(&env.ctx, .{ .content = "goal title" });
+    defer env.alloc.free(id);
+    try start_cmd.run(&env.ctx, .{ .id = id });
+    const n1 = try note_cmd.run(&env.ctx, .{ .content = "hidden from fields" });
+    defer env.alloc.free(n1);
+
+    env.resetStdout();
+    try show_cmd.run(&env.ctx, .{
+        .id = id,
+        .fields = .{ .title, undefined, undefined, undefined, undefined },
+        .fields_len = 1,
+    });
+    try std.testing.expectEqualStrings("goal title\n", env.readStdout());
 }
 
 test "parseArgs accepts optional id and field flags" {

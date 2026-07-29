@@ -19,6 +19,7 @@ const config = @import("config.zig");
 const next = @import("next.zig");
 const later = @import("later.zig");
 const show = @import("show.zig");
+const note = @import("note.zig");
 
 const Self = Command.help;
 
@@ -42,6 +43,7 @@ pub const help_text =
     \\    deinit      Remove `goal` from a project (reverses init).
     \\    sync        Sync all your goal projects.
     \\    new         Create a new goal.
+    \\    note        Append a note to the active goal.
     \\    start       Start working on a goal (optionally create a new one).
     \\    status      Show your active goal's status.
     \\    show        Print a goal's full file contents.
@@ -103,6 +105,7 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         .show => show.help_text,
         .complete => complete.help_text,
         .new => new.help_text,
+        .note => note.help_text,
         .edit, .open => edit.help_text,
         .delete => delete.help_text,
         .start => start.help_text,

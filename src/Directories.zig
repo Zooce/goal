@@ -29,7 +29,7 @@ next: Dir,
 /// <base-dir>/.goal/<goal_id>/l/
 later: Dir,
 
-/// <base-dir/.goal/<goal_id>/d/
+/// <base-dir>/.goal/<goal_id>/d/
 deleted: Dir,
 
 /// <project>/.goal/
@@ -156,6 +156,30 @@ pub fn close(self_: *Directories) void {
     self_.local.close(self_._ctx);
 }
 
+/// Open `notes/<goal_id>/` under the project base. Lazy: not opened by `open`.
+/// When `create` is true, intermediate directories are created.
+/// Caller must `close` the returned `Dir`.
+pub fn notes(self_: *const Directories, goal_id_: []const u8, opts_: Options) !Dir {
+    const path = try std.Io.Dir.path.join(self_._ctx.alloc, &.{ self_.base.path, "notes", goal_id_ });
+    errdefer self_._ctx.alloc.free(path);
+
+    var sub_buf: [64]u8 = undefined; // "notes/" + goal id
+    const sub = try std.fmt.bufPrint(&sub_buf, "notes/{s}", .{goal_id_});
+
+    const dir = if (opts_.create)
+        try self_.base.dir.createDirPathOpen(self_._ctx.io, sub, .{
+            .open_options = .{ .iterate = opts_.iterate },
+        })
+    else
+        try self_.base.dir.openDir(self_._ctx.io, sub, .{ .iterate = opts_.iterate });
+
+    return .{
+        .dir = dir,
+        .path = path,
+        .label = "Notes:",
+    };
+}
+
 pub const Dir = struct {
     dir: std.Io.Dir,
     path: []const u8,
@@ -196,29 +220,92 @@ pub const Dir = struct {
         ctx_.alloc.free(self_.path);
     }
 
+    /// True when the directory has no file entries.
+    pub fn isEmpty(self_: Dir, ctx_: *const Context) !bool {
+        var iter = self_.dir.iterate();
+        while (try iter.next(ctx_.io)) |entry| {
+            if (entry.kind == .file) return false;
+        }
+        return true;
+    }
+
+    /// Options for `listItems`.
+    pub const ListOptions = struct {
+        /// Load and print full bodies (`Item.print`) instead of one-line titles.
+        incl_desc: bool = false,
+        /// Sort file names as numeric ids ascending.
+        sort: bool = false,
+        /// When empty: print header + "(none)". When false, print nothing.
+        show_none: bool = true,
+    };
+
+    /// List goals in this directory (titles only, unsorted, show "(none)").
     pub fn list(self_: Dir, ctx_: *const Context) !u8 {
+        return self_.listItems(ctx_, Goal, .{});
+    }
+
+    /// List files as `Item` values. `Item` must provide:
+    /// `init`, `deinit`, `printListLine`, and `print` (when `incl_desc`).
+    pub fn listItems(self_: Dir, ctx_: *const Context, comptime Item: type, opts_: ListOptions) !u8 {
+        var ids = try self_.collectFileNames(ctx_);
+        defer {
+            for (ids.items) |name| ctx_.alloc.free(name);
+            ids.deinit(ctx_.alloc);
+        }
+
+        if (opts_.sort) {
+            std.mem.sort([]const u8, ids.items, {}, struct {
+                fn less(_: void, a: []const u8, b: []const u8) bool {
+                    const na = std.fmt.parseInt(u32, a, 10) catch return true;
+                    const nb = std.fmt.parseInt(u32, b, 10) catch return false;
+                    return na < nb;
+                }
+            }.less);
+        }
+
+        if (ids.items.len == 0) {
+            if (!opts_.show_none) return 0;
+            try self_.printListHeader(ctx_);
+            try ctx_.stdout.writeAll("  (none)\n");
+            return 0;
+        }
+
+        try self_.printListHeader(ctx_);
+
+        var count: u8 = 0;
+        for (ids.items) |id| {
+            var item = try Item.init(ctx_, self_.dir, id, .{ .incl_desc = opts_.incl_desc });
+            defer item.deinit();
+            if (opts_.incl_desc) {
+                try item.print(ctx_.stdout);
+            } else {
+                try item.printListLine(ctx_.stdout);
+            }
+            count += 1;
+        }
+        return count;
+    }
+
+    fn printListHeader(self_: Dir, ctx_: *const Context) !void {
         if (self_.label) |label| {
             try ctx_.stdout.print("\n{s}\n", .{label});
         } else {
             try ctx_.stdout.writeAll("\n");
         }
-        var count: u8 = 0;
-        var iter = self_.dir.iterate();
-        while (try iter.next(ctx_.io)) |entry| : (count += 1) {
-            var goal = try Goal.init(ctx_, self_.dir, entry.name, .{});
-            defer goal.deinit();
-            // TODO: we're no longer marking the active goal when listing them - figure out how to do that
-            // const active = if (active_id_) |active_id|
-            //     std.mem.eql(u8, goal.id, active_id)
-            // else
-            //     false;
-            // try stdout_.print("{s}{s}. {s}\n", .{ if (active) "* " else "  ", goal.id, goal.title });
-            try ctx_.stdout.print("  {s}. {s}\n", .{ goal.id, goal.title });
+    }
+
+    fn collectFileNames(self_: Dir, ctx_: *const Context) !std.ArrayList([]const u8) {
+        var ids: std.ArrayList([]const u8) = .empty;
+        errdefer {
+            for (ids.items) |name| ctx_.alloc.free(name);
+            ids.deinit(ctx_.alloc);
         }
 
-        if (count == 0) {
-            try ctx_.stdout.writeAll("  (none)\n");
+        var iter = self_.dir.iterate();
+        while (try iter.next(ctx_.io)) |entry| {
+            if (entry.kind != .file) continue;
+            try ids.append(ctx_.alloc, try ctx_.alloc.dupe(u8, entry.name));
         }
-        return count;
+        return ids;
     }
 };

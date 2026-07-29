@@ -77,6 +77,7 @@ fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.Arg
         .stop => try commands.stop.main(ctx_, iter_),
         .complete => try commands.complete.main(ctx_, iter_),
         .new => try commands.new.main(ctx_, iter_),
+        .note => try commands.note.main(ctx_, iter_),
         .edit, .open => try commands.edit.main(ctx_, iter_),
         .delete => try commands.delete.main(ctx_, iter_),
         .start => try commands.start.main(ctx_, iter_),

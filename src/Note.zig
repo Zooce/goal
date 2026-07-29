@@ -1,9 +1,9 @@
-const Goal = @This();
+const Note = @This();
 
 const std = @import("std");
 const Context = @import("Context.zig");
 
-/// Options for initializing a goal.
+/// Options for initializing a note.
 pub const Options = struct {
     incl_desc: bool = false,
 
@@ -11,55 +11,40 @@ pub const Options = struct {
     quiet: bool = false,
 };
 
-/// The goal ID.
+/// The note ID (local to the goal it is attached to).
 id: []const u8,
 
-/// The goal title.
+/// The note title (first line of the file).
 title: []const u8,
 
-/// The goal description.
+/// The note body after the title line.
 description: ?[]const u8,
 
-/// The directory where this goal was loaded from.
+/// The directory this note was loaded from (`notes/<goal_id>/`).
 dir: std.Io.Dir,
 
 _ctx: *const Context,
 
-/// Initializes a `Goal` by reading in it's file contents.
+/// Initializes a `Note` by reading its file contents.
 ///
 /// A copy of the given id is made, so the caller is still responsible for
 /// freeing its memory.
-///
-/// Example:
-///
-/// ```zig
-/// const dirs = Directories.open(ctx, .{});
-/// defer dirs.close();
-///
-/// {
-///     const id = try std.fmt.allocPrint(ctx.alloc, "{d}", .{5});
-///     defer ctx.alloc.free(id); // Goal.init does NOT take ownership of this
-///     var goal = try Goal.init(ctx, dirs.base_dir, id, .{});
-///     defer goal.deinit();
-/// }
-/// ```
-pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Goal {
-    const goal_file = dir_.openFile(ctx_.io, id_, .{}) catch |err| {
-        if (!opts_.quiet) try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id_});
+pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Note {
+    const note_file = dir_.openFile(ctx_.io, id_, .{}) catch |err| {
+        if (!opts_.quiet) try ctx_.stderr.print("\nUnable to open note file: {s}\n", .{id_});
         return err;
     };
-    defer goal_file.close(ctx_.io);
+    defer note_file.close(ctx_.io);
 
     var read_buffer: [1024]u8 = undefined;
-    var file_reader = goal_file.reader(ctx_.io, &read_buffer);
+    var file_reader = note_file.reader(ctx_.io, &read_buffer);
 
-    // TODO: I think I can use takeDelimiterExclusive('\n') instead of all this streaming stuff
     var stream_writer = std.Io.Writer.Allocating.init(ctx_.alloc);
     defer stream_writer.deinit();
 
     var get_desc = true;
     _ = file_reader.interface.streamDelimiter(&stream_writer.writer, '\n') catch |err| switch (err) {
-        error.EndOfStream => get_desc = false, // there is no description
+        error.EndOfStream => get_desc = false, // title-only / empty
         else => return err,
     };
 
@@ -87,8 +72,8 @@ pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Opti
     };
 }
 
-/// Deinit the goal memory.
-pub fn deinit(self_: *Goal) void {
+/// Free note-owned memory.
+pub fn deinit(self_: *Note) void {
     self_._ctx.alloc.free(self_.id);
     self_._ctx.alloc.free(self_.title);
     if (self_.description) |desc| {
@@ -96,28 +81,15 @@ pub fn deinit(self_: *Goal) void {
     }
 }
 
-/// Print a list line: `  <id>. <title>`.
-pub fn printListLine(self_: Goal, stdout_: *std.Io.Writer) !void {
+/// Print a status-style list line: `  <id>. <title>`.
+pub fn printListLine(self_: Note, stdout_: *std.Io.Writer) !void {
     try stdout_.print("  {s}. {s}\n", .{ self_.id, self_.title });
 }
 
-/// Print the goal tag to stdout.
-pub fn tag(self_: Goal, stdout_: *std.Io.Writer) !void {
-    try stdout_.print(
-        \\
-        \\Goal #{s} - {s}
-        \\
-    , .{ self_.id, self_.title });
-}
-
-/// Print the goal tag and description to stdout.
-pub fn print(self_: Goal, stdout_: *std.Io.Writer) !void {
-    try self_.tag(stdout_);
+/// Print full note header and body (when loaded with `incl_desc`).
+pub fn print(self_: Note, stdout_: *std.Io.Writer) !void {
+    try stdout_.print("\n  Note #{s} - {s}\n", .{ self_.id, self_.title });
     if (self_.description) |desc| {
-        try stdout_.print(
-            \\
-            \\{s}
-            \\
-        , .{desc});
+        try stdout_.print("  {s}\n", .{desc});
     }
 }
