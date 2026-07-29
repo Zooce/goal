@@ -283,18 +283,31 @@ test "status lists note titles; --full includes note bodies" {
     });
     defer env.alloc.free(n1);
 
+    // Brief: tag + note titles only (no note bodies, no goal file dump)
     env.resetStdout();
     try status_cmd.run(&env.ctx, false);
-    const brief = env.readStdout();
-    try std.testing.expect(std.mem.indexOf(u8, brief, "Goal #1 - active pad") != null);
-    try std.testing.expect(std.mem.indexOf(u8, brief, "Notes:") != null);
-    try std.testing.expect(std.mem.indexOf(u8, brief, "1. agent update") != null);
-    // Body not dumped without --full
-    try std.testing.expect(std.mem.indexOf(u8, brief, "found related code") == null);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - active pad
+        \\
+        \\Notes:
+        \\  1. agent update
+        \\
+    , env.readStdout());
 
+    // --full: goal body + full note text after the tag
     env.resetStdout();
     try status_cmd.run(&env.ctx, true);
-    const full = env.readStdout();
-    try std.testing.expect(std.mem.indexOf(u8, full, "Note #1 - agent update") != null);
-    try std.testing.expect(std.mem.indexOf(u8, full, "found related code") != null);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - active pad
+        \\
+        \\active pad
+        \\
+        \\Notes:
+        \\
+        \\  Note #1 - agent update
+        \\  found related code
+        \\
+    , env.readStdout());
 }
