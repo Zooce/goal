@@ -52,3 +52,19 @@ Unstaged changes:
  13eb6502-2fb0-4f4e-8dff-f629b55e1c36/m | 1 -
  5 files changed, 1 insertion(+), 5 deletions(-)
 ```
+
+## Recommended approaches
+
+`goal` stays simple on purpose: one active goal, plain create / start / stop / complete / delete. When a workflow is awkward, prefer a small habit over a new concept in the tool.
+
+### Split a goal that got too big
+
+If you start a goal and realize it should be several pieces of work:
+
+1. Create the new goals (`goal new ...`) for each piece.
+2. Carry over anything that still matters from the original (title intent, notes, acceptance ideas) into those new goals so the spirit is not lost.
+3. Finish the original with either `goal complete` (if the split is the outcome of that work) or `goal delete` (if the original id is no longer useful).
+
+There is no parent/child goal tree. Related work is just more goals you can start one at a time.
+
+More recommended approaches can be added here as they come up.
