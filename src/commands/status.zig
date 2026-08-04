@@ -127,7 +127,7 @@ pub fn run(ctx_: *const Context, full_: bool) !void {
                 defer nd.close(ctx_);
                 _ = try nd.listItems(ctx_, Note, .{
                     .incl_desc = full_,
-                    .sort = true,
+                    .sort = .id_asc,
                     .show_none = false,
                 });
             }

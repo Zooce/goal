@@ -15,11 +15,15 @@ pub const help_text =
     \\The `next` Command
     \\
     \\
-    \\Promotes a goal from the Later list to the Next list.
+    \\Promotes a goal from the Later list to the Next list, or moves an already
+    \\Next goal to the top of the Next list.
     \\
-    \\Only Later goals can be promoted. If a goal is currently active, stop it
-    \\first with `goal stop` (which moves it to Next automatically) or
-    \\`goal stop --later` (which moves it to Later).
+    \\Later goals are promoted into Next. If a goal is already in Next, calling
+    \\`goal next` again keeps it in Next and puts it first in list order (most
+    \\recently placed into Next sorts first).
+    \\
+    \\If a goal is currently active, stop it first with `goal stop` (which moves
+    \\it to Next automatically) or `goal stop --later` (which moves it to Later).
     \\
     \\If no goal ID is given and stdin is a terminal, you'll select one from the
     \\Later list. Scripts and non-TTY runs must pass a goal ID.
@@ -37,6 +41,7 @@ pub const help_text =
     \\
     \\    goal next        # pick from Later list interactively (TTY)
     \\    goal next 3      # promote goal #3 from Later to Next
+    \\    goal next 3      # if already Next, move it to the top of Next
     \\
     \\Help:
     \\
@@ -124,23 +129,40 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
 
     if (id.len == 0) return Self.missingArgument(ctx_);
 
-    var goal = Goal.init(ctx_, dirs.later.dir, id, .{}) catch |err| {
-        if (err == error.FileNotFound) {
-            try ctx_.stderr.print(
-                \\
-                \\Goal #{s} isn't in the "later" category.
-                \\
-                \\Run `goal list --later` to see the set of later goals.
-                \\
-            , .{id});
+    // Later -> Next (promote), or already Next -> touch to top of Next order.
+    if (Goal.init(ctx_, dirs.later.dir, id, .{ .quiet = true })) |goal_val| {
+        var goal = goal_val;
+        defer goal.deinit();
+
+        try std.Io.Dir.rename(dirs.later.dir, id, dirs.next.dir, id, ctx_.io);
+        // Placement time drives Next list order (most recent first).
+        try dirs.next.touch(ctx_, id);
+
+        try ctx_.stdout.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
+    } else |later_err| {
+        if (later_err != error.FileNotFound) {
+            try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id});
+            return later_err;
         }
-        return err;
-    };
-    defer goal.deinit();
-
-    try std.Io.Dir.rename(dirs.later.dir, id, dirs.next.dir, id, ctx_.io);
-
-    try ctx_.stdout.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
+        var next_goal = Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch |next_err| {
+            if (next_err == error.FileNotFound) {
+                try ctx_.stderr.print(
+                    \\
+                    \\Goal #{s} isn't in the "later" or "next" category.
+                    \\
+                    \\Run `goal list --all` to see your goals.
+                    \\
+                , .{id});
+            } else {
+                try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id});
+            }
+            return next_err;
+        };
+        defer next_goal.deinit();
+        // Already in Next: bump mtime so it sorts first under mtime_desc.
+        try dirs.next.touch(ctx_, id);
+        try ctx_.stdout.print("\nGoal #{s} - '{s}' is now first in Next.\n", .{ next_goal.id, next_goal.title });
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -208,4 +230,38 @@ test "goal next (no id, non-TTY)" {
 
     try std.testing.expect(!env.ctx.stdin_is_tty);
     try std.testing.expectError(error.MissingArgument, next_cmd.run(&env.ctx, null));
+}
+
+test "goal next (already next moves to top)" {
+    // Re-next keeps the goal in Next and reports it is now first.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+
+    try next_cmd.run(&env.ctx, first);
+    try next_cmd.run(&env.ctx, second);
+
+    // Goal still in next/; re-next bumps order instead of failing.
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+    try std.testing.expect(try env.pathExists(".goal/{s}/n/{s}", .{ goal_id, first }));
+
+    env.resetStdout();
+    try next_cmd.run(&env.ctx, first);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - 'alpha' is now first in Next.
+        \\
+    , env.readStdout());
+
+    // Still only in next, not duplicated into later.
+    try std.testing.expect(try env.pathExists(".goal/{s}/n/{s}", .{ goal_id, first }));
+    try std.testing.expect(!try env.pathExists(".goal/{s}/l/{s}", .{ goal_id, first }));
 }

@@ -283,7 +283,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
                     }
                     _ = try nd.listItems(ctx_, Note, .{
                         .incl_desc = true,
-                        .sort = true,
+                        .sort = .id_asc,
                         .show_none = false,
                     });
                 }

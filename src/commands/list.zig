@@ -113,3 +113,104 @@ pub fn run(ctx_: *const Context, list_type_: u8) !void {
     }
     // TODO: show later count by default
 }
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+const TestEnv = @import("../TestEnv.zig");
+const init_cmd = @import("init.zig");
+const new_cmd = @import("new.zig");
+const next_cmd = @import("next.zig");
+const list_cmd = @This();
+
+test "goal list --later (most recently created first)" {
+    // Later goals list newest id first (ids are assigned in create order).
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "first created" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "second created" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "third created" });
+    defer env.alloc.free(third);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goals for Later
+        \\  3. third created
+        \\  2. second created
+        \\  1. first created
+        \\
+    , env.readStdout());
+}
+
+test "goal list --next (most recently put into next first)" {
+    // Promote later goals in order 1, then 2, then 3 - last promoted sorts first.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, first);
+    try next_cmd.run(&env.ctx, second);
+    try next_cmd.run(&env.ctx, third);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, NEXT);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  3. gamma
+        \\  2. beta
+        \\  1. alpha
+        \\
+    , env.readStdout());
+}
+
+test "goal list --next (re-next moves goal to top)" {
+    // Reordering Next: call next again on an already-Next goal to put it first.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, first);
+    try next_cmd.run(&env.ctx, second);
+    try next_cmd.run(&env.ctx, third);
+    // Was 3, 2, 1 - re-next 1 so it becomes first: 1, 3, 2
+    try next_cmd.run(&env.ctx, first);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, NEXT);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  3. gamma
+        \\  2. beta
+        \\
+    , env.readStdout());
+}

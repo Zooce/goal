@@ -114,16 +114,22 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     errdefer active.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/n/
+    // Next list order: most recently placed into Next first (file mtime).
     var next = next: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "n" });
-        break :next try Dir.open(ctx_, path, "Upcoming Goals", opts_);
+        var d = try Dir.open(ctx_, path, "Upcoming Goals", opts_);
+        d.list_sort = .mtime_desc;
+        break :next d;
     };
     errdefer next.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/l/
+    // Later list order: most recently created first (numeric id descending).
     var later = later: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "l" });
-        break :later try Dir.open(ctx_, path, "Goals for Later", opts_);
+        var d = try Dir.open(ctx_, path, "Goals for Later", opts_);
+        d.list_sort = .id_desc;
+        break :later d;
     };
     errdefer later.close(ctx_);
 
@@ -180,6 +186,18 @@ pub fn notes(self_: *const Directories, goal_id_: []const u8, opts_: Options) !D
     };
 }
 
+/// How to order files when listing a directory.
+pub const Sort = enum {
+    /// Filesystem iteration order (undefined).
+    none,
+    /// Numeric file name ascending (1, 2, 10).
+    id_asc,
+    /// Numeric file name descending (10, 2, 1) - most recently created goals first.
+    id_desc,
+    /// File modification time descending - most recently placed/touched first.
+    mtime_desc,
+};
+
 pub const Dir = struct {
     dir: std.Io.Dir,
     path: []const u8,
@@ -187,6 +205,8 @@ pub const Dir = struct {
     /// comptime string, so no need to free this as it should live in the
     /// .text block (or whatever that global string space is called).
     label: ?[]const u8,
+    /// Default sort used by `list` (goal category dirs set this in `open`).
+    list_sort: Sort = .none,
 
     /// Takes ownership of `path_` memory.
     pub fn open(ctx_: *const Context, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
@@ -229,17 +249,27 @@ pub const Dir = struct {
         return true;
     }
 
+    /// Bump access/modify times to now so the file sorts first under `mtime_desc`.
+    /// Uses `setTimestamps` (not `setTimestampsNow`) because Zig 0.16.0's Dir
+    /// `setTimestampsNow` calls the wrong vtable entry.
+    pub fn touch(self_: Dir, ctx_: *const Context, name_: []const u8) !void {
+        try self_.dir.setTimestamps(ctx_.io, name_, .{
+            .access_timestamp = .now,
+            .modify_timestamp = .now,
+        });
+    }
+
     /// Options for `listItems`.
     pub const ListOptions = struct {
         /// Load and print full bodies (`Item.print`) instead of one-line titles.
         incl_desc: bool = false,
-        /// Sort file names as numeric ids ascending.
-        sort: bool = false,
+        /// Ordering; null means use `Dir.list_sort`.
+        sort: ?Sort = null,
         /// When empty: print header + "(none)". When false, print nothing.
         show_none: bool = true,
     };
 
-    /// List goals in this directory (titles only, unsorted, show "(none)").
+    /// List goals in this directory (titles only, `list_sort`, show "(none)").
     pub fn list(self_: Dir, ctx_: *const Context) !u8 {
         return self_.listItems(ctx_, Goal, .{});
     }
@@ -253,15 +283,8 @@ pub const Dir = struct {
             ids.deinit(ctx_.alloc);
         }
 
-        if (opts_.sort) {
-            std.mem.sort([]const u8, ids.items, {}, struct {
-                fn less(_: void, a: []const u8, b: []const u8) bool {
-                    const na = std.fmt.parseInt(u32, a, 10) catch return true;
-                    const nb = std.fmt.parseInt(u32, b, 10) catch return false;
-                    return na < nb;
-                }
-            }.less);
-        }
+        const sort = opts_.sort orelse self_.list_sort;
+        try self_.sortFileNames(ctx_, ids.items, sort);
 
         if (ids.items.len == 0) {
             if (!opts_.show_none) return 0;
@@ -307,5 +330,53 @@ pub const Dir = struct {
             try ids.append(ctx_.alloc, try ctx_.alloc.dupe(u8, entry.name));
         }
         return ids;
+    }
+
+    fn sortFileNames(self_: Dir, ctx_: *const Context, names_: [][]const u8, sort_: Sort) !void {
+        switch (sort_) {
+            .none => {},
+            .id_asc => std.mem.sort([]const u8, names_, {}, struct {
+                fn less(_: void, a: []const u8, b: []const u8) bool {
+                    return numericIdLess(a, b);
+                }
+            }.less),
+            .id_desc => std.mem.sort([]const u8, names_, {}, struct {
+                fn less(_: void, a: []const u8, b: []const u8) bool {
+                    return numericIdLess(b, a);
+                }
+            }.less),
+            .mtime_desc => {
+                const Timed = struct {
+                    name: []const u8,
+                    mtime_ns: i96,
+                };
+                var timed: std.ArrayList(Timed) = .empty;
+                defer timed.deinit(ctx_.alloc);
+                try timed.ensureTotalCapacity(ctx_.alloc, names_.len);
+                for (names_) |name| {
+                    const st = try self_.dir.statFile(ctx_.io, name, .{});
+                    timed.appendAssumeCapacity(.{
+                        .name = name,
+                        .mtime_ns = st.mtime.nanoseconds,
+                    });
+                }
+                std.mem.sort(Timed, timed.items, {}, struct {
+                    fn less(_: void, a: Timed, b: Timed) bool {
+                        // Most recent first; tie-break higher numeric id first.
+                        if (a.mtime_ns != b.mtime_ns) return a.mtime_ns > b.mtime_ns;
+                        return numericIdLess(b.name, a.name);
+                    }
+                }.less);
+                for (timed.items, 0..) |t, i| {
+                    names_[i] = t.name;
+                }
+            },
+        }
+    }
+
+    fn numericIdLess(a: []const u8, b: []const u8) bool {
+        const na = std.fmt.parseInt(u32, a, 10) catch return true;
+        const nb = std.fmt.parseInt(u32, b, 10) catch return false;
+        return na < nb;
     }
 };
