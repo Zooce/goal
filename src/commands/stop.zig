@@ -90,7 +90,7 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
         const dest = if (later_) dirs.later.dir else dirs.next.dir;
         try std.Io.Dir.rename(dirs.active.dir, id, dest, id, ctx_.io);
         // Next list order is most recently placed into Next first.
-        if (!later_) try dirs.next.touch(ctx_, id);
+        if (!later_) try dirs.next.touch(ctx_, id, .now);
 
         // don't try to commit the active goal file if it's being ignored by git
         proc.run(ctx_, .{

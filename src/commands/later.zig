@@ -162,7 +162,7 @@ test "later command demotes goal from next to later" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = "fix the bug" });
     defer env.alloc.free(filename);
 
-    try next_cmd.run(&env.ctx, filename);
+    try next_cmd.run(&env.ctx, &.{filename});
 
     // Run: later with goal ID
     try later_cmd.run(&env.ctx, filename);
@@ -208,7 +208,7 @@ test "goal later (no id, non-TTY)" {
     try init_cmd.run(&env.ctx);
     const filename = try new_cmd.run(&env.ctx, .{ .content = "queued work" });
     defer env.alloc.free(filename);
-    try next_cmd.run(&env.ctx, filename);
+    try next_cmd.run(&env.ctx, &.{filename});
 
     try std.testing.expect(!env.ctx.stdin_is_tty);
     try std.testing.expectError(error.MissingArgument, later_cmd.run(&env.ctx, null));

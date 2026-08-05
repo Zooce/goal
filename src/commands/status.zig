@@ -172,7 +172,7 @@ test "status with no active goal" {
     // Create a goal and promote to Next → next-list nudge
     const filename = try new_cmd.run(&env.ctx, .{ .content = "something later" });
     defer env.alloc.free(filename);
-    try next_cmd.run(&env.ctx, filename);
+    try next_cmd.run(&env.ctx, &.{filename});
 
     try status_cmd.run(&env.ctx, false);
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "not working on a goal") != null);

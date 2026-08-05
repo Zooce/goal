@@ -374,7 +374,7 @@ test "show finds goals in active, next, later, and deleted" {
     // next
     const next_id = try new_cmd.run(&env.ctx, .{ .content = "next goal" });
     defer env.alloc.free(next_id);
-    try next_cmd.run(&env.ctx, next_id);
+    try next_cmd.run(&env.ctx, &.{next_id});
     env.resetStdout();
     try show_cmd.run(&env.ctx, .{ .id = next_id });
     try std.testing.expectEqualStrings("next goal", env.readStdout());
@@ -576,7 +576,7 @@ test "goal show --category (active next later deleted)" {
 
     const next_id = try new_cmd.run(&env.ctx, .{ .content = "next one" });
     defer env.alloc.free(next_id);
-    try next_cmd.run(&env.ctx, next_id);
+    try next_cmd.run(&env.ctx, &.{next_id});
     env.resetStdout();
     try show_cmd.run(&env.ctx, .{
         .id = next_id,

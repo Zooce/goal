@@ -32,26 +32,8 @@ pub const ArgIter = struct {
 
 // TODO: this file could be cleaned up a bit
 
-// arg or help
-pub const ArgOrCommand = union(enum) {
-    arg: []const u8,
-    command: commands.Command,
-};
-
-/// Parses the next argument as either a string or `Command`.
-pub fn optionalArgOrCommand(arg_: ?[]const u8) ?ArgOrCommand {
-    if (arg_) |_arg| {
-        // parse as either an argument or a command
-        const cmd = stringToCommand(_arg) catch {
-            return .{ .arg = _arg };
-        };
-        return .{ .command = cmd };
-    }
-    return null;
-}
-
 // TODO: move to a `cli.zig` file (or maybe a different)
-// TODO: use Command.fromString() instead
+// Prefer Command.fromString for help/subcommand checks in command modules.
 pub fn stringToCommand(arg_: []const u8) !commands.Command {
     if (std.mem.eql(u8, arg_, "-h") or std.mem.eql(u8, arg_, "--help")) {
         return .help;

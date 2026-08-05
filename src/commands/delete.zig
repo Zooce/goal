@@ -8,7 +8,6 @@ const Goal = @import("../Goal.zig");
 const Command = @import("../commands.zig").Command;
 const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
 const ArgIter = @import("../args.zig").ArgIter;
-const optionalArgOrCommand = @import("../args.zig").optionalArgOrCommand;
 const Self = Command.delete;
 
 pub const help_text =
@@ -88,16 +87,16 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
             continue;
         }
 
-        if (optionalArgOrCommand(arg)) |x| switch (x) {
-            .arg => |id| {
-                const trimmed = std.mem.trim(u8, id, ", \t\r\n");
-                if (trimmed.len > 0) try ids.append(ctx_.alloc, trimmed);
+        if (Command.fromString(arg)) |cmd| switch (cmd) {
+            .help => {
+                ids.deinit(ctx_.alloc);
+                return .help;
             },
-            .command => |sub| switch (sub) {
-                .help => return .help,
-                else => return Self.unexpectedSubcommand(ctx_, sub),
-            },
+            else => return Self.unexpectedSubcommand(ctx_, cmd),
         };
+
+        const trimmed = std.mem.trim(u8, arg, ", \t\r\n");
+        if (trimmed.len > 0) try ids.append(ctx_.alloc, trimmed);
     }
 
     // TODO: this seems to be the only parseArgs function that also considers choosing goals from a menu - see if this works for others too

@@ -165,9 +165,9 @@ test "goal list --next (most recently put into next first)" {
     const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
     defer env.alloc.free(third);
 
-    try next_cmd.run(&env.ctx, first);
-    try next_cmd.run(&env.ctx, second);
-    try next_cmd.run(&env.ctx, third);
+    try next_cmd.run(&env.ctx, &.{first});
+    try next_cmd.run(&env.ctx, &.{second});
+    try next_cmd.run(&env.ctx, &.{third});
 
     env.resetStdout();
     try list_cmd.run(&env.ctx, NEXT);
@@ -196,11 +196,11 @@ test "goal list --next (re-next moves goal to top)" {
     const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
     defer env.alloc.free(third);
 
-    try next_cmd.run(&env.ctx, first);
-    try next_cmd.run(&env.ctx, second);
-    try next_cmd.run(&env.ctx, third);
+    try next_cmd.run(&env.ctx, &.{first});
+    try next_cmd.run(&env.ctx, &.{second});
+    try next_cmd.run(&env.ctx, &.{third});
     // Was 3, 2, 1 - re-next 1 so it becomes first: 1, 3, 2
-    try next_cmd.run(&env.ctx, first);
+    try next_cmd.run(&env.ctx, &.{first});
 
     env.resetStdout();
     try list_cmd.run(&env.ctx, NEXT);
