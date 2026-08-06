@@ -319,6 +319,18 @@ pub const Dir = struct {
         }
     }
 
+    /// Collect file names sorted like `list` (`list_sort`, or `sort_` when set).
+    /// Caller frees each name and deinits the list.
+    pub fn sortedFileNames(self_: Dir, ctx_: *const Context, sort_: ?Sort) !std.ArrayList([]const u8) {
+        var ids = try self_.collectFileNames(ctx_);
+        errdefer {
+            for (ids.items) |name| ctx_.alloc.free(name);
+            ids.deinit(ctx_.alloc);
+        }
+        try self_.sortFileNames(ctx_, ids.items, sort_ orelse self_.list_sort);
+        return ids;
+    }
+
     fn collectFileNames(self_: Dir, ctx_: *const Context) !std.ArrayList([]const u8) {
         var ids: std.ArrayList([]const u8) = .empty;
         errdefer {

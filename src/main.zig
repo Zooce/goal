@@ -26,6 +26,7 @@ pub fn main(init_: std.process.Init) !u8 {
     var stdin_reader = std.Io.File.stdin().reader(init_.io, &stdin_buf);
     const stdin = &stdin_reader.interface;
     const stdin_is_tty = std.Io.File.stdin().isTty(init_.io) catch false;
+    const stdout_is_tty = std.Io.File.stdout().isTty(init_.io) catch false;
 
     var context = Context{
         .alloc = init_.gpa,
@@ -35,6 +36,7 @@ pub fn main(init_: std.process.Init) !u8 {
         .stderr = stderr,
         .stdin = stdin,
         .stdin_is_tty = stdin_is_tty,
+        .stdout_is_tty = stdout_is_tty,
     };
 
     var iter = try args.ArgIter.init(init_.minimal.args, init_.gpa);
@@ -74,6 +76,7 @@ fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.Arg
         .list => try commands.list.main(ctx_, iter_),
         .status => try commands.status.main(ctx_, iter_),
         .show => try commands.show.main(ctx_, iter_),
+        .search => try commands.search.main(ctx_, iter_),
         .stop => try commands.stop.main(ctx_, iter_),
         .complete => try commands.complete.main(ctx_, iter_),
         .new => try commands.new.main(ctx_, iter_),

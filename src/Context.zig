@@ -29,5 +29,9 @@ stdin: *std.Io.Reader,
 /// Set from `std.Io.File.stdin().isTty` in `main`; tests default to `false`.
 stdin_is_tty: bool = false,
 
+/// Whether stdout is a terminal. Used for optional ANSI color (e.g. search hits).
+/// Set from `std.Io.File.stdout().isTty` in `main`; tests default to `false`.
+stdout_is_tty: bool = false,
+
 /// Optional current working directory override used for subprocess execution.
 cwd: ?[]const u8 = null,

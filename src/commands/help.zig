@@ -20,6 +20,7 @@ const next = @import("next.zig");
 const later = @import("later.zig");
 const show = @import("show.zig");
 const note = @import("note.zig");
+const search = @import("search.zig");
 
 const Self = Command.help;
 
@@ -47,6 +48,7 @@ pub const help_text =
     \\    start       Start working on a goal (optionally create a new one).
     \\    status      Show your active goal's status.
     \\    show        Print a goal's full file contents.
+    \\    search      Search goal contents with a regex (ripgrep).
     \\    stop        Stop working on the active goal.
     \\    complete    Complete the active goal.
     \\    next        Promote a goal from Later to Next.
@@ -113,6 +115,7 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         .config => config.help_text,
         .next => next.help_text,
         .later => later.help_text,
+        .search => search.help_text,
         else => "\n...no help message for that command bro!\n",
     } else help_text;
 
