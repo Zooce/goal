@@ -8,9 +8,14 @@
 //! this code but that is for cases where we need to run a git command in
 //! the "goal root" (default: ~/.goal/) directory, or in tests by setting
 //! Context.test_cwd to a path.
+//!
+//! Project-state commits are optional. Use `shouldCommitProjectState` /
+//! `maybeCommit` so missing git, non-repo cwd, or `commit=false` never fails a
+//! command after core state mutation.
 const std = @import("std");
 const proc = @import("proc.zig");
 const Context = @import("Context.zig");
+const config_common = @import("commands/config/common.zig");
 
 pub const ChangeKind = enum {
     staged,
@@ -22,6 +27,68 @@ pub const ChangeOptions = struct {
     kinds: []const ChangeKind,
     cwd: ?[]const u8 = null,
 };
+
+/// True when the `git` binary runs successfully.
+pub fn isAvailable(ctx_: *const Context) bool {
+    const out = proc.exec(ctx_, .{ .argv = &.{ "git", "--version" }, .quiet = true }) catch return false;
+    ctx_.alloc.free(out);
+    return true;
+}
+
+/// True when `cwd_` (or Context cwd) is inside a git work tree.
+pub fn inRepo(ctx_: *const Context, cwd_: ?[]const u8) bool {
+    const out = proc.exec(ctx_, .{
+        .argv = &.{ "git", "rev-parse", "--is-inside-work-tree" },
+        .cwd = cwd_,
+        .quiet = true,
+    }) catch return false;
+    defer ctx_.alloc.free(out);
+    return std.mem.eql(u8, out, "true");
+}
+
+/// True when git is installed and the path is inside a work tree.
+pub fn isUsable(ctx_: *const Context, cwd_: ?[]const u8) bool {
+    return isAvailable(ctx_) and inRepo(ctx_, cwd_);
+}
+
+/// Soft `git check-ignore`. True only when git reports the path is ignored.
+/// Missing git, non-repo, or not-ignored all return false.
+pub fn pathIsIgnored(ctx_: *const Context, path_: []const u8, cwd_: ?[]const u8) bool {
+    proc.run(ctx_, .{
+        .argv = &.{ "git", "check-ignore", "-q", path_ },
+        .cwd = cwd_,
+        .quiet = true,
+    }) catch return false;
+    return true;
+}
+
+/// True when lifecycle commands should commit project goal state files.
+/// Requires usable git and effective `commit` config true (`GOAL_COMMIT` / config).
+pub fn shouldCommitProjectState(ctx_: *const Context) !bool {
+    if (!isUsable(ctx_, null)) return false;
+
+    const val = try config_common.getEffectiveValue(ctx_, .commit);
+    defer ctx_.alloc.free(val);
+    return std.mem.eql(u8, val, "true");
+}
+
+/// Best-effort project-repo commit of `path_` when allowed and not gitignored.
+/// Never returns an error: optional git side effects must not fail lifecycle after mutate.
+pub fn maybeCommit(ctx_: *const Context, path_: []const u8, message_: []const u8) void {
+    const should = shouldCommitProjectState(ctx_) catch return;
+    if (!should) return;
+    if (pathIsIgnored(ctx_, path_, null)) return;
+
+    proc.run(ctx_, .{
+        .argv = &.{ "git", "add", path_ },
+        .quiet = true,
+    }) catch return;
+
+    proc.run(ctx_, .{
+        .argv = &.{ "git", "commit", path_, "-m", message_ },
+        .quiet = true,
+    }) catch return;
+}
 
 /// Checks if there are any specified types of changes.
 pub fn hasChanges(ctx_: *const Context, opts_: ChangeOptions) !bool {

@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const cli = @import("../cli.zig");
+const git = @import("../git.zig");
 const proc = @import("../proc.zig");
 
 const Context = @import("../Context.zig");
@@ -195,24 +196,11 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
     try ActiveId.store(ctx_, dirs.local.dir, goal.id);
     // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 
-    // TODO: record undo git command in case errdefer
+    // Optional project commit: never fail start after state is already mutated.
+    const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
+    defer ctx_.alloc.free(commit_subject);
+    git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
 
-    // don't try to commit the active goal file if it's being ignored by git
-    proc.run(ctx_, .{
-        .argv = &.{ "git", "check-ignore", ".goal/.active_id" },
-        .quiet = true,
-    }) catch {
-        // commit active id file
-        try proc.run(ctx_, .{
-            .argv = &.{ "git", "add", ".goal/.active_id" },
-        });
-
-        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
-        defer ctx_.alloc.free(commit_subject);
-        try proc.run(ctx_, .{
-            .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
-        });
-    };
     try ctx_.stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
 }
 
@@ -360,6 +348,30 @@ test "start does not commit the active id file if it's git ignored" {
     const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
     defer env.alloc.free(log);
     try std.testing.expect(std.mem.indexOf(u8, log, "Started Goal #1 - fix the bug") == null);
+}
+
+test "goal start (commit=false, no project commit)" {
+    // With GOAL_COMMIT=false, start still activates the goal but does not commit in the project repo.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try env.setEnv("GOAL_COMMIT", "false");
+    try init_cmd.run(&env.ctx);
+
+    const log_before = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
+    defer env.alloc.free(log_before);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "no project commit" } });
+
+    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    const active_id = try env.readFile("proj/.goal/.active_id", .{});
+    defer env.alloc.free(active_id);
+    try std.testing.expectEqualStrings("1", active_id);
+
+    const log_after = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
+    defer env.alloc.free(log_after);
+    try std.testing.expectEqualStrings(log_before, log_after);
+    try std.testing.expect(std.mem.indexOf(u8, log_after, "Started Goal #1") == null);
 }
 
 test "goal start new --file (non-TTY)" {

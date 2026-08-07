@@ -1,7 +1,7 @@
 const std = @import("std");
 
 const Context = @import("../Context.zig");
-const proc = @import("../proc.zig");
+const git = @import("../git.zig");
 
 const ActiveId = @import("../ActiveId.zig");
 const Directories = @import("../Directories.zig");
@@ -92,23 +92,10 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
         // Next list order is most recently placed into Next first.
         if (!later_) try dirs.next.touch(ctx_, id, .now);
 
-        // don't try to commit the active goal file if it's being ignored by git
-        proc.run(ctx_, .{
-            .argv = &.{ "git", "check-ignore", ".goal/.active_id" },
-            .quiet = true,
-        }) catch {
-            // commit active id file
-            try proc.run(ctx_, .{
-                .argv = &.{ "git", "add", ".goal/.active_id" },
-            });
-
-            const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
-            defer ctx_.alloc.free(commit_subject);
-
-            try proc.run(ctx_, .{
-                .argv = &.{ "git", "commit", ".goal/.active_id", "-m", commit_subject },
-            });
-        };
+        // Optional project commit: never fail stop after state is already mutated.
+        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
+        defer ctx_.alloc.free(commit_subject);
+        git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
 
         if (later_) {
             try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });

@@ -3,6 +3,7 @@ zig-out/
 
 .agents/
 .opencode/
+.rv/
 
 # just for now
 HANDOFF.md
