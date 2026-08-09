@@ -215,7 +215,7 @@ const start_cmd = @This();
 
 test "start command activates a goal" {
     // Setup: init goal, create goal, move to next/
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -249,7 +249,7 @@ test "start command activates a goal" {
 
 test "cannot start goal if one is already started" {
     // Setup: init, create goal and start it, create a second goal
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -271,7 +271,7 @@ test "cannot start goal if one is already started" {
 
 test "start with invalid goal ID shows error" {
     // Setup: init, goal exists
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -284,7 +284,7 @@ test "start with invalid goal ID shows error" {
 }
 
 test "can only start if there are inactive goals to start" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -296,7 +296,7 @@ test "can only start if there are inactive goals to start" {
 
 test "goal start (no id, non-TTY)" {
     // Inactive goals exist but no id given and stdin is not a TTY — must not hang on picker.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -310,7 +310,7 @@ test "goal start (no id, non-TTY)" {
 
 test "start + new creates a new goal and starts it" {
     // init
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -336,7 +336,7 @@ test "start + new creates a new goal and starts it" {
 }
 
 test "start does not commit the active id file if it's git ignored" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -352,7 +352,7 @@ test "start does not commit the active id file if it's git ignored" {
 
 test "goal start (commit=false, no project commit)" {
     // With GOAL_COMMIT=false, start still activates the goal but does not commit in the project repo.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.setEnv("GOAL_COMMIT", "false");
@@ -378,7 +378,7 @@ test "goal start (commit=false, no project commit)" {
 
 test "goal start new --file (non-TTY)" {
     // start new shares content resolution with goal new (title / --file / quiet).
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -413,7 +413,7 @@ test "goal start new --file (non-TTY)" {
 }
 
 test "parseArgs start new --file yields new content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.writeFile("proj/body.md", "from file");

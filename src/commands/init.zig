@@ -3,6 +3,7 @@ const std = @import("std");
 const cli = @import("../cli.zig");
 const proc = @import("../proc.zig");
 const git = @import("../git.zig");
+const utils = @import("../utils.zig");
 
 const Context = @import("../Context.zig");
 const Meta = @import("../Meta.zig");
@@ -20,9 +21,9 @@ pub const help_text =
     \\
     \\Initializes `goal` in your project.
     \\
-    \\All `goal` files can be found in the ~/.goal/<goal_id> directory, where the
-    \\.goal_id file is found in either the result of `git rev-parse --show-toplevel`
-    \\or the directory from which you run this `init` command.
+    \\All `goal` files can be found in the ~/.goal/<goal_id> directory. Local state
+    \\lives under project/.goal/ (project root: existing .goal/, else .git/, else cwd).
+    \\Git is optional; see `commit` / GOAL_COMMIT for project commits and hooks.
     \\
     \\When project commits are enabled (default), init installs the
     \\prepare-commit-msg hook and commits local `.goal/` in the project repo.
@@ -81,18 +82,18 @@ pub fn run(ctx_: *const Context) !void {
     defer config.deinit();
 
     const project_name = project_name: {
-        const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
+        const proj_root = try utils.project.findRoot(ctx_);
         defer ctx_.alloc.free(proj_root);
 
-        const repo_name = std.Io.Dir.path.basename(proj_root);
-        // Non-TTY: use the repo name without prompting (scripts / TestEnv).
-        if (!ctx_.stdin_is_tty) break :project_name try ctx_.alloc.dupe(u8, repo_name);
+        const default_name = std.Io.Dir.path.basename(proj_root);
+        // Non-TTY: use the directory name without prompting (scripts / TestEnv).
+        if (!ctx_.stdin_is_tty) break :project_name try ctx_.alloc.dupe(u8, default_name);
 
-        const prompt = try std.fmt.allocPrint(ctx_.alloc, "Project name (default: {s})", .{repo_name});
+        const prompt = try std.fmt.allocPrint(ctx_.alloc, "Project name (default: {s})", .{default_name});
         defer ctx_.alloc.free(prompt);
 
         const answer = try cli.getAnswer(ctx_, prompt);
-        break :project_name answer orelse try ctx_.alloc.dupe(u8, repo_name);
+        break :project_name answer orelse try ctx_.alloc.dupe(u8, default_name);
     };
     defer ctx_.alloc.free(project_name);
 
@@ -135,7 +136,7 @@ const uuid = @import("../uuid.zig");
 const init_cmd = @This();
 
 test "init installs hook even if already initialized" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // First init — fresh
@@ -162,7 +163,7 @@ test "init installs hook even if already initialized" {
 }
 
 test "init command" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Run init (accepting default project name "proj")
@@ -188,7 +189,7 @@ test "init command" {
     // 5. Meta file exists with correct content
     {
         var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const base_dir = try env.tmp_dir.dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+        const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
         defer base_dir.close(env.io);
         var meta = try Meta.load(&env.ctx, base_dir);
         defer meta.deinit();
@@ -213,7 +214,7 @@ test "init command" {
 }
 
 test "init shows already initialized message when re-run" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // first init — fresh
@@ -225,19 +226,59 @@ test "init shows already initialized message when re-run" {
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "already initialized") != null);
 }
 
-test "init fails in non-git directory" {
-    var env = try TestEnv.init(&.{});
+test "goal init (non-git project directory)" {
+    // No project git: init still creates local + base goal dirs (no hook/project commit).
+    var env = try TestEnv.init(.{ .project_git = false });
     defer env.deinit();
-    defer env.resetStderr();
 
-    env.ctx.cwd = "/tmp"; // assuming Linux/MacOS - Windows sucks
+    try init_cmd.run(&env.ctx);
 
-    try std.testing.expectError(error.ProcError, init_cmd.run(&env.ctx));
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
+
+    // Meta uses directory basename as project name.
+    {
+        var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+        const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+        defer base_dir.close(env.io);
+        var meta = try Meta.load(&env.ctx, base_dir);
+        defer meta.deinit();
+        try std.testing.expectEqualStrings("proj", meta.project_name);
+    }
+}
+
+test "goal lifecycle (non-git project directory)" {
+    // Full core path without project git: init, new, start, stop, complete, deinit.
+    var env = try TestEnv.init(.{ .project_git = false });
+    defer env.deinit();
+
+    const start_cmd = @import("start.zig");
+    const stop_cmd = @import("stop.zig");
+    const complete_cmd = @import("complete.zig");
+    const deinit_cmd = @import("deinit.zig");
+
+    try init_cmd.run(&env.ctx);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "no git goal" } });
+    try stop_cmd.run(&env.ctx, false);
+    try start_cmd.run(&env.ctx, .{ .id = "1" });
+    try complete_cmd.run(&env.ctx, .{ .yes = true });
+
+    try deinit_cmd.run(&env.ctx, .{ .yes = true });
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
 }
 
 test "init with custom project name" {
     // TTY so init prompts for project name; answer "my-project".
-    var env = try TestEnv.init(&.{.{ .buffer = "my-project\n" }});
+    var env = try TestEnv.init(.{ .stdin_calls = &.{.{ .buffer = "my-project\n" }} });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -249,7 +290,7 @@ test "init with custom project name" {
     defer env.alloc.free(goal_id);
 
     var path_buf: [uuid.SLICE_LEN + 9]u8 = undefined;
-    const base_dir = try env.tmp_dir.dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+    const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
     defer base_dir.close(env.io);
 
     var meta = try Meta.load(&env.ctx, base_dir);
@@ -261,7 +302,7 @@ test "init with custom project name" {
 test "goal init (commit=false, no project commit or hook)" {
     // With GOAL_COMMIT=false: still create goal dirs, but no prepare-commit-msg hook
     // and no project-repo commit of .goal/. Personal ~/.goal store may still commit.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.setEnv("GOAL_COMMIT", "false");
@@ -282,7 +323,7 @@ test "goal init (commit=false, no project commit or hook)" {
 
 test "goal init (global config commit=false, no project commit or hook)" {
     // Same as env override, but via global config file (no GOAL_COMMIT).
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.writeFile("xdg/goal/config", "commit=false\n");

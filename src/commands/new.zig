@@ -240,7 +240,7 @@ const init_cmd = @import("init.zig");
 const new_cmd = @This();
 
 test "new command creates goal with title" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -266,7 +266,7 @@ test "new command creates goal with title" {
 }
 
 test "new with multi-line content writes full body" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -293,7 +293,7 @@ test "new with multi-line content writes full body" {
 }
 
 test "parseArgs title becomes content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{"fix the bug"};
@@ -308,7 +308,7 @@ test "parseArgs title becomes content" {
 }
 
 test "parseArgs --file reads file into content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const body =
@@ -330,7 +330,7 @@ test "parseArgs --file reads file into content" {
 }
 
 test "parseArgs non-TTY without title or --file requires content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -343,7 +343,7 @@ test "parseArgs non-TTY without title or --file requires content" {
 }
 
 test "parseArgs TTY with no args yields null content (editor)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     env.ctx.stdin_is_tty = true;
@@ -358,7 +358,7 @@ test "parseArgs TTY with no args yields null content (editor)" {
 }
 
 test "parseArgs rejects empty content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -370,7 +370,7 @@ test "parseArgs rejects empty content" {
 }
 
 test "run rejects empty content and blank first-line title" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -391,7 +391,7 @@ test "run rejects empty content and blank first-line title" {
     // next_id must not advance on failure
     {
         var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const base_dir = try env.tmp_dir.dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+        const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
         defer base_dir.close(env.io);
         var meta = try Meta.load(&env.ctx, base_dir);
         defer meta.deinit();
@@ -400,7 +400,7 @@ test "run rejects empty content and blank first-line title" {
 }
 
 test "parseArgs rejects title combined with --file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -412,7 +412,7 @@ test "parseArgs rejects title combined with --file" {
 }
 
 test "parseArgs requires path after --file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -425,7 +425,7 @@ test "parseArgs requires path after --file" {
 
 test "goal new -q prints only the goal ID" {
     // Quiet mode is for scripts: id=$(goal new "title" -q) must be a bare id.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -440,7 +440,7 @@ test "goal new -q prints only the goal ID" {
 }
 
 test "parseArgs accepts -q and --quiet" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     {
@@ -463,7 +463,7 @@ test "parseArgs accepts -q and --quiet" {
 }
 
 test "parseArgs rejects duplicate quiet flags" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

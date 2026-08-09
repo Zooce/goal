@@ -301,7 +301,7 @@ const search_cmd = @This();
 
 test "goal search (title then indented body matches)" {
     // Title line match is not repeated under the header; body hits are indented.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -330,7 +330,7 @@ test "goal search (title then indented body matches)" {
 
 test "goal search (title-only match has no indented lines)" {
     // Pattern hits only the title line - still list the goal, without repeating the title.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -357,7 +357,7 @@ test "goal search (title-only match has no indented lines)" {
 test "goal search (Next order is most recently next'd first)" {
     // Shared token in three Next goals; output follows multi-id next order.
     // Token is in the body so it is not dropped as a title-line match.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -395,7 +395,7 @@ test "goal search (Next order is most recently next'd first)" {
 
 test "goal search (Later order is most recently created first)" {
     // Later goals list newest id first, same as goal list --later.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -429,7 +429,7 @@ test "goal search (Later order is most recently created first)" {
 }
 
 test "goal search (deleted excluded unless --all)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -476,7 +476,7 @@ test "goal search (deleted excluded unless --all)" {
 }
 
 test "goal search (no matches)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -494,7 +494,7 @@ test "goal search (no matches)" {
 }
 
 test "goal search (missing pattern)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -506,7 +506,7 @@ test "goal search (missing pattern)" {
 }
 
 test "parseArgs accepts pattern and --all" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{ "cool_.*", "--all" };

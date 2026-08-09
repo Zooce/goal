@@ -154,7 +154,7 @@ const later_cmd = @This();
 
 test "later command demotes goal from next to later" {
     // Setup: init, create goal in next/
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -175,7 +175,7 @@ test "later command demotes goal from next to later" {
 
 test "later with no arguments shows error" {
     // Setup: init
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -188,7 +188,7 @@ test "later with no arguments shows error" {
 
 test "later with invalid goal ID shows error" {
     // Setup: init
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -201,7 +201,7 @@ test "later with invalid goal ID shows error" {
 
 test "goal later (no id, non-TTY)" {
     // Next goals exist but no id given and stdin is not a TTY — must not hang on picker.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

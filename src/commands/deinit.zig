@@ -4,6 +4,7 @@ const git = @import("../git.zig");
 const cli = @import("../cli.zig");
 const proc = @import("../proc.zig");
 const uuid = @import("../uuid.zig");
+const utils = @import("../utils.zig");
 
 const Context = @import("../Context.zig");
 const Config = @import("../Config.zig");
@@ -117,8 +118,8 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
 
 // Note that this function does not open `Directories` because we're deleting them all...
 pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
-    // we'll run git commands from here
-    const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
+    // Prefer existing .goal/, else .git root, else cwd (git not required).
+    const proj_root = try utils.project.findRoot(ctx_);
     defer ctx_.alloc.free(proj_root);
 
     // we're going to delete this path
@@ -193,7 +194,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 
     // -- local delete
 
-    // Remove the prepare-commit-msg hook
+    // Remove the prepare-commit-msg hook when a git hooks dir exists.
     try git.deleteHook(ctx_);
 
     // NOTE:
@@ -203,7 +204,8 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     // delete it from any directory (including `cwd`).
     try std.Io.Dir.cwd().deleteTree(ctx_.io, local_goal_path);
 
-    if (opts_.local_commit) {
+    const do_local_commit = opts_.local_commit and git.isUsable(ctx_, proj_root);
+    if (do_local_commit) {
         try ctx_.stdout.writeAll("\nCommitting local goal removal...\n");
 
         try proc.run(ctx_, .{
@@ -224,8 +226,9 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
         return;
     }
 
+    const do_global_commit = opts_.global_commit and git.isUsable(ctx_, config.base_dir);
     const global_commit_msg = global_commit_msg: {
-        if (!opts_.global_commit) break :global_commit_msg null;
+        if (!do_global_commit) break :global_commit_msg null;
 
         var global_goal_dir = try std.Io.Dir.openDirAbsolute(ctx_.io, global_goal_path, .{});
         defer global_goal_dir.close(ctx_.io);
@@ -246,7 +249,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     // path, we can delete it from any directory (including `cwd`).
     try std.Io.Dir.cwd().deleteTree(ctx_.io, global_goal_path);
 
-    if (opts_.global_commit) {
+    if (do_global_commit) {
         try ctx_.stdout.writeAll("\nCommitting global goal removal...\n");
 
         try proc.run(ctx_, .{
@@ -275,11 +278,11 @@ const deinit_cmd = @This();
 
 test "deinit command" {
     // Interactive: init prompt, deinit local confirm, deinit global confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "yes\n" },
         .{ .buffer = "yes\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -324,7 +327,7 @@ test "deinit command" {
 }
 
 test "deinit fails when not initialized" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -337,11 +340,11 @@ test "deinit fails when not initialized" {
 
 test "deinit with --no-local-commit skips local commit" {
     // Interactive: init prompt, deinit local confirm, deinit global confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "yes\n" },
         .{ .buffer = "yes\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -382,11 +385,11 @@ test "deinit with --no-local-commit skips local commit" {
 
 test "deinit with --no-global-commit skips global commit" {
     // Interactive: init prompt, deinit local confirm, deinit global confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "yes\n" },
         .{ .buffer = "yes\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -427,11 +430,11 @@ test "deinit with --no-global-commit skips global commit" {
 
 test "deinit with --no-commit skips both commits" {
     // Interactive: init prompt, deinit local confirm, deinit global confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "yes\n" },
         .{ .buffer = "yes\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -473,10 +476,10 @@ test "deinit with --no-commit skips both commits" {
 
 test "deinit cancelled at local confirmation" {
     // Interactive: init prompt, deinit local confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "no\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -512,11 +515,11 @@ test "deinit cancelled at local confirmation" {
 
 test "deinit cancelled at global confirmation" {
     // Interactive: init prompt, deinit local confirm, deinit global confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "yes\n" },
         .{ .buffer = "no\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -552,9 +555,9 @@ test "deinit cancelled at global confirmation" {
 
 test "goal deinit --yes (non-TTY)" {
     // Scripts skip both confirms with --yes.
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
-    });
+    } });
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -572,9 +575,9 @@ test "goal deinit --yes (non-TTY)" {
 
 test "goal deinit without --yes (non-TTY)" {
     // Non-TTY must not hang on confirm - require --yes.
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
 
@@ -585,7 +588,7 @@ test "goal deinit without --yes (non-TTY)" {
 }
 
 test "parseArgs accepts --yes" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{ "--yes", "--no-commit" };

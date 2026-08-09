@@ -2,7 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const Context = @import("../../Context.zig");
-const proc = @import("../../proc.zig");
+const utils = @import("../../utils.zig");
 
 pub const Key = enum {
     base_dir,
@@ -34,11 +34,9 @@ pub const Key = enum {
 };
 
 pub fn getProjectConfigPath(ctx_: *const Context) ![]const u8 {
-    const proj_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
+    const proj_root = try utils.project.findRoot(ctx_);
     defer ctx_.alloc.free(proj_root);
-
-    const trimmed = std.mem.trim(u8, proj_root, " \t\r\n");
-    return std.Io.Dir.path.join(ctx_.alloc, &.{ trimmed, ".goal", "config" });
+    return std.Io.Dir.path.join(ctx_.alloc, &.{ proj_root, ".goal", "config" });
 }
 
 pub fn getGlobalConfigPath(ctx_: *const Context) ![]const u8 {

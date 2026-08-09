@@ -138,10 +138,10 @@ const complete_cmd = @This();
 
 test "completing a goal" {
     // Interactive path: TTY + confirm "ready?"
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "yes\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
@@ -160,7 +160,7 @@ test "completing a goal" {
 
 test "goal complete --yes (non-TTY)" {
     // Scripts complete without prompts.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -178,7 +178,7 @@ test "goal complete --yes (non-TTY)" {
 
 test "goal complete --yes (commit=false, no project commit)" {
     // With GOAL_COMMIT=false, complete still finishes the goal but does not commit in the project repo.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.setEnv("GOAL_COMMIT", "false");
@@ -207,7 +207,7 @@ test "goal complete --yes (commit=false, no project commit)" {
 
 test "goal complete leaves staged project files alone" {
     // Complete does not commit or unstage the user's project work.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -235,7 +235,7 @@ test "goal complete leaves staged project files alone" {
 
 test "goal complete without --yes (non-TTY)" {
     // Non-TTY must not hang on confirm - require --yes.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -246,7 +246,7 @@ test "goal complete without --yes (non-TTY)" {
 }
 
 test "parseArgs accepts --yes" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{"--yes"};

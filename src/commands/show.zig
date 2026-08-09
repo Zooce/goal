@@ -324,7 +324,7 @@ const note_cmd = @import("note.zig");
 const show_cmd = @This();
 
 test "show prints full raw goal file contents" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -356,10 +356,10 @@ test "show prints full raw goal file contents" {
 
 test "show finds goals in active, next, later, and deleted" {
     // stdin: init project-name default, then delete confirm
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "y\n" },
-    });
+    } });
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -407,7 +407,7 @@ test "show finds goals in active, next, later, and deleted" {
 //   2. TTY picker, or error when not a TTY
 
 test "goal show (no active goal, non-TTY)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -417,9 +417,9 @@ test "goal show (no active goal, non-TTY)" {
 
 test "goal show (no active goal, TTY picks)" {
     // Picker answer only - non-TTY init does not consume stdin.
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "1\n" },
-    });
+    } });
     defer env.deinit();
     defer env.resetStderr();
 
@@ -435,7 +435,7 @@ test "goal show (no active goal, TTY picks)" {
 }
 
 test "goal show (active goal)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -452,7 +452,7 @@ test "goal show (active goal)" {
 
 test "goal show (active goal, TTY)" {
     // Active goal is used without a picker; TTY only asserts that path still works.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -470,7 +470,7 @@ test "goal show (active goal, TTY)" {
 }
 
 test "goal show 1 (active goal is 2)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -487,7 +487,7 @@ test "goal show 1 (active goal is 2)" {
 }
 
 test "goal show 99 (missing)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -496,7 +496,7 @@ test "goal show 99 (missing)" {
 }
 
 test "goal show --id --title" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -519,7 +519,7 @@ test "goal show --id --title" {
 }
 
 test "goal show --title --id (field order)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -538,7 +538,7 @@ test "goal show --title --id (field order)" {
 }
 
 test "goal show --tag" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -556,10 +556,10 @@ test "goal show --tag" {
 }
 
 test "goal show --category (active next later deleted)" {
-    var env = try TestEnv.init(&.{
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "y\n" },
-    });
+    } });
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -613,7 +613,7 @@ test "goal show --category (active next later deleted)" {
 }
 
 test "goal show --path" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -634,7 +634,7 @@ test "goal show --path" {
 }
 
 test "goal show --id (active goal)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -652,7 +652,7 @@ test "goal show --id (active goal)" {
 }
 
 test "goal show lists notes after goal body" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -685,7 +685,7 @@ test "goal show lists notes after goal body" {
 }
 
 test "goal show field mode does not list notes" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -705,7 +705,7 @@ test "goal show field mode does not list notes" {
 }
 
 test "parseArgs accepts optional id and field flags" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

@@ -224,7 +224,7 @@ const delete_cmd = @This();
 
 test "goal delete (no id, non-TTY)" {
     // Inactive goals exist but no id given and stdin is not a TTY — must not hang on picker.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -245,7 +245,7 @@ test "goal delete (no id, non-TTY)" {
 
 test "goal delete --yes (non-TTY)" {
     // Explicit id + --yes deletes without a confirmation prompt.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -272,7 +272,7 @@ test "goal delete --yes (non-TTY)" {
 
 test "goal delete without --yes (non-TTY)" {
     // Non-TTY must not hang on confirm — require --yes.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -291,7 +291,7 @@ test "goal delete without --yes (non-TTY)" {
 }
 
 test "parseArgs accepts --yes with goal IDs" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);

@@ -226,7 +226,7 @@ const next_cmd = @This();
 
 test "next command promotes goal from later to next" {
     // Setup: init, create goal in .goal/<uuid>/l/
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -244,7 +244,7 @@ test "next command promotes goal from later to next" {
 
 test "next with no arguments shows error" {
     // Setup: init with no goals
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -257,7 +257,7 @@ test "next with no arguments shows error" {
 
 test "next with invalid goal ID shows error" {
     // Setup: init with no goals
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -270,7 +270,7 @@ test "next with invalid goal ID shows error" {
 
 test "goal next (no id, non-TTY)" {
     // Later goals exist but no id given and stdin is not a TTY — must not hang on picker.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -284,7 +284,7 @@ test "goal next (no id, non-TTY)" {
 
 test "goal next (already next moves to top)" {
     // Re-next keeps the goal in Next and reports it is now first.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -319,7 +319,7 @@ test "goal next (already next moves to top)" {
 test "goal next (multiple ids set Next order)" {
     // goal next 1 3 2 => Next order 1, 3, 2 (not pure id desc, so mtime order is proven).
     // Same as: goal next 2; goal next 3; goal next 1
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -350,7 +350,7 @@ test "goal next (multiple ids set Next order)" {
 
 test "goal next (multiple ids reorder already Next)" {
     // Multi-id re-next sets order without the reverse single-call dance.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -382,7 +382,7 @@ test "goal next (multiple ids reorder already Next)" {
 }
 
 test "parseArgs accepts multiple goal IDs" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{ "23", "42", "11" };

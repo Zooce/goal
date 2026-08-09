@@ -131,7 +131,7 @@ const init_cmd = @import("init.zig");
 const config_cmd = @This();
 
 test "'parseArgs' with no subcommand returns help" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{};
@@ -143,7 +143,7 @@ test "'parseArgs' with no subcommand returns help" {
 }
 
 test "'parseArgs' accepts help" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // All help forms (-h, --help, help) are covered by Command.fromString tests.
@@ -156,7 +156,7 @@ test "'parseArgs' accepts help" {
 }
 
 test "'parseArgs' accepts each subcommand" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     inline for (.{
@@ -177,7 +177,7 @@ test "'parseArgs' accepts each subcommand" {
 }
 
 test "'parseArgs' leaves remaining args for the subcommand" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // After taking "get", "editor" and "--global" must still be on the iterator.
@@ -195,7 +195,7 @@ test "'parseArgs' leaves remaining args for the subcommand" {
 }
 
 test "'parseArgs' rejects unknown arguments and other commands" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -219,7 +219,7 @@ test "'parseArgs' rejects unknown arguments and other commands" {
 }
 
 test "'run' delegates list" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -239,7 +239,7 @@ test "'run' delegates list" {
 }
 
 test "'run' delegates get with remaining args" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -256,7 +256,7 @@ test "'run' delegates get with remaining args" {
 }
 
 test "'run' delegates defaults" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);

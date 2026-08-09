@@ -82,7 +82,7 @@ const defaults_cmd = @This();
 // ---------------------------------------------------------------------------
 
 test "'run' shows only built-in defaults" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -118,7 +118,7 @@ test "'run' shows only built-in defaults" {
 }
 
 test "'parseArgs' accepts no arguments" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const argv = [_][*:0]const u8{};
@@ -130,7 +130,7 @@ test "'parseArgs' accepts no arguments" {
 }
 
 test "'parseArgs' rejects --global and other arguments" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -163,7 +163,7 @@ test "'parseArgs' rejects --global and other arguments" {
 }
 
 test "'parseArgs' accepts help" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // All help forms (-h, --help, help) are covered by Command.fromString tests.
@@ -176,7 +176,7 @@ test "'parseArgs' accepts help" {
 }
 
 test "'main' prints subcommand help to stdout" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Help is owned by this file and printed directly (not via Commands.help).
@@ -190,7 +190,7 @@ test "'main' prints subcommand help to stdout" {
 }
 
 test "'parseArgs' rejects other subcommands" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

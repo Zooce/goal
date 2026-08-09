@@ -1,6 +1,7 @@
 const TestEnv = @This();
 
 const std = @import("std");
+const builtin = @import("builtin");
 
 const Context = @import("Context.zig");
 const proc = @import("proc.zig");
@@ -25,8 +26,8 @@ const State = struct {
 alloc: std.mem.Allocator,
 io: std.Io,
 
-/// Temporary directory that is cleaned up on deinit.
-tmp_dir: std.testing.TmpDir,
+/// Opened handle for the temporary root (system temp, not .zig-cache).
+tmp_dir: std.Io.Dir,
 
 /// Absolute path to the temporary root directory.
 tmp_path: []const u8,
@@ -48,15 +49,29 @@ _state: *State,
 
 _path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined,
 
+/// Options for `init`.
+pub const Options = struct {
+    /// Mock stdin prompts for interactive commands.
+    stdin_calls: []const std.testing.Reader.Call = &.{},
+    /// Git-init the simulated project root (`proj/`). Default true.
+    /// Set false for non-git project tests.
+    project_git: bool = true,
+};
+
 /// Create an isolated test environment.
 ///
-/// Sets up a temporary directory tree with:
-///   - `.goal/`   — simulated global config directory (git-initialized)
-///   - `xdg/`     — simulated `$XDG_CONFIG_HOME`
-///   - `proj/`    — simulated project root, also the CWD (git-initialized)
+/// Sets up a temporary directory tree under the system temp dir (TMPDIR or
+/// /tmp), not under .zig-cache inside the project. Nested checkouts would
+/// otherwise make git treat the outer repo as the project root.
+///
+/// Layout:
+///   - `.goal/`   - simulated global config directory (git-initialized)
+///   - `xdg/`     - simulated `$XDG_CONFIG_HOME`
+///   - `proj/`    - simulated project root, also the CWD
+///                 (git-initialized when `opts_.project_git` is true)
 ///
 /// Captures stdout/stderr into fixed buffers so tests can inspect output.
-/// Configures a mock stdin reader from `stdin_calls_` for testing prompts.
+/// Configures a mock stdin reader from `opts_.stdin_calls` for testing prompts.
 /// Pre-populates environment variables so commands behave as if run in a
 /// real goal workspace.
 ///
@@ -64,34 +79,36 @@ _path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined,
 /// `proc.run`, and command implementations.
 ///
 /// Caller must call `deinit()` when done.
-pub fn init(stdin_calls_: []const std.testing.Reader.Call) !TestEnv {
-    const alloc_ = std.testing.allocator;
+pub fn init(opts_: Options) !TestEnv {
+    const alloc = std.testing.allocator;
+    const io = std.testing.io;
 
-    var tmp_dir = std.testing.tmpDir(.{ .iterate = true });
-    errdefer tmp_dir.cleanup();
+    const tmp_path = try createSystemTmpPath(alloc, io);
+    errdefer {
+        std.Io.Dir.cwd().deleteTree(io, tmp_path) catch {};
+        alloc.free(tmp_path);
+    }
 
-    var path_buffer: [std.fs.max_path_bytes]u8 = undefined;
-    const len = try tmp_dir.dir.realPath(std.testing.io, &path_buffer);
-    const tmp_path = try alloc_.dupe(u8, path_buffer[0..len]);
-    errdefer alloc_.free(tmp_path);
+    var tmp_dir = try std.Io.Dir.openDirAbsolute(io, tmp_path, .{ .iterate = true });
+    errdefer tmp_dir.close(io);
 
-    const base_path = try std.Io.Dir.path.join(alloc_, &.{ tmp_path, ".goal" });
-    errdefer alloc_.free(base_path);
-    try ensureDir(std.testing.io, base_path);
+    const base_path = try std.Io.Dir.path.join(alloc, &.{ tmp_path, ".goal" });
+    errdefer alloc.free(base_path);
+    try ensureDir(io, base_path);
 
-    const xdg_path = try std.Io.Dir.path.join(alloc_, &.{ tmp_path, "xdg" });
-    errdefer alloc_.free(xdg_path);
-    try ensureDir(std.testing.io, xdg_path);
+    const xdg_path = try std.Io.Dir.path.join(alloc, &.{ tmp_path, "xdg" });
+    errdefer alloc.free(xdg_path);
+    try ensureDir(io, xdg_path);
 
-    const proj_path = try std.Io.Dir.path.join(alloc_, &.{ tmp_path, "proj" });
-    errdefer alloc_.free(proj_path);
-    try ensureDir(std.testing.io, proj_path);
+    const proj_path = try std.Io.Dir.path.join(alloc, &.{ tmp_path, "proj" });
+    errdefer alloc.free(proj_path);
+    try ensureDir(io, proj_path);
 
-    const state = try alloc_.create(State);
-    errdefer alloc_.destroy(state);
+    const state = try alloc.create(State);
+    errdefer alloc.destroy(state);
 
     state.* = .{
-        .environ_map = try std.testing.environ.createMap(alloc_),
+        .environ_map = try std.testing.environ.createMap(alloc),
         .stdout_buffer = undefined,
         .stdout_writer = undefined,
         .stderr_buffer = undefined,
@@ -103,14 +120,14 @@ pub fn init(stdin_calls_: []const std.testing.Reader.Call) !TestEnv {
 
     state.stdout_writer = .fixed(&state.stdout_buffer);
     state.stderr_writer = .fixed(&state.stderr_buffer);
-    state.stdin_reader = std.testing.Reader.init(&state.stdin_buffer, stdin_calls_);
+    state.stdin_reader = std.testing.Reader.init(&state.stdin_buffer, opts_.stdin_calls);
 
     try state.environ_map.put("GOAL_BASE_DIR", tmp_path);
     try state.environ_map.put("XDG_CONFIG_HOME", xdg_path);
 
     var ctx: Context = .{
-        .alloc = alloc_,
-        .io = std.testing.io,
+        .alloc = alloc,
+        .io = io,
         .environ_map = &state.environ_map,
         .stdout = &state.stdout_writer,
         .stderr = &state.stderr_writer,
@@ -119,11 +136,13 @@ pub fn init(stdin_calls_: []const std.testing.Reader.Call) !TestEnv {
     };
 
     try initGitRepo(&ctx, base_path);
-    try initGitRepo(&ctx, proj_path);
+    if (opts_.project_git) {
+        try initGitRepo(&ctx, proj_path);
+    }
 
     return .{
-        .alloc = alloc_,
-        .io = std.testing.io,
+        .alloc = alloc,
+        .io = io,
         .tmp_dir = tmp_dir,
         .tmp_path = tmp_path,
         .base_path = base_path,
@@ -154,9 +173,10 @@ pub fn deinit(self_: *TestEnv) void {
     self_.alloc.free(self_.proj_path);
     self_.alloc.free(self_.xdg_path);
     self_.alloc.free(self_.base_path);
-    self_.alloc.free(self_.tmp_path);
 
-    self_.tmp_dir.cleanup();
+    self_.tmp_dir.close(self_.io);
+    std.Io.Dir.cwd().deleteTree(self_.io, self_.tmp_path) catch {};
+    self_.alloc.free(self_.tmp_path);
 }
 
 // TODO: readFile is mostly being used to read "proj/.goal/.goal_id" .. env.readGoalId()...
@@ -263,6 +283,32 @@ fn ensureDir(io_: std.Io, path_: []const u8) !void {
     };
 }
 
+/// Random directory under TMPDIR (or /tmp). Caller frees the path and must
+/// delete the tree on cleanup.
+fn createSystemTmpPath(alloc_: std.mem.Allocator, io_: std.Io) ![]u8 {
+    // Process environ from the test harness (no libc link required).
+    const parent = parent: {
+        if (builtin.os.tag == .windows) {
+            // WTF-16 path vars are awkward here; fixed default is enough for tests.
+            break :parent "C:\\Windows\\Temp";
+        }
+        if (std.testing.environ.getPosix("TMPDIR")) |dir| {
+            if (dir.len > 0) break :parent dir;
+        }
+        break :parent "/tmp";
+    };
+
+    var random_bytes: [12]u8 = undefined;
+    io_.random(&random_bytes);
+    var name_buf: [std.base64.url_safe.Encoder.calcSize(12)]u8 = undefined;
+    const name = std.base64.url_safe.Encoder.encode(&name_buf, &random_bytes);
+
+    const path = try std.Io.Dir.path.join(alloc_, &.{ parent, name });
+    errdefer alloc_.free(path);
+    try ensureDir(io_, path);
+    return path;
+}
+
 fn initGitRepo(ctx_: *Context, cwd_: []const u8) !void {
     const cmds = [_]struct {
         argv: []const []const u8,
@@ -283,8 +329,11 @@ fn initGitRepo(ctx_: *Context, cwd_: []const u8) !void {
 // ---------------------------------------------------------------------------
 
 test "TestEnv.init creates isolated workspace" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
+
+    // Lives under system temp, not project .zig-cache (avoids nested git).
+    try std.testing.expect(std.mem.indexOf(u8, env.tmp_path, ".zig-cache") == null);
 
     // verify test dirs were created
     try std.testing.expect(try env.pathExists(".goal/", .{}));
@@ -314,7 +363,7 @@ test "TestEnv.init creates isolated workspace" {
 }
 
 test "writeFile and readFile round-trip" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // write to a nested path (creates parent dirs automatically)
@@ -326,7 +375,7 @@ test "writeFile and readFile round-trip" {
 }
 
 test "pathExists returns false for missing files" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try std.testing.expect(!try env.pathExists("nonexistent", .{}));
@@ -337,7 +386,7 @@ test "pathExists returns false for missing files" {
 }
 
 test "stdout capture and reset" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.ctx.stdout.print("first output", .{});
@@ -351,7 +400,7 @@ test "stdout capture and reset" {
 }
 
 test "stderr capture and reset" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.ctx.stderr.print("first error", .{});
@@ -368,10 +417,10 @@ test "stderr capture and reset" {
 }
 
 test "multiple isolated environments don't interfere" {
-    var env_a = try TestEnv.init(&.{});
+    var env_a = try TestEnv.init(.{});
     defer env_a.deinit();
 
-    var env_b = try TestEnv.init(&.{});
+    var env_b = try TestEnv.init(.{});
     defer env_b.deinit();
 
     // each has its own temp directory
@@ -389,7 +438,7 @@ test "stdin mock replays calls" {
         .{ .buffer = "no\n" },
     };
 
-    var env = try TestEnv.init(calls);
+    var env = try TestEnv.init(.{ .stdin_calls = calls });
     defer env.deinit();
 
     // take "yes\n" from stdin

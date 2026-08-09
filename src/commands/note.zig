@@ -260,7 +260,7 @@ const start_cmd = @import("start.zig");
 const note_cmd = @This();
 
 test "goal note creates note on active goal" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -295,7 +295,7 @@ test "goal note creates note on active goal" {
 }
 
 test "goal note multi-line and sequential ids" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -326,7 +326,7 @@ test "goal note multi-line and sequential ids" {
 }
 
 test "goal note without active goal fails" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -338,7 +338,7 @@ test "goal note without active goal fails" {
 }
 
 test "goal note -q prints only the note ID" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -354,7 +354,7 @@ test "goal note -q prints only the note ID" {
 }
 
 test "parseArgs non-TTY without text or --file requires content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -367,7 +367,7 @@ test "parseArgs non-TTY without text or --file requires content" {
 }
 
 test "parseArgs TTY with no args yields null content (editor)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     env.ctx.stdin_is_tty = true;
@@ -382,7 +382,7 @@ test "parseArgs TTY with no args yields null content (editor)" {
 }
 
 test "parseArgs --file reads file into content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const body =
@@ -404,7 +404,7 @@ test "parseArgs --file reads file into content" {
 }
 
 test "parseArgs rejects empty content and conflicting args" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -423,7 +423,7 @@ test "parseArgs rejects empty content and conflicting args" {
 }
 
 test "run rejects empty content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

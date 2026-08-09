@@ -124,7 +124,7 @@ const list_cmd = @This();
 // ---------------------------------------------------------------------------
 
 test "'run --global' shows only keys present in the global config file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -147,7 +147,7 @@ test "'run --global' shows only keys present in the global config file" {
 }
 
 test "'run --global' with no global config file reports that" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -163,7 +163,7 @@ test "'run --global' with no global config file reports that" {
 }
 
 test "'run --global' with an empty global config file reports no settings" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -183,7 +183,7 @@ test "'run --global' with an empty global config file reports no settings" {
 }
 
 test "'run' respects config layering (env > project > global > defaults)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -273,7 +273,7 @@ test "'run' respects config layering (env > project > global > defaults)" {
 }
 
 test "'parseArgs' accepts no flags or --global" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     {
@@ -300,7 +300,7 @@ test "'parseArgs' accepts no flags or --global" {
 }
 
 test "'parseArgs' accepts --global only once" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -312,7 +312,7 @@ test "'parseArgs' accepts --global only once" {
 }
 
 test "'parseArgs' rejects positional arguments" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -336,7 +336,7 @@ test "'parseArgs' rejects positional arguments" {
 }
 
 test "'parseArgs' accepts help" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // All help forms (-h, --help, help) are covered by Command.fromString tests.
@@ -349,7 +349,7 @@ test "'parseArgs' accepts help" {
 }
 
 test "'main' prints subcommand help to stdout" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Help is owned by this file and printed directly (not via Commands.help).
@@ -363,7 +363,7 @@ test "'main' prints subcommand help to stdout" {
 }
 
 test "'parseArgs' rejects other subcommands" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

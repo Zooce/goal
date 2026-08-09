@@ -117,7 +117,10 @@ pub fn commit(ctx_: *const Context, message_: []const u8, opts_: CommitOptions) 
 }
 
 /// Checks if there are any specified types of changes.
+/// Returns false when git is missing or cwd is not a repo (optional surface).
 pub fn hasChanges(ctx_: *const Context, opts_: ChangeOptions) !bool {
+    if (!isUsable(ctx_, opts_.cwd)) return false;
+
     var found = false;
     for (opts_.kinds) |kind| {
         const cmd: []const []const u8 = switch (kind) {
@@ -125,7 +128,7 @@ pub fn hasChanges(ctx_: *const Context, opts_: ChangeOptions) !bool {
             .unstaged => &.{ "git", "diff", "--stat" },
             .untracked => &.{ "git", "ls-files", "--others", "--exclude-standard" },
         };
-        const changes = try proc.exec(ctx_, .{ .argv = cmd, .cwd = opts_.cwd });
+        const changes = proc.exec(ctx_, .{ .argv = cmd, .cwd = opts_.cwd, .quiet = true }) catch return false;
         defer ctx_.alloc.free(changes);
 
         found = found or changes.len > 0;
@@ -133,8 +136,10 @@ pub fn hasChanges(ctx_: *const Context, opts_: ChangeOptions) !bool {
     return found;
 }
 
-/// A helper function for getting git status with `--stat` output + untracked files.
+/// Prints staged/unstaged/untracked summary. No-op when git is not usable.
 pub fn status(ctx_: *const Context) !void {
+    if (!isUsable(ctx_, null)) return;
+
     try proc.run(ctx_, .{
         .label = "Staged changes:",
         .argv = &.{ "git", "diff", "--stat", "--staged", "--color" },
@@ -162,15 +167,21 @@ fn splitByNewline(ctx_: *const Context, output_: []const u8) !void {
 }
 
 /// Runs `git log --all --graph --decorate --oneline --grep 'Goal #{id}' --grep '{git user email}' --all-match`
-/// showing the output in stdout.
+/// showing the output in stdout. No-op when git is not usable or email is missing.
 ///
 /// Example:
 /// ```zig
-/// try git.logGrep(allocator, stdout, "42", io);
+/// try git.logGrep(ctx, "42");
 /// ```
 pub fn logGrep(ctx_: *const Context, id_: []const u8) !void {
-    const email = try proc.exec(ctx_, .{ .argv = &.{ "git", "config", "user.email" } });
+    if (!isUsable(ctx_, null)) return;
+
+    const email = proc.exec(ctx_, .{
+        .argv = &.{ "git", "config", "user.email" },
+        .quiet = true,
+    }) catch return;
     defer ctx_.alloc.free(email);
+    if (email.len == 0) return;
 
     var tag_buffer: [16]u8 = undefined;
     const tag_pattern = try std.fmt.bufPrint(&tag_buffer, "Goal #{s}", .{id_});
@@ -194,55 +205,62 @@ pub fn logGrep(ctx_: *const Context, id_: []const u8) !void {
     });
 }
 
-/// Returns the `.git/hooks` directory path if inside a Git project.
-/// Caller is responsible for freeing the returned string.
+/// Returns the `.git/hooks` directory path when usable git is present.
+/// Null when git is missing or cwd is not a repo. Caller frees non-null result.
 pub fn hooksPath(ctx_: *const Context) !?[]const u8 {
-    const git_root = try proc.exec(ctx_, .{ .argv = &.{ "git", "rev-parse", "--show-toplevel" } });
+    if (!isUsable(ctx_, null)) return null;
+
+    const git_root = proc.exec(ctx_, .{
+        .argv = &.{ "git", "rev-parse", "--show-toplevel" },
+        .quiet = true,
+    }) catch return null;
     defer ctx_.alloc.free(git_root);
     return try std.Io.Dir.path.join(ctx_.alloc, &.{ git_root, ".git", "hooks" });
 }
 
-/// Installs the `prepare-commit-msg` hook into `.git/hooks/`.
+/// Installs the `prepare-commit-msg` hook into `.git/hooks/` when in a git repo.
+/// No-op when git is unavailable (does not error).
 pub fn createHook(ctx_: *const Context) !void {
     const hooks = try hooksPath(ctx_);
-    if (hooks) |path| {
-        defer ctx_.alloc.free(path);
+    const path = hooks orelse return;
+    defer ctx_.alloc.free(path);
 
-        std.Io.Dir.createDirAbsolute(ctx_.io, path, .default_dir) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => return err,
-        };
+    std.Io.Dir.createDirAbsolute(ctx_.io, path, .default_dir) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
 
-        var hooks_dir = try std.Io.Dir.openDirAbsolute(ctx_.io, path, .{});
-        defer hooks_dir.close(ctx_.io);
+    var hooks_dir = try std.Io.Dir.openDirAbsolute(ctx_.io, path, .{});
+    defer hooks_dir.close(ctx_.io);
 
-        const hook_content = @embedFile("prepare-commit-msg");
-        const hook_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ path, "prepare-commit-msg" });
-        defer ctx_.alloc.free(hook_path);
+    const hook_content = @embedFile("prepare-commit-msg");
+    try hooks_dir.writeFile(ctx_.io, .{ .sub_path = "prepare-commit-msg", .data = hook_content, .flags = .{ .truncate = true } });
 
-        try hooks_dir.writeFile(ctx_.io, .{ .sub_path = "prepare-commit-msg", .data = hook_content, .flags = .{ .truncate = true } });
-
-        try hooks_dir.setFilePermissions(ctx_.io, "prepare-commit-msg", std.Io.File.Permissions.fromMode(0o755), .{});
-    }
+    try hooks_dir.setFilePermissions(ctx_.io, "prepare-commit-msg", std.Io.File.Permissions.fromMode(0o755), .{});
 }
 
-/// Removes the `prepare-commit-msg` hook from `.git/hooks/`.
+/// Removes the `prepare-commit-msg` hook when present. No-op without git/repo.
 pub fn deleteHook(ctx_: *const Context) !void {
     const hooks = try hooksPath(ctx_);
-    if (hooks) |path| {
-        defer ctx_.alloc.free(path);
+    const path = hooks orelse return;
+    defer ctx_.alloc.free(path);
 
-        const hook_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ path, "prepare-commit-msg" });
-        defer ctx_.alloc.free(hook_path);
+    const hook_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ path, "prepare-commit-msg" });
+    defer ctx_.alloc.free(hook_path);
 
-        std.Io.Dir.deleteFileAbsolute(ctx_.io, hook_path) catch |err| switch (err) {
-            error.FileNotFound => {},
-            else => return err,
-        };
-    }
+    std.Io.Dir.deleteFileAbsolute(ctx_.io, hook_path) catch |err| switch (err) {
+        error.FileNotFound => {},
+        else => return err,
+    };
 }
 
+/// Clone `repo_` into `loc_`. Requires the git binary; errors clearly if missing.
 pub fn clone(ctx_: *const Context, repo_: []const u8, loc_: []const u8) !void {
+    if (!isAvailable(ctx_)) {
+        try ctx_.stderr.writeAll("\ngit is not available. Install git to clone a goal repo.\n");
+        return error.GitNotAvailable;
+    }
+
     try ctx_.stdout.print("\nCloning: {s} into {s}\n", .{ repo_, loc_ });
     try ctx_.stdout.flush();
     try proc.run(ctx_, .{ .argv = &.{ "git", "clone", repo_, "--quiet", loc_ } });

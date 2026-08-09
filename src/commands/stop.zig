@@ -119,7 +119,7 @@ const complete_cmd = @import("complete.zig");
 const stop_cmd = @This();
 
 test "goal stop moves active goal to next" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -136,7 +136,7 @@ test "goal stop moves active goal to next" {
 
 test "goal stop (commit=false, no project commit)" {
     // With GOAL_COMMIT=false, stop still clears the active goal but does not commit in the project repo.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.setEnv("GOAL_COMMIT", "false");
@@ -162,7 +162,7 @@ test "goal stop (commit=false, no project commit)" {
 
 test "goal lifecycle (commit=false, no project commits)" {
     // Full path with commits off: init, start, stop, start, complete - zero project commits.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.setEnv("GOAL_COMMIT", "false");

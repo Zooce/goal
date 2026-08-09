@@ -20,12 +20,23 @@ Learn Zig: Visit https://ziglang.org/documentation/0.16.0/ or run `zig std` (whi
 ## Conventions
 
 Function parameter names always end with `_` to differentiate them from other variables.
+Do not put a trailing `_` on local variables, fields, or return values - only on parameters
+(including method receivers like `self_` / `ctx_`).
 
 If a function needs access to anything in the `Context` struct, pass it in as the first parameter and name it `ctx_`.
 
 When possible, use non-allocating buffers (especially if we can reuse them).
 
 Keep things simple. No clever tricks unless they unlock something profoundly useful.
+
+**No trivial wrappers.** Do not add a function that only forwards to a one-liner.
+Call the underlying API at the use site. Extract a helper only when it encodes real
+shared logic or a non-obvious invariant.
+
+**Never wrap just to add a parameter.** Do not invent a second function whose only job
+is to call the first with one more argument (for example `init` -> `initOpts(..., opts)`).
+Extend the existing API: add a parameter, or an options struct field with a default.
+Keep one implementation.
 
 Perferr immutable (const) pointers as function parameters.
 

@@ -147,7 +147,7 @@ const unset_cmd = @This();
 // ---------------------------------------------------------------------------
 
 test "config unset removes explicit value from target scope (project by default)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -177,7 +177,7 @@ test "config unset removes explicit value from target scope (project by default)
 }
 
 test "config unset --global removes from global file only" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -215,7 +215,7 @@ test "config unset --global removes from global file only" {
 }
 
 test "config unset is surgical and does not rewrite other keys" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -233,7 +233,7 @@ test "config unset is surgical and does not rewrite other keys" {
 }
 
 test "config unset removes all duplicate key lines" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -250,7 +250,7 @@ test "config unset removes all duplicate key lines" {
 }
 
 test "config unset removes multiple keys in one call" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -268,7 +268,7 @@ test "config unset removes multiple keys in one call" {
 }
 
 test "config unset is idempotent when key already absent in target" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -293,7 +293,7 @@ test "config unset is idempotent when key already absent in target" {
 }
 
 test "'parseArgs' requires at least one key" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -317,7 +317,7 @@ test "'parseArgs' requires at least one key" {
 }
 
 test "'parseArgs' accepts one or more keys" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Single key, default project scope.
@@ -353,7 +353,7 @@ test "'parseArgs' accepts one or more keys" {
 }
 
 test "'parseArgs' accepts --global anywhere and only once" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -416,7 +416,7 @@ test "'parseArgs' accepts --global anywhere and only once" {
 }
 
 test "'parseArgs' rejects unknown keys" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -440,7 +440,7 @@ test "'parseArgs' rejects unknown keys" {
 }
 
 test "'parseArgs' accepts help" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // All help forms (-h, --help, help) are covered by Command.fromString tests.
@@ -475,7 +475,7 @@ test "'parseArgs' accepts help" {
 }
 
 test "'main' prints subcommand help to stdout" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Help is owned by this file and printed directly (not via Commands.help).
@@ -489,7 +489,7 @@ test "'main' prints subcommand help to stdout" {
 }
 
 test "'parseArgs' rejects other subcommands" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 

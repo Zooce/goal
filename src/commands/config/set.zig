@@ -176,7 +176,7 @@ const get_cmd = @import("get.zig");
 const set_cmd = @This();
 
 test "config set writes to project config by default" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -200,7 +200,7 @@ test "config set writes to project config by default" {
 }
 
 test "config set --global writes to global config file only" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -220,7 +220,7 @@ test "config set --global writes to global config file only" {
 }
 
 test "config set is surgical and does not snapshot full config" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -240,7 +240,7 @@ test "config set is surgical and does not snapshot full config" {
 }
 
 test "config set updates the last duplicate key in a config file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -263,7 +263,7 @@ test "config set updates the last duplicate key in a config file" {
 }
 
 test "config set parseArgs requires key and value" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -285,7 +285,7 @@ test "config set parseArgs requires key and value" {
 }
 
 test "config set parseArgs accepts --global before or after key and value" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -325,7 +325,7 @@ test "config set parseArgs accepts --global before or after key and value" {
 }
 
 test "config set parseArgs rejects unknown keys" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -337,7 +337,7 @@ test "config set parseArgs rejects unknown keys" {
 }
 
 test "'main' prints subcommand help to stdout" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Help is owned by this file and printed directly (not via Commands.help).

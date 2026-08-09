@@ -259,7 +259,7 @@ const start_cmd = @import("start.zig");
 const edit_cmd = @This();
 
 test "edit with content replaces goal file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -285,7 +285,7 @@ test "edit with content replaces goal file" {
 }
 
 test "run rejects empty content and blank first-line title" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -311,7 +311,7 @@ test "run rejects empty content and blank first-line title" {
 //   2. TTY picker, or error when not a TTY
 
 test "goal edit (no active goal, non-TTY)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -320,7 +320,7 @@ test "goal edit (no active goal, non-TTY)" {
 }
 
 test "goal edit --file (active goal)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -353,7 +353,7 @@ test "goal edit --file (active goal)" {
 }
 
 test "goal edit 1 --file x (active goal is 2)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -376,7 +376,7 @@ test "goal edit 1 --file x (active goal is 2)" {
 }
 
 test "goal edit --file (no active goal, non-TTY)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -388,7 +388,7 @@ test "goal edit --file (no active goal, non-TTY)" {
 }
 
 test "parseArgs --file reads file into content" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     const body =
@@ -414,7 +414,7 @@ test "parseArgs --file reads file into content" {
 }
 
 test "parseArgs non-TTY without --file requires --file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -426,7 +426,7 @@ test "parseArgs non-TTY without --file requires --file" {
 }
 
 test "parseArgs TTY with id and no --file yields null content (editor)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     env.ctx.stdin_is_tty = true;
@@ -444,7 +444,7 @@ test "parseArgs TTY with id and no --file yields null content (editor)" {
 }
 
 test "parseArgs --file without id is allowed (active goal in run)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.writeFile("proj/x.md", "title\n");
@@ -464,7 +464,7 @@ test "parseArgs --file without id is allowed (active goal in run)" {
 }
 
 test "parseArgs rejects empty content from --file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -478,7 +478,7 @@ test "parseArgs rejects empty content from --file" {
 }
 
 test "parseArgs accepts id and --file in either order" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try env.writeFile("proj/x.md", "title\n");

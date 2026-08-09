@@ -157,7 +157,7 @@ const note_cmd = @import("note.zig");
 const status_cmd = @This();
 
 test "status with no active goal" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -180,7 +180,7 @@ test "status with no active goal" {
 }
 
 test "status --full prints active goal file contents at the end" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -227,7 +227,7 @@ test "status --full prints active goal file contents at the end" {
 }
 
 test "parseArgs accepts --full once" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     {
@@ -248,7 +248,7 @@ test "parseArgs accepts --full once" {
 }
 
 test "parseArgs rejects duplicate --full and unknown args" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -268,7 +268,7 @@ test "parseArgs rejects duplicate --full and unknown args" {
 }
 
 test "status lists note titles; --full includes note bodies" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -308,6 +308,26 @@ test "status lists note titles; --full includes note bodies" {
         \\
         \\  Note #1 - agent update
         \\  found related code
+        \\
+    , env.readStdout());
+}
+
+test "goal status (non-git project, active goal)" {
+    // Without project git, status still shows the active goal tag and notes.
+    // logGrep / status are soft no-ops (no ProcError).
+    var env = try TestEnv.init(.{ .project_git = false });
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const id = try new_cmd.run(&env.ctx, .{ .content = "offline work" });
+    defer env.alloc.free(id);
+    try start_cmd.run(&env.ctx, .{ .id = id });
+
+    env.resetStdout();
+    try status_cmd.run(&env.ctx, false);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - offline work
         \\
     , env.readStdout());
 }

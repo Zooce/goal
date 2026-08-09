@@ -100,7 +100,7 @@ const get_cmd = @This();
 // ---------------------------------------------------------------------------
 
 test "'config get' prints raw value from 'effective' config" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Init establishes project + global dirs with defaults.
@@ -119,7 +119,7 @@ test "'config get' prints raw value from 'effective' config" {
 }
 
 test "'config get' respects config layering (env > project > global > defaults)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -148,7 +148,7 @@ test "'config get' respects config layering (env > project > global > defaults)"
 }
 
 test "'config get --global' returns value from global file only (or nothing)" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -168,7 +168,7 @@ test "'config get --global' returns value from global file only (or nothing)" {
 }
 
 test "'config get' uses the last duplicate key in a config file" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -181,7 +181,7 @@ test "'config get' uses the last duplicate key in a config file" {
 }
 
 test "'config get' on absent value in scope prints nothing and exits 0" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -193,7 +193,7 @@ test "'config get' on absent value in scope prints nothing and exits 0" {
 }
 
 test "'parseArgs' requires exactly one key" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -217,7 +217,7 @@ test "'parseArgs' requires exactly one key" {
 }
 
 test "'parseArgs' accepts --global anywhere and only once" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -255,7 +255,7 @@ test "'parseArgs' accepts --global anywhere and only once" {
 }
 
 test "'parseArgs' rejects unknown keys" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
     defer env.resetStderr();
 
@@ -267,7 +267,7 @@ test "'parseArgs' rejects unknown keys" {
 }
 
 test "'main' prints subcommand help to stdout" {
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     // Help is owned by this file and printed directly (not via Commands.help).

@@ -126,7 +126,7 @@ const list_cmd = @This();
 
 test "goal list --later (most recently created first)" {
     // Later goals list newest id first (ids are assigned in create order).
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -153,7 +153,7 @@ test "goal list --later (most recently created first)" {
 
 test "goal list --next (most recently put into next first)" {
     // Promote later goals in order 1, then 2, then 3 - last promoted sorts first.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -184,7 +184,7 @@ test "goal list --next (most recently put into next first)" {
 
 test "goal list --next (re-next moves goal to top)" {
     // Reordering Next: call next again on an already-Next goal to put it first.
-    var env = try TestEnv.init(&.{});
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
