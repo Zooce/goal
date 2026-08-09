@@ -43,16 +43,21 @@ pub fn findRoot(ctx_: *const Context) ![]const u8 {
     return try ctx_.alloc.dupe(u8, start);
 }
 
-/// Absolute cwd: Context.cwd when set (tests), else the process cwd.
+/// Absolute cwd as a normal owned slice (not null-terminated).
+/// Context.cwd when set (tests), else the process cwd.
 fn absoluteCwd(ctx_: *const Context) ![]const u8 {
     if (ctx_.cwd) |cwd| {
         if (std.fs.path.isAbsolute(cwd)) return try ctx_.alloc.dupe(u8, cwd);
         // Resolve relative override against the real process cwd.
+        // currentPathAlloc returns [:0]u8; free that type so the sentinel is included.
         const proc_cwd = try std.process.currentPathAlloc(ctx_.io, ctx_.alloc);
         defer ctx_.alloc.free(proc_cwd);
         return try std.fs.path.resolve(ctx_.alloc, &.{ proc_cwd, cwd });
     }
-    return try std.process.currentPathAlloc(ctx_.io, ctx_.alloc);
+    // Do not return [:0]u8 as []const u8 - free would drop the sentinel byte.
+    const path_z = try std.process.currentPathAlloc(ctx_.io, ctx_.alloc);
+    defer ctx_.alloc.free(path_z);
+    return try ctx_.alloc.dupe(u8, path_z);
 }
 
 /// Walk for a directory that contains `.goal/.goal_id`.
