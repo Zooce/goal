@@ -90,6 +90,7 @@ fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.Arg
         // Git Commands
 
         .commitmsg => try commands.commitmsg.main(ctx_),
+        .@"install-git-hook" => try commands.install_git_hook.main(ctx_, iter_),
 
         .config => try commands.config.main(ctx_, iter_),
 

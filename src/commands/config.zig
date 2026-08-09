@@ -44,7 +44,9 @@ pub const help_text =
     \\
     \\    base-dir    Directory for goal storage
     \\    editor      Default editor for goal editing
-    \\    commit      Whether goal info is appended to commit messages
+    \\    commit      Create git commits in this project for goal changes
+    \\                (default: true). Set false if you share the repo and do
+    \\                not want goal commits there.
     \\
     \\Options:
     \\

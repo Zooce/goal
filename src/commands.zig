@@ -7,6 +7,7 @@ pub const init = @import("commands/init.zig");
 pub const deinit = @import("commands/deinit.zig");
 pub const sync = @import("commands/sync.zig");
 pub const commitmsg = @import("commands/commitmsg.zig");
+pub const install_git_hook = @import("commands/install_git_hook.zig");
 pub const help = @import("commands/help.zig");
 pub const status = @import("commands/status.zig");
 pub const list = @import("commands/list.zig");
@@ -49,6 +50,7 @@ pub const Command = enum {
     later,
 
     commitmsg,
+    @"install-git-hook",
 
     batman, // just for development
     config,
@@ -126,6 +128,7 @@ test "Command.fromString maps known command names" {
     try std.testing.expectEqual(Command.init, Command.fromString("init").?);
     try std.testing.expectEqual(Command.config, Command.fromString("config").?);
     try std.testing.expectEqual(Command.start, Command.fromString("start").?);
+    try std.testing.expectEqual(Command.@"install-git-hook", Command.fromString("install-git-hook").?);
 }
 
 test "Command.fromString returns null for unknown strings" {

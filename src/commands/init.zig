@@ -21,13 +21,14 @@ pub const help_text =
     \\
     \\Initializes `goal` in your project.
     \\
-    \\All `goal` files can be found in the ~/.goal/<goal_id> directory. Local state
-    \\lives under project/.goal/ (project root: existing .goal/, else .git/, else cwd).
-    \\Git is optional; see `commit` / GOAL_COMMIT for project commits and hooks.
+    \\Your goals are stored under ~/.goal/. A small `.goal/` folder is also created
+    \\in the project. Git is optional.
     \\
-    \\When project commits are enabled (default), init installs the
-    \\prepare-commit-msg hook and commits local `.goal/` in the project repo.
-    \\Set `commit=false` or GOAL_COMMIT=false to skip the hook and project commit.
+    \\By default, goal may create commits in this project when you start, stop, or
+    \\finish goals. Set `commit=false` or GOAL_COMMIT=false if you share the repo
+    \\and do not want those commits.
+    \\
+    \\To put the active goal in your commit messages, run `goal install-git-hook`.
     \\
     \\
     \\Usage:
@@ -97,19 +98,14 @@ pub fn run(ctx_: *const Context) !void {
     };
     defer ctx_.alloc.free(project_name);
 
-    // Project commits / hook only when policy allows (usable git + commit=true).
-    const commit_project = try git.shouldCommitProjectState(ctx_);
-    if (commit_project) {
-        try git.createHook(ctx_);
-    }
-
     Meta.create(ctx_, dirs.base.dir, project_name) catch |err| switch (err) {
         error.PathAlreadyExists => return try ctx_.stdout.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
     };
 
     // Optional project-repo commit of local .goal/ (never fail core init after mutate).
-    if (commit_project) {
+    // Hook install is opt-in via `goal install-git-hook`, not part of init.
+    if (try git.shouldCommitProjectState(ctx_)) {
         try ctx_.stdout.writeAll("\nCommitting local goal files...\n");
         git.add(ctx_, dirs.local.path, null) catch {};
         git.commit(ctx_, "goal init", .{ .paths = &.{dirs.local.path} }) catch {};
@@ -135,33 +131,6 @@ const TestEnv = @import("../TestEnv.zig");
 const uuid = @import("../uuid.zig");
 const init_cmd = @This();
 
-test "init installs hook even if already initialized" {
-    var env = try TestEnv.init(.{});
-    defer env.deinit();
-
-    // First init — fresh
-    try init_cmd.run(&env.ctx);
-
-    // Delete the hook to simulate a missing hook
-    const hook_path = try std.Io.Dir.path.join(env.alloc, &.{ env.proj_path, ".git", "hooks", "prepare-commit-msg" });
-    defer env.alloc.free(hook_path);
-
-    try std.Io.Dir.deleteFileAbsolute(env.io, hook_path);
-
-    // Verify hook is gone
-    std.Io.Dir.accessAbsolute(env.io, hook_path, .{}) catch |err| switch (err) {
-        error.FileNotFound => {},
-        else => return err,
-    };
-
-    // Second init — already initialized, should still reinstall the hook
-    env.resetStdout();
-    try init_cmd.run(&env.ctx);
-
-    // Verify hook was recreated
-    try std.Io.Dir.accessAbsolute(env.io, hook_path, .{});
-}
-
 test "init command" {
     var env = try TestEnv.init(.{});
     defer env.deinit();
@@ -177,8 +146,8 @@ test "init command" {
     defer env.alloc.free(goal_id);
     try std.testing.expectEqual(@as(usize, uuid.SLICE_LEN), goal_id.len);
 
-    // 3. Git hook is installed and executable
-    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
+    // 3. Init does not install the prepare-commit-msg hook (opt-in via install-git-hook)
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // 4. Base directory structure exists (a/, n/, l/, d/)
     try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
@@ -299,9 +268,9 @@ test "init with custom project name" {
     try std.testing.expectEqualStrings("my-project", meta.project_name);
 }
 
-test "goal init (commit=false, no project commit or hook)" {
-    // With GOAL_COMMIT=false: still create goal dirs, but no prepare-commit-msg hook
-    // and no project-repo commit of .goal/. Personal ~/.goal store may still commit.
+test "goal init (commit=false, no project commit)" {
+    // With GOAL_COMMIT=false: still create goal dirs, no project-repo commit of
+    // .goal/. Hook is never installed by init. Personal ~/.goal store may still commit.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -321,7 +290,7 @@ test "goal init (commit=false, no project commit or hook)" {
     try std.testing.expectEqualStrings("0", commit_count);
 }
 
-test "goal init (global config commit=false, no project commit or hook)" {
+test "goal init (global config commit=false, no project commit)" {
     // Same as env override, but via global config file (no GOAL_COMMIT).
     var env = try TestEnv.init(.{});
     defer env.deinit();

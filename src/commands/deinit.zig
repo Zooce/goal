@@ -274,6 +274,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 
 const TestEnv = @import("../TestEnv.zig");
 const init_cmd = @import("init.zig");
+const install_git_hook_cmd = @import("install_git_hook.zig");
 const deinit_cmd = @This();
 
 test "deinit command" {
@@ -287,8 +288,10 @@ test "deinit command" {
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
-    // Use goal init to set up the project normally
+    // Use goal init to set up the project normally, then opt-in hook install.
     try init_cmd.run(&env.ctx);
+    try install_git_hook_cmd.run(&env.ctx);
+    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // Capture goal id before deinit removes it
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -484,8 +487,9 @@ test "deinit cancelled at local confirmation" {
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
-    // Set up using the normal init flow.
+    // Set up using the normal init flow; install hook so we can assert it stays.
     try init_cmd.run(&env.ctx);
+    try install_git_hook_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -524,8 +528,9 @@ test "deinit cancelled at global confirmation" {
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
-    // Set up using the normal init flow.
+    // Set up using the normal init flow; install hook so we can assert it stays.
     try init_cmd.run(&env.ctx);
+    try install_git_hook_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});

@@ -7,6 +7,7 @@ const setup = @import("setup.zig");
 const init = @import("init.zig");
 const deinit = @import("deinit.zig");
 const sync = @import("sync.zig");
+const install_git_hook = @import("install_git_hook.zig");
 const list = @import("list.zig");
 const status = @import("status.zig");
 const complete = @import("complete.zig");
@@ -39,30 +40,34 @@ pub const help_text =
     \\Commands:
     \\
     \\    help        Show this help message or the message for a command.
-    \\    setup       Setup `goal` for the first time.
-    \\    init        Initialze `goal` in a project.
-    \\    deinit      Remove `goal` from a project (reverses init).
-    \\    sync        Sync all your goal projects.
-    \\    new         Create a new goal.
-    \\    note        Append a note to the active goal.
-    \\    start       Start working on a goal (optionally create a new one).
-    \\    status      Show your active goal's status.
-    \\    show        Print a goal's full file contents.
-    \\    search      Search goal contents with a regex (ripgrep).
-    \\    stop        Stop working on the active goal.
-    \\    complete    Complete the active goal.
-    \\    next        Promote a goal from Later to Next.
-    \\    later       Demote a goal from Next to Later.
-    \\    list        List goals.
-    \\    edit        Edit a goal.
-    \\    delete      Delete a goal.
-    \\    config      Configure `goal`.
+    \\    setup              Setup `goal` for the first time.
+    \\    init               Initialze `goal` in a project.
+    \\    deinit             Remove `goal` from a project (reverses init).
+    \\    sync               Sync all your goal projects.
+    \\    new                Create a new goal.
+    \\    note               Append a note to the active goal.
+    \\    start              Start working on a goal (optionally create a new one).
+    \\    status             Show your active goal's status.
+    \\    show               Print a goal's full file contents.
+    \\    search             Search goal contents with a regex (ripgrep).
+    \\    stop               Stop working on the active goal.
+    \\    complete           Complete the active goal.
+    \\    next               Promote a goal from Later to Next.
+    \\    later              Demote a goal from Next to Later.
+    \\    list               List goals.
+    \\    edit               Edit a goal.
+    \\    delete             Delete a goal.
+    \\    config             Configure `goal`.
+    \\    install-git-hook   Optionally add the active goal to commit messages.
     \\
     \\Environment Variables:
     \\
     \\    GOAL_BASE_DIR
     \\               Override the default goal storage directory (default: ~/.goal).
     \\               This allows you to store your goals in a custom location.
+    \\    GOAL_COMMIT
+    \\               Set to false to stop goal from making git commits in the
+    \\               project. See `goal help config`.
     \\
     \\Help:
     \\
@@ -102,6 +107,7 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         .init => init.help_text,
         .deinit => deinit.help_text,
         .sync => sync.help_text,
+        .@"install-git-hook" => install_git_hook.help_text,
         .list => list.help_text,
         .status => status.help_text,
         .show => show.help_text,
