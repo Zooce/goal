@@ -1,11 +1,11 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const proc = @import("../proc.zig");
+const Context = @import("Context");
+const proc = @import("proc");
 
-const ActiveId = @import("../ActiveId.zig");
-const Directories = @import("../Directories.zig");
-const Goal = @import("../Goal.zig");
+const ActiveId = @import("ActiveId");
+const Directories = @import("Directories");
+const Goal = @import("Goal");
 
 /// Prints the commit tag for the active goal to stdout.
 ///
@@ -36,10 +36,10 @@ pub fn main(ctx_: *const Context) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const start_cmd = @import("start.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const start_cmd = @import("start");
 const commitmsg_cmd = @This();
 
 test "commitmsg outputs tag when active goal exists" {

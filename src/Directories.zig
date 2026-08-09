@@ -2,12 +2,12 @@ const Directories = @This();
 
 const std = @import("std");
 
-const Context = @import("Context.zig");
-const uuid = @import("uuid.zig");
-const utils = @import("utils.zig");
+const Context = @import("Context");
+const uuid = @import("uuid");
+const utils = @import("utils");
 
-const Config = @import("Config.zig");
-const Goal = @import("Goal.zig");
+const Config = @import("Config");
+const Goal = @import("Goal");
 
 pub const Options = struct {
     /// Create the project directory if it doesn't exist.

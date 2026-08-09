@@ -13,9 +13,9 @@
 //! `maybeCommit` so missing git, non-repo cwd, or `commit=false` never fails a
 //! command after core state mutation.
 const std = @import("std");
-const proc = @import("proc.zig");
-const Context = @import("Context.zig");
-const config_common = @import("commands/config/common.zig");
+const proc = @import("proc");
+const Context = @import("Context");
+const config_common = @import("config_common");
 
 pub const ChangeKind = enum {
     staged,

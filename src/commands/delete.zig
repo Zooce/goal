@@ -1,13 +1,13 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const cli = @import("../cli.zig");
-const ActiveId = @import("../ActiveId.zig");
-const Directories = @import("../Directories.zig");
-const Goal = @import("../Goal.zig");
-const Command = @import("../commands.zig").Command;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const ArgIter = @import("../args.zig").ArgIter;
+const Context = @import("Context");
+const cli = @import("cli");
+const ActiveId = @import("ActiveId");
+const Directories = @import("Directories");
+const Goal = @import("Goal");
+const Command = @import("commands").Command;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
+const ArgIter = @import("args").ArgIter;
 const Self = Command.delete;
 
 pub const help_text =
@@ -217,9 +217,9 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
 const delete_cmd = @This();
 
 test "goal delete (no id, non-TTY)" {

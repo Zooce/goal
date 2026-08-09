@@ -1,13 +1,13 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const Command = @import("../commands.zig").Command;
-const Directories = @import("../Directories.zig");
-const Goal = @import("../Goal.zig");
+const Context = @import("Context");
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
+const Command = @import("commands").Command;
+const Directories = @import("Directories");
+const Goal = @import("Goal");
 
-const cli = @import("../cli.zig");
+const cli = @import("cli");
 
 const Self = Command.next;
 
@@ -218,10 +218,10 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8, ts_: std.Io.F
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const list_cmd = @import("list.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const list_cmd = @import("list");
 const next_cmd = @This();
 
 test "next command promotes goal from later to next" {

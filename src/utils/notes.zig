@@ -2,7 +2,7 @@
 
 const std = @import("std");
 
-const Context = @import("../Context.zig");
+const Context = @import("Context");
 
 /// Scan note files and return max numeric id + 1 (or 1 if none).
 pub fn nextId(ctx_: *const Context, dir_: std.Io.Dir) !u32 {

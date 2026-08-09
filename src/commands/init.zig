@@ -1,16 +1,16 @@
 const std = @import("std");
 
-const cli = @import("../cli.zig");
-const proc = @import("../proc.zig");
-const git = @import("../git.zig");
-const utils = @import("../utils.zig");
+const cli = @import("cli");
+const proc = @import("proc");
+const git = @import("git");
+const utils = @import("utils");
 
-const Context = @import("../Context.zig");
-const Meta = @import("../Meta.zig");
-const Config = @import("../Config.zig");
-const Directories = @import("../Directories.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const Command = @import("../commands.zig").Command;
+const Context = @import("Context");
+const Meta = @import("Meta");
+const Config = @import("Config");
+const Directories = @import("Directories");
+const ArgIter = @import("args").ArgIter;
+const Command = @import("commands").Command;
 
 const Self = Command.init;
 
@@ -127,8 +127,8 @@ pub fn run(ctx_: *const Context) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const uuid = @import("../uuid.zig");
+const TestEnv = @import("TestEnv");
+const uuid = @import("uuid");
 const init_cmd = @This();
 
 test "init command" {
@@ -225,10 +225,10 @@ test "goal lifecycle (non-git project directory)" {
     var env = try TestEnv.init(.{ .project_git = false });
     defer env.deinit();
 
-    const start_cmd = @import("start.zig");
-    const stop_cmd = @import("stop.zig");
-    const complete_cmd = @import("complete.zig");
-    const deinit_cmd = @import("deinit.zig");
+    const start_cmd = @import("start");
+    const stop_cmd = @import("stop");
+    const complete_cmd = @import("complete");
+    const deinit_cmd = @import("deinit");
 
     try init_cmd.run(&env.ctx);
 

@@ -13,8 +13,8 @@
 //! mistaken for a project-local `.goal/` directory.
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const proc = @import("../proc.zig");
+const Context = @import("Context");
+const proc = @import("proc");
 
 /// Absolute path of the project root. Caller frees the returned string.
 pub fn findRoot(ctx_: *const Context) ![]const u8 {

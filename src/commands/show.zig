@@ -1,13 +1,13 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const cli = @import("../cli.zig");
-const ActiveId = @import("../ActiveId.zig");
-const Directories = @import("../Directories.zig");
-const Note = @import("../Note.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
+const Context = @import("Context");
+const cli = @import("cli");
+const ActiveId = @import("ActiveId");
+const Directories = @import("Directories");
+const Note = @import("Note");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
 
 const Self = Command.show;
 
@@ -314,13 +314,13 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const next_cmd = @import("next.zig");
-const start_cmd = @import("start.zig");
-const delete_cmd = @import("delete.zig");
-const note_cmd = @import("note.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const next_cmd = @import("next");
+const start_cmd = @import("start");
+const delete_cmd = @import("delete");
+const note_cmd = @import("note");
 const show_cmd = @This();
 
 test "show prints full raw goal file contents" {

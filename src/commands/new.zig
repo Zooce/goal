@@ -1,14 +1,14 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const Directories = @import("../Directories.zig");
-const Meta = @import("../Meta.zig");
-const Goal = @import("../Goal.zig");
-const Config = @import("../Config.zig");
-const cli = @import("../cli.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
+const Context = @import("Context");
+const Directories = @import("Directories");
+const Meta = @import("Meta");
+const Goal = @import("Goal");
+const Config = @import("Config");
+const cli = @import("cli");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
 
 const Self = Command.new;
 
@@ -234,9 +234,9 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
+const TestEnv = @import("TestEnv");
 
-const init_cmd = @import("init.zig");
+const init_cmd = @import("init");
 const new_cmd = @This();
 
 test "new command creates goal with title" {

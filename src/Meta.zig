@@ -2,7 +2,7 @@ const Meta = @This();
 
 const std = @import("std");
 
-const Context = @import("Context.zig");
+const Context = @import("Context");
 
 /// The next goal ID. Increment this and call `store` when creating a new goal.
 next_id: u8 = 1,

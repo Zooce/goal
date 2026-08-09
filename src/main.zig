@@ -1,7 +1,29 @@
 const std = @import("std");
-const commands = @import("commands.zig");
-const args = @import("args.zig");
-const Context = @import("Context.zig");
+const Command = @import("commands").Command;
+const args = @import("args");
+const Context = @import("Context");
+
+const help_cmd = @import("help");
+const setup_cmd = @import("setup");
+const init_cmd = @import("init");
+const deinit_cmd = @import("deinit");
+const sync_cmd = @import("sync");
+const list_cmd = @import("list");
+const status_cmd = @import("status");
+const show_cmd = @import("show");
+const search_cmd = @import("search");
+const stop_cmd = @import("stop");
+const complete_cmd = @import("complete");
+const new_cmd = @import("new");
+const note_cmd = @import("note");
+const edit_cmd = @import("edit");
+const delete_cmd = @import("delete");
+const start_cmd = @import("start");
+const next_cmd = @import("next");
+const later_cmd = @import("later");
+const commitmsg_cmd = @import("commitmsg");
+const install_git_hook_cmd = @import("install_git_hook");
+const config_cmd = @import("config");
 
 pub fn main(init_: std.process.Init) !u8 {
     // setup stdout
@@ -62,37 +84,37 @@ pub fn main(init_: std.process.Init) !u8 {
         return 0;
     }
 
-    try commands.help.run(context.stdout, null);
+    try help_cmd.run(context.stdout, null);
     return 0;
 }
 
-fn processCommand(ctx_: *const Context, cmd_: commands.Command, iter_: *args.ArgIter) !void {
+fn processCommand(ctx_: *const Context, cmd_: Command, iter_: *args.ArgIter) !void {
     switch (cmd_) {
-        .help => try commands.help.main(ctx_, iter_),
-        .setup => try commands.setup.main(ctx_, iter_),
-        .init => try commands.init.main(ctx_, iter_),
-        .deinit => try commands.deinit.main(ctx_, iter_),
-        .sync => try commands.sync.main(ctx_, iter_),
-        .list => try commands.list.main(ctx_, iter_),
-        .status => try commands.status.main(ctx_, iter_),
-        .show => try commands.show.main(ctx_, iter_),
-        .search => try commands.search.main(ctx_, iter_),
-        .stop => try commands.stop.main(ctx_, iter_),
-        .complete => try commands.complete.main(ctx_, iter_),
-        .new => try commands.new.main(ctx_, iter_),
-        .note => try commands.note.main(ctx_, iter_),
-        .edit, .open => try commands.edit.main(ctx_, iter_),
-        .delete => try commands.delete.main(ctx_, iter_),
-        .start => try commands.start.main(ctx_, iter_),
-        .next => try commands.next.main(ctx_, iter_),
-        .later => try commands.later.main(ctx_, iter_),
+        .help => try help_cmd.main(ctx_, iter_),
+        .setup => try setup_cmd.main(ctx_, iter_),
+        .init => try init_cmd.main(ctx_, iter_),
+        .deinit => try deinit_cmd.main(ctx_, iter_),
+        .sync => try sync_cmd.main(ctx_, iter_),
+        .list => try list_cmd.main(ctx_, iter_),
+        .status => try status_cmd.main(ctx_, iter_),
+        .show => try show_cmd.main(ctx_, iter_),
+        .search => try search_cmd.main(ctx_, iter_),
+        .stop => try stop_cmd.main(ctx_, iter_),
+        .complete => try complete_cmd.main(ctx_, iter_),
+        .new => try new_cmd.main(ctx_, iter_),
+        .note => try note_cmd.main(ctx_, iter_),
+        .edit, .open => try edit_cmd.main(ctx_, iter_),
+        .delete => try delete_cmd.main(ctx_, iter_),
+        .start => try start_cmd.main(ctx_, iter_),
+        .next => try next_cmd.main(ctx_, iter_),
+        .later => try later_cmd.main(ctx_, iter_),
 
         // Git Commands
 
-        .commitmsg => try commands.commitmsg.main(ctx_),
-        .@"install-git-hook" => try commands.install_git_hook.main(ctx_, iter_),
+        .commitmsg => try commitmsg_cmd.main(ctx_),
+        .@"install-git-hook" => try install_git_hook_cmd.main(ctx_, iter_),
 
-        .config => try commands.config.main(ctx_, iter_),
+        .config => try config_cmd.main(ctx_, iter_),
 
         // Just for debugging - obviously
 

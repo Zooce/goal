@@ -1,12 +1,12 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const Command = @import("../commands.zig").Command;
-const Directories = @import("../Directories.zig");
-const Goal = @import("../Goal.zig");
+const Context = @import("Context");
+const ArgIter = @import("args").ArgIter;
+const Command = @import("commands").Command;
+const Directories = @import("Directories");
+const Goal = @import("Goal");
 
-const cli = @import("../cli.zig");
+const cli = @import("cli");
 
 const Self = Command.later;
 
@@ -146,10 +146,10 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const next_cmd = @import("next.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const next_cmd = @import("next");
 const later_cmd = @This();
 
 test "later command demotes goal from next to later" {

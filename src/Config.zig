@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const Context = @import("Context.zig");
+const Context = @import("Context");
 
 const Config = @This();
 

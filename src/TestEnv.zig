@@ -3,8 +3,8 @@ const TestEnv = @This();
 const std = @import("std");
 const builtin = @import("builtin");
 
-const Context = @import("Context.zig");
-const proc = @import("proc.zig");
+const Context = @import("Context");
+const proc = @import("proc");
 
 /// Holds state that must be heap-allocated so Context's pointer fields
 /// (environ_map, stdout, stderr, stdin) reference stable addresses after

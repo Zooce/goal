@@ -1,16 +1,16 @@
 const std = @import("std");
 
-const git = @import("../git.zig");
-const cli = @import("../cli.zig");
-const proc = @import("../proc.zig");
-const uuid = @import("../uuid.zig");
-const utils = @import("../utils.zig");
+const git = @import("git");
+const cli = @import("cli");
+const proc = @import("proc");
+const uuid = @import("uuid");
+const utils = @import("utils");
 
-const Context = @import("../Context.zig");
-const Config = @import("../Config.zig");
-const Meta = @import("../Meta.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const Command = @import("../commands.zig").Command;
+const Context = @import("Context");
+const Config = @import("Config");
+const Meta = @import("Meta");
+const ArgIter = @import("args").ArgIter;
+const Command = @import("commands").Command;
 
 const Self = Command.deinit;
 
@@ -272,9 +272,9 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const install_git_hook_cmd = @import("install_git_hook.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const install_git_hook_cmd = @import("install_git_hook");
 const deinit_cmd = @This();
 
 test "deinit command" {

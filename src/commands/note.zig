@@ -1,15 +1,15 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const Directories = @import("../Directories.zig");
-const ActiveId = @import("../ActiveId.zig");
-const Note = @import("../Note.zig");
-const Config = @import("../Config.zig");
-const utils = @import("../utils.zig");
-const cli = @import("../cli.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
+const Context = @import("Context");
+const Directories = @import("Directories");
+const ActiveId = @import("ActiveId");
+const Note = @import("Note");
+const Config = @import("Config");
+const utils = @import("utils");
+const cli = @import("cli");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
 
 const Self = Command.note;
 
@@ -252,11 +252,11 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
+const TestEnv = @import("TestEnv");
 
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const start_cmd = @import("start.zig");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const start_cmd = @import("start");
 const note_cmd = @This();
 
 test "goal note creates note on active goal" {

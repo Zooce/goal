@@ -1,9 +1,9 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const Command = @import("../commands.zig").Command;
+const Context = @import("Context");
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
+const Command = @import("commands").Command;
 pub const list = @import("config/list.zig");
 pub const get = @import("config/get.zig");
 pub const set = @import("config/set.zig");
@@ -128,8 +128,8 @@ pub fn run(ctx_: *const Context, sub_: Args, iter_: *ArgIter) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
 const config_cmd = @This();
 
 test "'parseArgs' with no subcommand returns help" {

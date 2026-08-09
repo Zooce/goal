@@ -1,13 +1,13 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const cli = @import("../cli.zig");
-const git = @import("../git.zig");
-const proc = @import("../proc.zig");
+const Context = @import("Context");
+const cli = @import("cli");
+const git = @import("git");
+const proc = @import("proc");
 
-const Command = @import("../commands.zig").Command;
-const Config = @import("../Config.zig");
-const ArgIter = @import("../args.zig").ArgIter;
+const Command = @import("commands").Command;
+const Config = @import("Config");
+const ArgIter = @import("args").ArgIter;
 
 const Self = Command.setup;
 
@@ -110,7 +110,7 @@ pub fn run(ctx_: *const Context) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
+const TestEnv = @import("TestEnv");
 const setup_cmd = @This();
 
 /// TestEnv pre-creates and git-inits `base_path`. Setup needs a missing base dir.

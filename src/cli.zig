@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Context = @import("Context.zig");
+const Context = @import("Context");
 
 /// Error if stdin is not a terminal. Call before interactive prompts so scripts
 /// that omit `--yes` fail instead of hanging.

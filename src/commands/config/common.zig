@@ -1,8 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-const Context = @import("../../Context.zig");
-const utils = @import("../../utils.zig");
+const Context = @import("Context");
+const utils = @import("utils");
 
 pub const Key = enum {
     base_dir,

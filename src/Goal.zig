@@ -1,7 +1,7 @@
 const Goal = @This();
 
 const std = @import("std");
-const Context = @import("Context.zig");
+const Context = @import("Context");
 
 /// Options for initializing a goal.
 pub const Options = struct {

@@ -1,18 +1,18 @@
 const std = @import("std");
 
-const cli = @import("../cli.zig");
-const git = @import("../git.zig");
-const proc = @import("../proc.zig");
+const cli = @import("cli");
+const git = @import("git");
+const proc = @import("proc");
 
-const Context = @import("../Context.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
-const Command = @import("../commands.zig").Command;
-const Goal = @import("../Goal.zig");
-const ActiveId = @import("../ActiveId.zig");
-const Directories = @import("../Directories.zig");
+const Context = @import("Context");
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
+const Command = @import("commands").Command;
+const Goal = @import("Goal");
+const ActiveId = @import("ActiveId");
+const Directories = @import("Directories");
 
-const new = @import("new.zig");
+const new = @import("new");
 
 const Self = Command.start;
 
@@ -208,9 +208,9 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
 const start_cmd = @This();
 
 test "start command activates a goal" {

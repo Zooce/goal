@@ -1,10 +1,10 @@
 const std = @import("std");
 
-const Context = @import("../../Context.zig");
-const ArgIter = @import("../../args.zig").ArgIter;
-const ArgsOrHelp = @import("../../args.zig").ArgsOrHelp;
-const Command = @import("../../commands.zig").Command;
-const common = @import("common.zig");
+const Context = @import("Context");
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
+const Command = @import("commands").Command;
+const common = @import("config_common");
 
 const Self = Command.config;
 
@@ -115,8 +115,8 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     }
 }
 
-const TestEnv = @import("../../TestEnv.zig");
-const init_cmd = @import("../init.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
 const list_cmd = @This();
 
 // ---------------------------------------------------------------------------

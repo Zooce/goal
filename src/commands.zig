@@ -1,29 +1,12 @@
 const std = @import("std");
-const Context = @import("Context.zig");
+const Context = @import("Context");
 
-// re-exports
-pub const setup = @import("commands/setup.zig");
-pub const init = @import("commands/init.zig");
-pub const deinit = @import("commands/deinit.zig");
-pub const sync = @import("commands/sync.zig");
-pub const commitmsg = @import("commands/commitmsg.zig");
-pub const install_git_hook = @import("commands/install_git_hook.zig");
-pub const help = @import("commands/help.zig");
-pub const status = @import("commands/status.zig");
-pub const list = @import("commands/list.zig");
-pub const complete = @import("commands/complete.zig");
-pub const stop = @import("commands/stop.zig");
-pub const new = @import("commands/new.zig");
-pub const edit = @import("commands/edit.zig");
-pub const delete = @import("commands/delete.zig");
-pub const start = @import("commands/start.zig");
-pub const config = @import("commands/config.zig");
-pub const next = @import("commands/next.zig");
-pub const later = @import("commands/later.zig");
-pub const show = @import("commands/show.zig");
-pub const note = @import("commands/note.zig");
-pub const search = @import("commands/search.zig");
-
+/// Command names and shared error helpers.
+///
+/// Command implementations live under `commands/` and are imported by `main`
+/// (dispatch) and `commands/help.zig` (help text). This file intentionally does
+/// not re-export those modules so importing `Command` does not pull every
+/// command into the same analysis unit (needed for per-command test modules).
 pub const Command = enum {
     help,
 

@@ -1,9 +1,9 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const git = @import("../git.zig");
-const ArgIter = @import("../args.zig").ArgIter;
-const Command = @import("../commands.zig").Command;
+const Context = @import("Context");
+const git = @import("git");
+const ArgIter = @import("args").ArgIter;
+const Command = @import("commands").Command;
 
 const Self = Command.@"install-git-hook";
 
@@ -79,7 +79,7 @@ pub fn run(ctx_: *const Context) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
+const TestEnv = @import("TestEnv");
 const install_git_hook_cmd = @This();
 
 test "goal install-git-hook (in git repo)" {

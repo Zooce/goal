@@ -1,9 +1,9 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const Directories = @import("../Directories.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
+const Context = @import("Context");
+const Directories = @import("Directories");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
 
 const Self = Command.list;
 
@@ -118,10 +118,10 @@ pub fn run(ctx_: *const Context, list_type_: u8) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const next_cmd = @import("next.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const next_cmd = @import("next");
 const list_cmd = @This();
 
 test "goal list --later (most recently created first)" {

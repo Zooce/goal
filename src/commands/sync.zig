@@ -1,9 +1,9 @@
-const Context = @import("../Context.zig");
-const Config = @import("../Config.zig");
-const git = @import("../git.zig");
-const proc = @import("../proc.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
+const Context = @import("Context");
+const Config = @import("Config");
+const git = @import("git");
+const proc = @import("proc");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
 
 const Self = Command.sync;
 

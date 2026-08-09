@@ -1,5 +1,5 @@
 const std = @import("std");
-const commands = @import("commands.zig");
+const commands = @import("commands");
 
 // TODO: rename file to ArgIter.zig
 pub const ArgIter = struct {

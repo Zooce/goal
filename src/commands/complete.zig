@@ -1,15 +1,15 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const cli = @import("../cli.zig");
-const git = @import("../git.zig");
+const Context = @import("Context");
+const cli = @import("cli");
+const git = @import("git");
 
-const ActiveId = @import("../ActiveId.zig");
-const Directories = @import("../Directories.zig");
-const Goal = @import("../Goal.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
-const ArgsOrHelp = @import("../args.zig").ArgsOrHelp;
+const ActiveId = @import("ActiveId");
+const Directories = @import("Directories");
+const Goal = @import("Goal");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
+const ArgsOrHelp = @import("args").ArgsOrHelp;
 
 const Self = Command.complete;
 
@@ -130,10 +130,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const proc = @import("../proc.zig");
-const init_cmd = @import("init.zig");
-const start_cmd = @import("start.zig");
+const TestEnv = @import("TestEnv");
+const proc = @import("proc");
+const init_cmd = @import("init");
+const start_cmd = @import("start");
 const complete_cmd = @This();
 
 test "completing a goal" {

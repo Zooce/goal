@@ -1,14 +1,14 @@
 const std = @import("std");
 
-const Context = @import("../Context.zig");
-const git = @import("../git.zig");
+const Context = @import("Context");
+const git = @import("git");
 
-const ActiveId = @import("../ActiveId.zig");
-const Directories = @import("../Directories.zig");
-const Goal = @import("../Goal.zig");
-const Note = @import("../Note.zig");
-const Command = @import("../commands.zig").Command;
-const ArgIter = @import("../args.zig").ArgIter;
+const ActiveId = @import("ActiveId");
+const Directories = @import("Directories");
+const Goal = @import("Goal");
+const Note = @import("Note");
+const Command = @import("commands").Command;
+const ArgIter = @import("args").ArgIter;
 
 const Self = Command.status;
 
@@ -148,12 +148,12 @@ pub fn run(ctx_: *const Context, full_: bool) !void {
 // Tests
 // ---------------------------------------------------------------------------
 
-const TestEnv = @import("../TestEnv.zig");
-const init_cmd = @import("init.zig");
-const new_cmd = @import("new.zig");
-const start_cmd = @import("start.zig");
-const next_cmd = @import("next.zig");
-const note_cmd = @import("note.zig");
+const TestEnv = @import("TestEnv");
+const init_cmd = @import("init");
+const new_cmd = @import("new");
+const start_cmd = @import("start");
+const next_cmd = @import("next");
+const note_cmd = @import("note");
 const status_cmd = @This();
 
 test "status with no active goal" {

@@ -1,5 +1,5 @@
 const std = @import("std");
-const Context = @import("Context.zig");
+const Context = @import("Context");
 
 /// Caller takes ownership of returned string.
 pub fn load(ctx_: *const Context, local_dir_: std.Io.Dir) !?[]const u8 {
