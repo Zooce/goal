@@ -24,6 +24,10 @@ pub const help_text =
     \\.goal_id file is found in either the result of `git rev-parse --show-toplevel`
     \\or the directory from which you run this `init` command.
     \\
+    \\When project commits are enabled (default), init installs the
+    \\prepare-commit-msg hook and commits local `.goal/` in the project repo.
+    \\Set `commit=false` or GOAL_COMMIT=false to skip the hook and project commit.
+    \\
     \\
     \\Usage:
     \\
@@ -92,42 +96,32 @@ pub fn run(ctx_: *const Context) !void {
     };
     defer ctx_.alloc.free(project_name);
 
-    try git.createHook(ctx_);
+    // Project commits / hook only when policy allows (usable git + commit=true).
+    const commit_project = try git.shouldCommitProjectState(ctx_);
+    if (commit_project) {
+        try git.createHook(ctx_);
+    }
 
     Meta.create(ctx_, dirs.base.dir, project_name) catch |err| switch (err) {
         error.PathAlreadyExists => return try ctx_.stdout.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
         else => return err,
     };
 
-    // Git operations
-    try ctx_.stdout.writeAll("\nCommitting local goal files...\n");
+    // Optional project-repo commit of local .goal/ (never fail core init after mutate).
+    if (commit_project) {
+        try ctx_.stdout.writeAll("\nCommitting local goal files...\n");
+        git.add(ctx_, dirs.local.path, null) catch {};
+        git.commit(ctx_, "goal init", .{ .paths = &.{dirs.local.path} }) catch {};
+    }
 
-    // Add local .goal/ directory to git
-    try proc.run(ctx_, .{
-        .argv = &.{ "git", "add", dirs.local.path },
-    });
-
-    // Create initial commit in local repo
-    try proc.run(ctx_, .{
-        .argv = &.{ "git", "commit", dirs.local.path, "-m", "goal init" },
-    });
-
-    try ctx_.stdout.writeAll("\nCommitting base goal files...\n");
-
-    // Add local .goal/ directory to git
-    try proc.run(ctx_, .{
-        .argv = &.{ "git", "add", dirs.base.path },
-        .cwd = config.base_dir,
-    });
-
-    // Commit in global ~/.goal/ directory
-    const commit_msg = try std.fmt.allocPrint(ctx_.alloc, "goal init - {s}", .{project_name});
-    defer ctx_.alloc.free(commit_msg);
-
-    try proc.run(ctx_, .{
-        .argv = &.{ "git", "commit", dirs.base.path, "-m", commit_msg },
-        .cwd = config.base_dir,
-    });
+    // Optional personal-store commit under ~/.goal (independent of project commit config).
+    if (git.isUsable(ctx_, config.base_dir)) {
+        try ctx_.stdout.writeAll("\nCommitting base goal files...\n");
+        git.add(ctx_, dirs.base.path, config.base_dir) catch {};
+        const commit_msg = try std.fmt.allocPrint(ctx_.alloc, "goal init - {s}", .{project_name});
+        defer ctx_.alloc.free(commit_msg);
+        git.commit(ctx_, commit_msg, .{ .paths = &.{dirs.base.path}, .cwd = config.base_dir }) catch {};
+    }
 
     try ctx_.stdout.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
 }
@@ -262,4 +256,41 @@ test "init with custom project name" {
     defer meta.deinit();
 
     try std.testing.expectEqualStrings("my-project", meta.project_name);
+}
+
+test "goal init (commit=false, no project commit or hook)" {
+    // With GOAL_COMMIT=false: still create goal dirs, but no prepare-commit-msg hook
+    // and no project-repo commit of .goal/. Personal ~/.goal store may still commit.
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try env.setEnv("GOAL_COMMIT", "false");
+    try init_cmd.run(&env.ctx);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
+
+    // No project commits yet (repo only had git init from TestEnv).
+    const commit_count = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "rev-list", "--all", "--count" }, .cwd = env.proj_path });
+    defer env.alloc.free(commit_count);
+    try std.testing.expectEqualStrings("0", commit_count);
+}
+
+test "goal init (global config commit=false, no project commit or hook)" {
+    // Same as env override, but via global config file (no GOAL_COMMIT).
+    var env = try TestEnv.init(&.{});
+    defer env.deinit();
+
+    try env.writeFile("xdg/goal/config", "commit=false\n");
+    try init_cmd.run(&env.ctx);
+
+    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
+
+    const commit_count = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "rev-list", "--all", "--count" }, .cwd = env.proj_path });
+    defer env.alloc.free(commit_count);
+    try std.testing.expectEqualStrings("0", commit_count);
 }

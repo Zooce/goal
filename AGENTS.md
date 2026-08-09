@@ -116,3 +116,8 @@ fn doSomething(): !void {
   // do something with `tag_pattern`
 }
 ```
+
+**Narrow responsibility.** A function should do one job. If its name needs "and"
+to describe what it does, split it into the separate steps and call them in
+sequence at the use site.
+

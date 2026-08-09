@@ -194,17 +194,7 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
     }
 
     if (!args_.yes) {
-        // Scripts must pass --yes; never hang on confirm when not a TTY.
-        if (!ctx_.stdin_is_tty) {
-            try ctx_.stderr.writeAll(
-                \\
-                \\goal delete requires --yes when stdin is not a terminal.
-                \\
-                \\Usage: goal delete <id> [id...] --yes
-                \\
-            );
-            return error.ConfirmationRequired;
-        }
+        try cli.requireTty(ctx_);
         if (!try cli.confirm(ctx_, "\nShould I proceed?")) {
             try ctx_.stdout.writeAll("\nMaybe next time then, friend!\n");
             return;
@@ -297,7 +287,7 @@ test "goal delete without --yes (non-TTY)" {
     defer ids.deinit(env.alloc);
     try ids.append(env.alloc, filename);
 
-    try std.testing.expectError(error.ConfirmationRequired, delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = false }));
+    try std.testing.expectError(error.NotATty, delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = false }));
 }
 
 test "parseArgs accepts --yes with goal IDs" {

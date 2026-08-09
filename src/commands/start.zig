@@ -358,6 +358,8 @@ test "goal start (commit=false, no project commit)" {
     try env.setEnv("GOAL_COMMIT", "false");
     try init_cmd.run(&env.ctx);
 
+    // Seed a commit so git log works; init with commit=false leaves the project history empty.
+    try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "--allow-empty", "-m", "seed" } });
     const log_before = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
     defer env.alloc.free(log_before);
 

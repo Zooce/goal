@@ -148,17 +148,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     };
 
     if (!opts_.yes) {
-        // Scripts must pass --yes; never hang on confirm when not a TTY.
-        if (!ctx_.stdin_is_tty) {
-            try ctx_.stderr.writeAll(
-                \\
-                \\goal deinit requires --yes when stdin is not a terminal.
-                \\
-                \\Usage: goal deinit --yes
-                \\
-            );
-            return error.ConfirmationRequired;
-        }
+        try cli.requireTty(ctx_);
         if (!try cli.confirm(ctx_, "This will remove .goal/ from this project. Continue?")) {
             try ctx_.stdout.writeAll("deinit cancelled.\n");
             return;
@@ -590,7 +580,7 @@ test "goal deinit without --yes (non-TTY)" {
 
     try init_cmd.run(&env.ctx);
 
-    try std.testing.expectError(error.ConfirmationRequired, deinit_cmd.run(&env.ctx, .{}));
+    try std.testing.expectError(error.NotATty, deinit_cmd.run(&env.ctx, .{}));
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
 }
 

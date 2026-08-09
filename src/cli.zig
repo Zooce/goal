@@ -2,6 +2,18 @@ const std = @import("std");
 
 const Context = @import("Context.zig");
 
+/// Error if stdin is not a terminal. Call before interactive prompts so scripts
+/// that omit `--yes` fail instead of hanging.
+pub fn requireTty(ctx_: *const Context) !void {
+    if (ctx_.stdin_is_tty) return;
+    try ctx_.stderr.writeAll(
+        \\
+        \\Confirmation requires a terminal. Pass --yes to skip prompts when stdin is not a TTY.
+        \\
+    );
+    return error.NotATty;
+}
+
 // TODO: pick the default value (y/n) as a parameter
 pub fn confirm(ctx_: *const Context, prompt_: []const u8) !bool {
     // Prompts on stderr so stdout stays free for scriptable data.

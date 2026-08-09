@@ -79,15 +79,41 @@ pub fn maybeCommit(ctx_: *const Context, path_: []const u8, message_: []const u8
     if (!should) return;
     if (pathIsIgnored(ctx_, path_, null)) return;
 
-    proc.run(ctx_, .{
-        .argv = &.{ "git", "add", path_ },
-        .quiet = true,
-    }) catch return;
+    add(ctx_, path_, null) catch return;
+    commit(ctx_, message_, .{ .paths = &.{path_} }) catch return;
+}
 
-    proc.run(ctx_, .{
-        .argv = &.{ "git", "commit", path_, "-m", message_ },
-        .quiet = true,
-    }) catch return;
+/// `git add` for a single path.
+pub fn add(ctx_: *const Context, path_: []const u8, cwd_: ?[]const u8) !void {
+    try proc.run(ctx_, .{
+        .argv = &.{ "git", "add", path_ },
+        .cwd = cwd_,
+    });
+}
+
+pub const CommitOptions = struct {
+    /// Paths to pass to `git commit` (limits the commit to those paths when set).
+    paths: []const []const u8 = &.{},
+    /// Open the editor to amend the commit message (`git commit --edit`).
+    edit: bool = false,
+    cwd: ?[]const u8 = null,
+};
+
+/// Commit currently staged changes. Example: `try git.commit(ctx, msg, .{ .edit = true });`
+pub fn commit(ctx_: *const Context, message_: []const u8, opts_: CommitOptions) !void {
+    // git commit [paths...] -m <message> [--edit]
+    var argv: std.ArrayList([]const u8) = .empty;
+    defer argv.deinit(ctx_.alloc);
+
+    try argv.appendSlice(ctx_.alloc, &.{ "git", "commit" });
+    try argv.appendSlice(ctx_.alloc, opts_.paths);
+    try argv.appendSlice(ctx_.alloc, &.{ "-m", message_ });
+    if (opts_.edit) try argv.append(ctx_.alloc, "--edit");
+
+    try proc.run(ctx_, .{
+        .argv = argv.items,
+        .cwd = opts_.cwd,
+    });
 }
 
 /// Checks if there are any specified types of changes.
