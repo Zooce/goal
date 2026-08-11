@@ -56,6 +56,14 @@ pub const Options = struct {
     /// Git-init the simulated project root (`proj/`). Default true.
     /// Set false for non-git project tests.
     project_git: bool = true,
+    /// Simulate "git not installed": sets `Context.git_off`, skips all TestEnv
+    /// git init, and points the child environ PATH at an empty bin dir.
+    ///
+    /// Note: Zig resolves argv[0] from the *parent* PATH, so child PATH alone
+    /// cannot hide `git`. Soft helpers honor `git_off` via `git.isAvailable`.
+    /// This seam is temporary while goal spawns the git CLI; libgit2 will use a
+    /// real "backend unavailable" check instead.
+    no_git_path: bool = false,
 };
 
 /// Create an isolated test environment.
@@ -65,10 +73,12 @@ pub const Options = struct {
 /// otherwise make git treat the outer repo as the project root.
 ///
 /// Layout:
-///   - `.goal/`   - simulated global config directory (git-initialized)
+///   - `.goal/`   - simulated global config directory (git-initialized unless
+///                 `no_git_path`)
 ///   - `xdg/`     - simulated `$XDG_CONFIG_HOME`
 ///   - `proj/`    - simulated project root, also the CWD
-///                 (git-initialized when `opts_.project_git` is true)
+///                 (git-initialized when `opts_.project_git` is true and not
+///                 `no_git_path`)
 ///
 /// Captures stdout/stderr into fixed buffers so tests can inspect output.
 /// Configures a mock stdin reader from `opts_.stdin_calls` for testing prompts.
@@ -125,6 +135,14 @@ pub fn init(opts_: Options) !TestEnv {
     try state.environ_map.put("GOAL_BASE_DIR", tmp_path);
     try state.environ_map.put("XDG_CONFIG_HOME", xdg_path);
 
+    // Soft "no git" seam: empty child PATH + Context.git_off (see Options).
+    if (opts_.no_git_path) {
+        const empty_bin = try std.Io.Dir.path.join(alloc, &.{ tmp_path, "no-git-bin" });
+        defer alloc.free(empty_bin);
+        try ensureDir(io, empty_bin);
+        try state.environ_map.put("PATH", empty_bin);
+    }
+
     var ctx: Context = .{
         .alloc = alloc,
         .io = io,
@@ -133,11 +151,14 @@ pub fn init(opts_: Options) !TestEnv {
         .stderr = &state.stderr_writer,
         .stdin = &state.stdin_reader.interface,
         .cwd = proj_path,
+        .git_off = opts_.no_git_path,
     };
 
-    try initGitRepo(&ctx, base_path);
-    if (opts_.project_git) {
-        try initGitRepo(&ctx, proj_path);
+    if (!opts_.no_git_path) {
+        try initGitRepo(&ctx, base_path);
+        if (opts_.project_git) {
+            try initGitRepo(&ctx, proj_path);
+        }
     }
 
     return .{
@@ -360,6 +381,16 @@ test "TestEnv.init creates isolated workspace" {
     // verify environment variables
     try std.testing.expectEqualStrings(env.tmp_path, env.ctx.environ_map.get("GOAL_BASE_DIR").?);
     try std.testing.expectEqualStrings(env.xdg_path, env.ctx.environ_map.get("XDG_CONFIG_HOME").?);
+}
+
+test "TestEnv.no_git_path marks git unavailable" {
+    // Soft helpers see no git; no repos were seeded under base or proj.
+    var env = try TestEnv.init(.{ .no_git_path = true });
+    defer env.deinit();
+
+    try std.testing.expect(env.ctx.git_off);
+    try std.testing.expect(!try env.pathExists("proj/.git/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/.git/", .{}));
 }
 
 test "writeFile and readFile round-trip" {

@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 
 const Context = @import("Context");
 const utils = @import("utils");
+const git = @import("git");
 
 pub const Key = enum {
     base_dir,
@@ -137,9 +138,7 @@ pub fn getDefaultValue(ctx_: *const Context, key_: Key) ![]const u8 {
 }
 
 fn defaultEditor(ctx_: *const Context) ![]const u8 {
-    const git_editor = try getGitEditor(ctx_);
-    defer if (git_editor) |e| ctx_.alloc.free(e);
-    if (git_editor) |e| return try ctx_.alloc.dupe(u8, e);
+    if (try git.editor(ctx_)) |e| return e;
 
     if (ctx_.environ_map.get("EDITOR")) |editor| {
         if (editor.len > 0) return try ctx_.alloc.dupe(u8, editor);
@@ -157,28 +156,6 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
     }
 
     return error.NoEditorFound;
-}
-
-fn getGitEditor(ctx_: *const Context) !?[]const u8 {
-    const argv = [_][]const u8{ "git", "config", "--get", "core.editor" };
-    const result = try std.process.run(ctx_.alloc, ctx_.io, .{
-        .argv = &argv,
-    });
-    defer {
-        ctx_.alloc.free(result.stdout);
-        ctx_.alloc.free(result.stderr);
-    }
-
-    return switch (result.term) {
-        .exited => |code| {
-            if (code == 0 and result.stdout.len > 0) {
-                const trimmed = std.mem.trim(u8, result.stdout, " \t\r\n");
-                if (trimmed.len > 0) return try ctx_.alloc.dupe(u8, trimmed);
-            }
-            return null;
-        },
-        else => null,
-    };
 }
 
 fn isEditorAvailable(ctx_: *const Context, editor_: []const u8) bool {

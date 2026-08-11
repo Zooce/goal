@@ -25,8 +25,9 @@ pub const help_text =
     \\If no goal ID is given and stdin is a terminal, you'll select from the list
     \\of goals. Scripts and non-TTY runs must pass a goal ID (or `new`).
     \\
-    \\If you're in a Git project, ID and details of this activated goal will be
-    \\appended to commit messages as long as this goal is activated.
+    \\When project commits are enabled (default), start may create a small commit
+    \\for `.goal/.active_id`. Set `commit=false` or GOAL_COMMIT=false to skip that.
+    \\To put the active goal in your commit messages, run `goal install-git-hook`.
     \\
     \\Usage:
     \\

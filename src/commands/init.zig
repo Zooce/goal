@@ -245,6 +245,52 @@ test "goal lifecycle (non-git project directory)" {
     try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
 }
 
+test "goal lifecycle (git not on PATH)" {
+    // Soft path when the git binary is missing: core triage still works.
+    // status / commitmsg / lifecycle must not surface ProcError or leftover stderr.
+    var env = try TestEnv.init(.{ .no_git_path = true });
+    defer env.deinit();
+
+    const start_cmd = @import("start");
+    const stop_cmd = @import("stop");
+    const complete_cmd = @import("complete");
+    const status_cmd = @import("status");
+    const commitmsg_cmd = @import("commitmsg");
+    const deinit_cmd = @import("deinit");
+
+    try std.testing.expect(!git.isAvailable(&env.ctx));
+
+    try init_cmd.run(&env.ctx);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "offline only" } });
+
+    env.resetStdout();
+    try status_cmd.run(&env.ctx, false);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - offline only
+        \\
+    , env.readStdout());
+
+    env.resetStdout();
+    try commitmsg_cmd.main(&env.ctx);
+    try std.testing.expectEqualStrings(
+        "Goal #1 - offline only\n",
+        env.readStdout(),
+    );
+
+    try stop_cmd.run(&env.ctx, false);
+    try start_cmd.run(&env.ctx, .{ .id = "1" });
+    try complete_cmd.run(&env.ctx, .{ .yes = true });
+
+    try deinit_cmd.run(&env.ctx, .{ .yes = true });
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
+}
+
 test "init with custom project name" {
     // TTY so init prompts for project name; answer "my-project".
     var env = try TestEnv.init(.{ .stdin_calls = &.{.{ .buffer = "my-project\n" }} });

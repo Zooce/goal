@@ -29,7 +29,9 @@ pub const ChangeOptions = struct {
 };
 
 /// True when the `git` binary runs successfully.
+/// Respects `Context.git_off` (test seam for missing CLI / future backend off).
 pub fn isAvailable(ctx_: *const Context) bool {
+    if (ctx_.git_off) return false;
     const out = proc.exec(ctx_, .{ .argv = &.{ "git", "--version" }, .quiet = true }) catch return false;
     ctx_.alloc.free(out);
     return true;
@@ -54,6 +56,7 @@ pub fn isUsable(ctx_: *const Context, cwd_: ?[]const u8) bool {
 /// Soft `git check-ignore`. True only when git reports the path is ignored.
 /// Missing git, non-repo, or not-ignored all return false.
 pub fn pathIsIgnored(ctx_: *const Context, path_: []const u8, cwd_: ?[]const u8) bool {
+    if (!isAvailable(ctx_)) return false;
     proc.run(ctx_, .{
         .argv = &.{ "git", "check-ignore", "-q", path_ },
         .cwd = cwd_,
@@ -166,6 +169,36 @@ fn splitByNewline(ctx_: *const Context, output_: []const u8) !void {
     }
 }
 
+/// Soft `git config user.email`. Null when git is missing, config is unset, or empty.
+/// Caller frees a non-null result.
+pub fn userEmail(ctx_: *const Context) !?[]const u8 {
+    if (!isAvailable(ctx_)) return null;
+    const email = proc.exec(ctx_, .{
+        .argv = &.{ "git", "config", "user.email" },
+        .quiet = true,
+    }) catch return null;
+    if (email.len == 0) {
+        ctx_.alloc.free(email);
+        return null;
+    }
+    return email;
+}
+
+/// Soft `git config --get core.editor`. Null when git is missing or unset.
+/// Caller frees a non-null result.
+pub fn editor(ctx_: *const Context) !?[]const u8 {
+    if (!isAvailable(ctx_)) return null;
+    const value = proc.exec(ctx_, .{
+        .argv = &.{ "git", "config", "--get", "core.editor" },
+        .quiet = true,
+    }) catch return null;
+    if (value.len == 0) {
+        ctx_.alloc.free(value);
+        return null;
+    }
+    return value;
+}
+
 /// Runs `git log --all --graph --decorate --oneline --grep 'Goal #{id}' --grep '{git user email}' --all-match`
 /// showing the output in stdout. No-op when git is not usable or email is missing.
 ///
@@ -176,12 +209,8 @@ fn splitByNewline(ctx_: *const Context, output_: []const u8) !void {
 pub fn logGrep(ctx_: *const Context, id_: []const u8) !void {
     if (!isUsable(ctx_, null)) return;
 
-    const email = proc.exec(ctx_, .{
-        .argv = &.{ "git", "config", "user.email" },
-        .quiet = true,
-    }) catch return;
+    const email = try userEmail(ctx_) orelse return;
     defer ctx_.alloc.free(email);
-    if (email.len == 0) return;
 
     var tag_buffer: [16]u8 = undefined;
     const tag_pattern = try std.fmt.bufPrint(&tag_buffer, "Goal #{s}", .{id_});

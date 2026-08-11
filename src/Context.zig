@@ -35,3 +35,10 @@ stdout_is_tty: bool = false,
 
 /// Optional current working directory override used for subprocess execution.
 cwd: ?[]const u8 = null,
+
+/// When true, git soft helpers treat the CLI as unavailable (no spawns for
+/// optional features). TestEnv sets this for `no_git_path`. Production stays
+/// false. Zig resolves argv[0] from the parent PATH, so a child environ PATH
+/// alone cannot hide `git`; this flag is the test seam. Drop or repurpose when
+/// git work moves to libgit2 (backend unavailable).
+git_off: bool = false,

@@ -15,6 +15,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     const res = try std.process.run(ctx_.alloc, ctx_.io, .{
         .argv = opts_.argv,
         .cwd = if (opts_.cwd orelse ctx_.cwd) |cwd| .{ .path = cwd } else .inherit,
+        .environ_map = ctx_.environ_map,
     });
     defer {
         ctx_.alloc.free(res.stderr);

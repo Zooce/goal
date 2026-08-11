@@ -19,8 +19,9 @@ pub const help_text =
     \\
     \\Shows the status of your active goal.
     \\
-    \\If you're in a Git project, this will also list the set of commits that contain
-    \\the active goal's details.
+    \\Always prints the active goal tag (or a nudge when none is active). When Git
+    \\is available in this project, also lists matching commits and a short work
+    \\tree status. Git is not required for the rest of the output.
     \\
     \\Notes on the active goal are listed by id and title. With `--full`, also prints
     \\the active goal file contents and full note bodies at the end - useful for

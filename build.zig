@@ -52,6 +52,10 @@ pub fn build(b: *std.Build) void {
     const git = namedModule(b, target, optimize, "git", "src/git.zig", &.{
         context.import, proc.import, config_common.import,
     });
+    // Config / config_common call git.editor(); git uses config_common for commit
+    // policy. Wire after git exists so the module graph can be cyclic.
+    Config.mod.addImport("git", git.mod);
+    config_common.mod.addImport("git", git.mod);
     const commands = namedModule(b, target, optimize, "commands", "src/commands.zig", &.{context.import});
     const args = namedModule(b, target, optimize, "args", "src/args.zig", &.{commands.import});
     const TestEnv = namedModule(b, target, optimize, "TestEnv", "src/TestEnv.zig", &.{
