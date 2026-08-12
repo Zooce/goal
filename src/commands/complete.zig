@@ -3,6 +3,7 @@ const std = @import("std");
 const Context = @import("Context");
 const cli = @import("cli");
 const git = @import("git");
+const config_common = @import("config_common");
 
 const ActiveId = @import("ActiveId");
 const Directories = @import("Directories");
@@ -114,9 +115,11 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     try ActiveId.clear(ctx_, dirs.local.dir);
 
     // Optional project commit of active id only; never fail after state mutation.
-    const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
-    defer ctx_.alloc.free(commit_subject);
-    git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
+    if (try config_common.shouldCommitProjectState(ctx_)) {
+        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
+        defer ctx_.alloc.free(commit_subject);
+        git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
+    }
 
     std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io) catch |err| {
         try ctx_.stderr.print("\nUnable to delete Goal #{s}\n", .{goal.id});

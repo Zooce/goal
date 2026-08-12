@@ -137,6 +137,17 @@ pub fn getDefaultValue(ctx_: *const Context, key_: Key) ![]const u8 {
     };
 }
 
+/// True when lifecycle commands should commit project goal state files.
+/// Requires usable git and effective `commit` config true (`GOAL_COMMIT` / config).
+/// Lives here (not in `git`) so git stays free of config imports.
+pub fn shouldCommitProjectState(ctx_: *const Context) !bool {
+    if (!git.isUsable(ctx_, null)) return false;
+
+    const val = try getEffectiveValue(ctx_, .commit);
+    defer ctx_.alloc.free(val);
+    return std.mem.eql(u8, val, "true");
+}
+
 fn defaultEditor(ctx_: *const Context) ![]const u8 {
     if (try git.editor(ctx_)) |e| return e;
 

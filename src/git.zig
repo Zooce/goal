@@ -9,13 +9,13 @@
 //! the "goal root" (default: ~/.goal/) directory, or in tests by setting
 //! Context.test_cwd to a path.
 //!
-//! Project-state commits are optional. Use `shouldCommitProjectState` /
-//! `maybeCommit` so missing git, non-repo cwd, or `commit=false` never fails a
-//! command after core state mutation.
+//! Project-state commits are optional. Gate with `config_common.shouldCommitProjectState`,
+//! then use `maybeCommit` so missing git, non-repo cwd, or gitignored paths never fail a
+//! command after core state mutation. This module does not read goal config (no cycle
+//! with Config / config_common).
 const std = @import("std");
 const proc = @import("proc");
 const Context = @import("Context");
-const config_common = @import("config_common");
 
 pub const ChangeKind = enum {
     staged,
@@ -65,21 +65,11 @@ pub fn pathIsIgnored(ctx_: *const Context, path_: []const u8, cwd_: ?[]const u8)
     return true;
 }
 
-/// True when lifecycle commands should commit project goal state files.
-/// Requires usable git and effective `commit` config true (`GOAL_COMMIT` / config).
-pub fn shouldCommitProjectState(ctx_: *const Context) !bool {
-    if (!isUsable(ctx_, null)) return false;
-
-    const val = try config_common.getEffectiveValue(ctx_, .commit);
-    defer ctx_.alloc.free(val);
-    return std.mem.eql(u8, val, "true");
-}
-
-/// Best-effort project-repo commit of `path_` when allowed and not gitignored.
-/// Never returns an error: optional git side effects must not fail lifecycle after mutate.
+/// Best-effort project-repo commit of `path_` when git is usable and the path is not
+/// gitignored. Never returns an error. Callers gate on commit policy first
+/// (`config_common.shouldCommitProjectState`).
 pub fn maybeCommit(ctx_: *const Context, path_: []const u8, message_: []const u8) void {
-    const should = shouldCommitProjectState(ctx_) catch return;
-    if (!should) return;
+    if (!isUsable(ctx_, null)) return;
     if (pathIsIgnored(ctx_, path_, null)) return;
 
     add(ctx_, path_, null) catch return;

@@ -4,6 +4,7 @@ const cli = @import("cli");
 const proc = @import("proc");
 const git = @import("git");
 const utils = @import("utils");
+const config_common = @import("config_common");
 
 const Context = @import("Context");
 const Meta = @import("Meta");
@@ -105,7 +106,7 @@ pub fn run(ctx_: *const Context) !void {
 
     // Optional project-repo commit of local .goal/ (never fail core init after mutate).
     // Hook install is opt-in via `goal install-git-hook`, not part of init.
-    if (try git.shouldCommitProjectState(ctx_)) {
+    if (try config_common.shouldCommitProjectState(ctx_)) {
         try ctx_.stdout.writeAll("\nCommitting local goal files...\n");
         git.add(ctx_, dirs.local.path, null) catch {};
         git.commit(ctx_, "goal init", .{ .paths = &.{dirs.local.path} }) catch {};

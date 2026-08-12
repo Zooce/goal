@@ -2,6 +2,7 @@ const std = @import("std");
 
 const Context = @import("Context");
 const git = @import("git");
+const config_common = @import("config_common");
 
 const ActiveId = @import("ActiveId");
 const Directories = @import("Directories");
@@ -93,9 +94,11 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
         if (!later_) try dirs.next.touch(ctx_, id, .now);
 
         // Optional project commit: never fail stop after state is already mutated.
-        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
-        defer ctx_.alloc.free(commit_subject);
-        git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
+        if (try config_common.shouldCommitProjectState(ctx_)) {
+            const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Stopped Goal #{s} - {s}{s}", .{ goal.id, goal.title, if (later_) " (later)" else "" });
+            defer ctx_.alloc.free(commit_subject);
+            git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
+        }
 
         if (later_) {
             try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });

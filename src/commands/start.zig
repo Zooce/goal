@@ -3,6 +3,7 @@ const std = @import("std");
 const cli = @import("cli");
 const git = @import("git");
 const proc = @import("proc");
+const config_common = @import("config_common");
 
 const Context = @import("Context");
 const ArgIter = @import("args").ArgIter;
@@ -198,9 +199,11 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
     // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 
     // Optional project commit: never fail start after state is already mutated.
-    const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
-    defer ctx_.alloc.free(commit_subject);
-    git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
+    if (try config_common.shouldCommitProjectState(ctx_)) {
+        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
+        defer ctx_.alloc.free(commit_subject);
+        git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
+    }
 
     try ctx_.stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
 }

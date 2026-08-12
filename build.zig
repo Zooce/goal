@@ -37,7 +37,14 @@ pub fn build(b: *std.Build) void {
     const uuid = namedModule(b, target, optimize, "uuid", "src/uuid.zig", &.{});
     const proc = namedModule(b, target, optimize, "proc", "src/proc.zig", &.{context.import});
     const cli = namedModule(b, target, optimize, "cli", "src/cli.zig", &.{context.import});
-    const Config = namedModule(b, target, optimize, "Config", "src/Config.zig", &.{context.import});
+    // git is a leaf: process helpers only. Config / config_common depend on git
+    // (editor, isUsable); git never depends on them -- no import cycle.
+    const git = namedModule(b, target, optimize, "git", "src/git.zig", &.{
+        context.import, proc.import,
+    });
+    const Config = namedModule(b, target, optimize, "Config", "src/Config.zig", &.{
+        context.import, git.import,
+    });
     const Meta = namedModule(b, target, optimize, "Meta", "src/Meta.zig", &.{context.import});
     const Goal = namedModule(b, target, optimize, "Goal", "src/Goal.zig", &.{context.import});
     const Note = namedModule(b, target, optimize, "Note", "src/Note.zig", &.{context.import});
@@ -47,15 +54,8 @@ pub fn build(b: *std.Build) void {
         context.import, uuid.import, utils.import, Config.import, Goal.import,
     });
     const config_common = namedModule(b, target, optimize, "config_common", "src/commands/config/common.zig", &.{
-        context.import, utils.import,
+        context.import, utils.import, git.import,
     });
-    const git = namedModule(b, target, optimize, "git", "src/git.zig", &.{
-        context.import, proc.import, config_common.import,
-    });
-    // Config / config_common call git.editor(); git uses config_common for commit
-    // policy. Wire after git exists so the module graph can be cyclic.
-    Config.mod.addImport("git", git.mod);
-    config_common.mod.addImport("git", git.mod);
     const commands = namedModule(b, target, optimize, "commands", "src/commands.zig", &.{context.import});
     const args = namedModule(b, target, optimize, "args", "src/args.zig", &.{commands.import});
     const TestEnv = namedModule(b, target, optimize, "TestEnv", "src/TestEnv.zig", &.{

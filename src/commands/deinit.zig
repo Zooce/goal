@@ -5,6 +5,7 @@ const cli = @import("cli");
 const proc = @import("proc");
 const uuid = @import("uuid");
 const utils = @import("utils");
+const config_common = @import("config_common");
 
 const Context = @import("Context");
 const Config = @import("Config");
@@ -20,8 +21,13 @@ pub const help_text =
     \\
     \\
     \\Reverses `goal init` by removing the local `.goal/` directory and the global
-    \\`~/.goal/<goal_id>/` directory, committing each removal to their respective git
-    \\repos (local: "goal deinit", global: "goal deinit - <project-name>").
+    \\`~/.goal/<goal_id>/` directory.
+    \\
+    \\When project commits are enabled (default), deinit may create a local commit
+    \\for the removal ("goal deinit"). Set `commit=false` or GOAL_COMMIT=false to
+    \\skip project commits, same as start/stop/complete. The personal store under
+    \\~/.goal may still get a commit when it is a git repo (independent of
+    \\project commit config).
     \\
     \\On a TTY, deinit asks for confirmation before removing local and global data.
     \\Pass --yes to skip those prompts. Non-TTY runs require --yes so scripts never
@@ -204,7 +210,9 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     // delete it from any directory (including `cwd`).
     try std.Io.Dir.cwd().deleteTree(ctx_.io, local_goal_path);
 
-    const do_local_commit = opts_.local_commit and git.isUsable(ctx_, proj_root);
+    // Project commits honor commit config / GOAL_COMMIT (same policy as start/stop/complete).
+    // CLI --no-local-commit / --no-commit still force-skip when set (one-shot overrides).
+    const do_local_commit = opts_.local_commit and try config_common.shouldCommitProjectState(ctx_);
     if (do_local_commit) {
         try ctx_.stdout.writeAll("\nCommitting local goal removal...\n");
 
@@ -605,4 +613,70 @@ test "parseArgs accepts --yes" {
     try std.testing.expect(res.run.yes);
     try std.testing.expect(!res.run.local_commit);
     try std.testing.expect(!res.run.global_commit);
+}
+
+test "goal deinit (commit=false, no project commit)" {
+    // With GOAL_COMMIT=false, deinit still removes local + global data but does
+    // not commit the project-repo removal. Personal-store commit may still run.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try env.setEnv("GOAL_COMMIT", "false");
+    try init_cmd.run(&env.ctx);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    // Seed a project commit so git log works; init with commit=false leaves history empty.
+    try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "--allow-empty", "-m", "seed" } });
+    const log_before = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
+    defer env.alloc.free(log_before);
+
+    env.resetStdout();
+    try deinit_cmd.run(&env.ctx, .{ .yes = true });
+
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
+
+    // Git commit noise in stdout is non-deterministic; assert the skip line is present.
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Skipping local commit.") != null);
+
+    // Project history unchanged (no "goal deinit" commit).
+    const log_after = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
+    defer env.alloc.free(log_after);
+    try std.testing.expectEqualStrings(log_before, log_after);
+
+    // Personal store still records the deinit when it is a git repo.
+    {
+        const global_log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline", "-1" }, .cwd = env.base_path });
+        defer env.alloc.free(global_log);
+        try std.testing.expect(std.mem.indexOf(u8, global_log, "goal deinit") != null);
+    }
+}
+
+test "goal deinit (global config commit=false, no project commit)" {
+    // Same skip for project commits via global config file (no GOAL_COMMIT).
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try env.writeFile("xdg/goal/config", "commit=false\n");
+    try init_cmd.run(&env.ctx);
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "--allow-empty", "-m", "seed" } });
+    const log_before = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
+    defer env.alloc.free(log_before);
+
+    env.resetStdout();
+    try deinit_cmd.run(&env.ctx, .{ .yes = true });
+
+    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
+    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Skipping local commit.") != null);
+
+    const log_after = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
+    defer env.alloc.free(log_after);
+    try std.testing.expectEqualStrings(log_before, log_after);
 }
