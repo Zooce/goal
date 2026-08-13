@@ -14,29 +14,31 @@ pub fn requireTty(ctx_: *const Context) !void {
     return error.NotATty;
 }
 
-// TODO: pick the default value (y/n) as a parameter
-pub fn confirm(ctx_: *const Context, prompt_: []const u8) !bool {
+pub fn confirm(ctx_: *const Context, comptime fmt_: []const u8, args_: anytype, default_yes_: bool) !bool {
     // Prompts on stderr so stdout stays free for scriptable data.
-    try ctx_.stderr.print("{s} (y/N): ", .{prompt_});
+    try ctx_.stderr.print(fmt_, args_);
+    try ctx_.stderr.writeAll(if (default_yes_) " (Y/n): " else " (y/N): ");
     try ctx_.stderr.flush();
 
     const answer = try ctx_.stdin.takeDelimiter('\n') orelse "";
 
-    if (std.mem.eql(u8, answer, "y") or std.mem.eql(u8, answer, "Y") or std.mem.eql(u8, answer, "yes") or std.mem.eql(u8, answer, "YES") or std.mem.eql(u8, answer, "yep")) {
+    if (std.ascii.eqlIgnoreCase(answer, "y") or std.ascii.eqlIgnoreCase(answer, "yes") or std.ascii.eqlIgnoreCase(answer, "yep")) {
         return true;
     }
 
-    if (answer.len == 0 or std.mem.eql(u8, answer, "n") or std.mem.eql(u8, answer, "N") or std.mem.eql(u8, answer, "no") or std.mem.eql(u8, answer, "NO") or std.mem.eql(u8, answer, "nope")) {
+    if (std.ascii.eqlIgnoreCase(answer, "n") or std.ascii.eqlIgnoreCase(answer, "no") or std.ascii.eqlIgnoreCase(answer, "nope")) {
         return false;
     }
 
+    if (answer.len == 0) return default_yes_;
     return false;
 }
 
 /// If an answer is returned, the caller is responsible for freeing it.
-pub fn getAnswer(ctx_: *const Context, prompt_: []const u8) !?[]const u8 {
+pub fn getAnswer(ctx_: *const Context, comptime fmt_: []const u8, args_: anytype) !?[]const u8 {
     // Prompts on stderr so stdout stays free for scriptable data.
-    try ctx_.stderr.print("{s}: ", .{prompt_});
+    try ctx_.stderr.print(fmt_, args_);
+    try ctx_.stderr.writeAll(": ");
     try ctx_.stderr.flush();
 
     const answer = try ctx_.stdin.takeDelimiter('\n') orelse "";

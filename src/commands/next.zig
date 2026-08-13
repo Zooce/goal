@@ -155,7 +155,7 @@ fn resolveIds(ctx_: *const Context, dirs_: Directories, out_: *std.ArrayList([]c
         );
         return error.MissingArgument;
     }
-    const answer = if (try cli.getAnswer(ctx_, "\nChoose goals (space or comma separated list of numbers)")) |a|
+    const answer = if (try cli.getAnswer(ctx_, "\nChoose goals (space or comma separated list of numbers)", .{})) |a|
         a
     else {
         try ctx_.stderr.print("\nWelp... you didn't choose a goal.\n", .{});

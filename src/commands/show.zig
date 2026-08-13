@@ -238,7 +238,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             try ctx_.stdout.writeAll("\nNo goals to show yet. Run `goal new`!\n");
             return;
         }
-        if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
+        if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)", .{})) |choice| {
             break :id choice;
         }
         try ctx_.stderr.writeAll("\nWelp... you didn't choose a goal.\n");

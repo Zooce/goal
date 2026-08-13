@@ -8,6 +8,7 @@ const proc = @import("proc");
 const Command = @import("commands").Command;
 const Config = @import("Config");
 const ArgIter = @import("args").ArgIter;
+const config_cmd = @import("config");
 
 const Self = Command.setup;
 
@@ -21,6 +22,9 @@ pub const help_text =
     \\
     \\You can optionally clone an existing goal directory or turn it into a git
     \\repo. Git is not required either way.
+    \\
+    \\On a terminal, setup asks for your editor and whether to create git
+    \\commits in project repos (default: yes). Change them later with `goal config`.
     \\
     \\Use GOAL_BASE_DIR to store goals somewhere else.
     \\
@@ -81,7 +85,7 @@ pub fn run(ctx_: *const Context) !void {
     }
 
     // Optional: clone an existing personal store, else create the directory.
-    if (try cli.getAnswer(ctx_, "\nGot an existing .goal repo? (path or empty)")) |repo| {
+    if (try cli.getAnswer(ctx_, "\nGot an existing .goal repo? (path or empty)", .{})) |repo| {
         defer ctx_.alloc.free(repo);
         try git.clone(ctx_, repo, config.base_dir);
     } else {
@@ -91,7 +95,7 @@ pub fn run(ctx_: *const Context) !void {
         };
 
         // Optional git init of the personal store (default: no).
-        if (try cli.confirm(ctx_, "\nInitialize as a git repository?")) {
+        if (try cli.confirm(ctx_, "\nInitialize as a git repository?", .{}, false)) {
             if (git.isAvailable(ctx_)) {
                 try proc.run(ctx_, .{ .argv = &.{ "git", "init", "-q" }, .cwd = config.base_dir });
                 try ctx_.stdout.writeAll("\nWhen you have a remote ready run `goal config`.\n");
@@ -101,7 +105,20 @@ pub fn run(ctx_: *const Context) !void {
         }
     }
 
-    // TODO: ask for initial config values
+    // TTY only: editor is written when given; commit is always written (default yes).
+    if (ctx_.stdin_is_tty) {
+        if (try cli.getAnswer(ctx_, "\nEditor (default: {s})", .{config.editor})) |editor| {
+            defer ctx_.alloc.free(editor);
+            try config_cmd.set.run(ctx_, .{ .key = .editor, .value = editor, .global = true });
+        }
+
+        const commit = try cli.confirm(ctx_, "\nCreate git commits in project repos for goal changes?", .{}, true);
+        try config_cmd.set.run(ctx_, .{
+            .key = .commit,
+            .value = if (commit) "true" else "false",
+            .global = true,
+        });
+    }
 
     try ctx_.stdout.writeAll("\nYou're all set up to use `goal`!\n");
 }
@@ -112,11 +129,6 @@ pub fn run(ctx_: *const Context) !void {
 
 const TestEnv = @import("TestEnv");
 const setup_cmd = @This();
-
-/// TestEnv pre-creates and git-inits `base_path`. Setup needs a missing base dir.
-fn removeBaseForSetup(env_: *TestEnv) !void {
-    try std.Io.Dir.cwd().deleteTree(env_.io, env_.base_path);
-}
 
 test "goal setup (already setup)" {
     var env = try TestEnv.init(.{});
@@ -136,11 +148,12 @@ test "goal setup (no git: create base dir only)" {
     defer env.deinit();
     defer env.resetStderr();
 
-    try removeBaseForSetup(&env);
+    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
     try setup_cmd.run(&env.ctx);
 
     try std.testing.expect(try env.pathExists(".goal/", .{}));
     try std.testing.expect(!try env.pathExists(".goal/.git/", .{}));
+    try std.testing.expect(!try env.pathExists("xdg/goal/config", .{}));
     try std.testing.expectEqualStrings("\nYou're all set up to use `goal`!\n", env.readStdout());
 }
 
@@ -153,7 +166,7 @@ test "goal setup (git init personal store)" {
     defer env.deinit();
     defer env.resetStderr();
 
-    try removeBaseForSetup(&env);
+    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
     try setup_cmd.run(&env.ctx);
 
     try std.testing.expect(try env.pathExists(".goal/", .{}));
@@ -183,7 +196,7 @@ test "goal setup (clone existing store)" {
     try proc.run(&env.ctx, .{ .argv = &.{ "git", "add", "marker" }, .cwd = source_path });
     try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "-m", "add marker" }, .cwd = source_path });
 
-    try removeBaseForSetup(&env);
+    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
     env.resetStdout(); // drop seed git noise before asserting setup output
 
     // Feed the clone path on stdin (rebind after building the path).
@@ -211,4 +224,50 @@ test "goal setup (clone existing store)" {
     , .{ source_path, env.base_path });
     defer env.alloc.free(expected);
     try std.testing.expectEqualStrings(expected, env.readStdout());
+}
+
+test "goal setup (TTY: writes editor and commit)" {
+    // On a terminal, answers are stored in the global config file.
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
+        .{ .buffer = "\n" }, // no clone path
+        .{ .buffer = "\n" }, // decline git init
+        .{ .buffer = "nvim\n" },
+        .{ .buffer = "n\n" },
+    } });
+    defer env.deinit();
+    defer env.resetStderr();
+
+    env.ctx.stdin_is_tty = true;
+    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
+    try setup_cmd.run(&env.ctx);
+
+    try std.testing.expectEqualStrings("\nYou're all set up to use `goal`!\n", env.readStdout());
+
+    const global_config = try env.readFile("xdg/goal/config", .{});
+    defer env.alloc.free(global_config);
+    try std.testing.expectEqualStrings(
+        \\editor = nvim
+        \\commit = false
+        \\
+    , global_config);
+}
+
+test "goal setup (TTY: empty answers write default commit)" {
+    // Empty editor keeps the detected default (not written). Empty commit is yes.
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
+        .{ .buffer = "\n" }, // no clone path
+        .{ .buffer = "\n" }, // decline git init
+        .{ .buffer = "\n" }, // editor default
+        .{ .buffer = "\n" }, // commit default (yes)
+    } });
+    defer env.deinit();
+    defer env.resetStderr();
+
+    env.ctx.stdin_is_tty = true;
+    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
+    try setup_cmd.run(&env.ctx);
+
+    const global_config = try env.readFile("xdg/goal/config", .{});
+    defer env.alloc.free(global_config);
+    try std.testing.expectEqualStrings("commit = true\n", global_config);
 }

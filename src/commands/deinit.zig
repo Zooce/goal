@@ -156,7 +156,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 
     if (!opts_.yes) {
         try cli.requireTty(ctx_);
-        if (!try cli.confirm(ctx_, "This will remove .goal/ from this project. Continue?")) {
+        if (!try cli.confirm(ctx_, "This will remove .goal/ from this project. Continue?", .{}, false)) {
             try ctx_.stdout.writeAll("deinit cancelled.\n");
             return;
         }
@@ -180,19 +180,13 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     if (!has_global_data) {
         try ctx_.stdout.writeAll("\nWarning: global goal directory does not exist - skipping global cleanup.\n");
     } else if (!opts_.yes) {
-        const prompt = try std.fmt.allocPrint(
-            ctx_.alloc,
+        if (!try cli.confirm(ctx_,
             \\
             \\This will permanently delete all goal data for this project in {s}.
             \\This cannot be undone (unless you're tracking with Git).
             \\
             \\Are you sure you want to do this?
-        ,
-            .{global_goal_path},
-        );
-        defer ctx_.alloc.free(prompt);
-
-        if (!try cli.confirm(ctx_, prompt)) {
+        , .{global_goal_path}, false)) {
             try ctx_.stdout.writeAll("deinit cancelled.\n");
             return;
         }

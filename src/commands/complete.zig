@@ -106,7 +106,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
 
     if (!args_.yes) {
         try cli.requireTty(ctx_);
-        if (!try cli.confirm(ctx_, "\nReady to complete this goal?")) {
+        if (!try cli.confirm(ctx_, "\nReady to complete this goal?", .{}, false)) {
             try ctx_.stdout.writeAll("\nWell let's keep working on it then!\n");
             return;
         }

@@ -91,10 +91,7 @@ pub fn run(ctx_: *const Context) !void {
         // Non-TTY: use the directory name without prompting (scripts / TestEnv).
         if (!ctx_.stdin_is_tty) break :project_name try ctx_.alloc.dupe(u8, default_name);
 
-        const prompt = try std.fmt.allocPrint(ctx_.alloc, "Project name (default: {s})", .{default_name});
-        defer ctx_.alloc.free(prompt);
-
-        const answer = try cli.getAnswer(ctx_, prompt);
+        const answer = try cli.getAnswer(ctx_, "Project name (default: {s})", .{default_name});
         break :project_name answer orelse try ctx_.alloc.dupe(u8, default_name);
     };
     defer ctx_.alloc.free(project_name);

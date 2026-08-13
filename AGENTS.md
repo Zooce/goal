@@ -29,9 +29,11 @@ When possible, use non-allocating buffers (especially if we can reuse them).
 
 Keep things simple. No clever tricks unless they unlock something profoundly useful.
 
-**No trivial wrappers.** Do not add a function that only forwards to a one-liner.
-Call the underlying API at the use site. Extract a helper only when it encodes real
-shared logic or a non-obvious invariant.
+**No trivial wrappers / single-line functions.** Do not add a function that only
+forwards to a one-liner, or whose body is a single statement (for example a
+helper that only calls `deleteTree`). Call the underlying API at the use site.
+Extract a helper only when it encodes real shared logic or a non-obvious
+invariant.
 
 **Never wrap just to add a parameter.** Do not invent a second function whose only job
 is to call the first with one more argument (for example `init` -> `initOpts(..., opts)`).

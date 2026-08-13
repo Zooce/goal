@@ -170,7 +170,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
                 );
                 return error.MissingArgument;
             }
-            if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
+            if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)", .{})) |choice| {
                 break :id choice; // need to free this memory
             }
             try ctx_.stderr.print("\nWelp... you didn't choose a goal.\n", .{});

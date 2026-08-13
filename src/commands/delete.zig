@@ -125,7 +125,7 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
             );
             return error.MissingArgument;
         }
-        if (try cli.getAnswer(ctx_, "\nChoose goals (space or comma separated list of numbers)")) |answer| {
+        if (try cli.getAnswer(ctx_, "\nChoose goals (space or comma separated list of numbers)", .{})) |answer| {
             var choices = std.mem.splitAny(u8, answer, ", \t");
 
             // reuse count for chosen count (instead of available count)
@@ -195,7 +195,7 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
 
     if (!args_.yes) {
         try cli.requireTty(ctx_);
-        if (!try cli.confirm(ctx_, "\nShould I proceed?")) {
+        if (!try cli.confirm(ctx_, "\nShould I proceed?", .{}, false)) {
             try ctx_.stdout.writeAll("\nMaybe next time then, friend!\n");
             return;
         }

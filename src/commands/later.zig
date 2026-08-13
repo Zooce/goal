@@ -113,7 +113,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
             );
             return error.MissingArgument;
         }
-        if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)")) |choice| {
+        if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)", .{})) |choice| {
             break :id choice;
         }
         try ctx_.stderr.print("\nWelp... you didn't choose a goal.\n", .{});
