@@ -8,6 +8,7 @@ const init = @import("init");
 const deinit = @import("deinit");
 const sync = @import("sync");
 const install_git_hook = @import("install_git_hook");
+const install_skill = @import("install_skill");
 const list = @import("list");
 const status = @import("status");
 const complete = @import("complete");
@@ -59,6 +60,7 @@ pub const help_text =
     \\    delete             Delete a goal.
     \\    config             Configure `goal`.
     \\    install-git-hook   Optionally add the active goal to commit messages.
+    \\    install-skill      Install or update the goal skill for coding agents.
     \\
     \\Environment Variables:
     \\
@@ -108,6 +110,7 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         .deinit => deinit.help_text,
         .sync => sync.help_text,
         .@"install-git-hook" => install_git_hook.help_text,
+        .@"install-skill" => install_skill.help_text,
         .list => list.help_text,
         .status => status.help_text,
         .show => show.help_text,

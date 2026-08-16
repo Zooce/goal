@@ -3,11 +3,16 @@
 
 When the `goal` CLI is installed and this project is initialized for goal:
 
-1. **Session start:** run `goal status --full` and treat it as work context.
-2. **Track work in goal:** prefer existing goals (`goal list`, `goal start <id>`)
-   over inventing a parallel todo list or second task system.
-3. **Progress:** capture decisions and progress with `goal note` (text or
-   `--file`). Prefer notes over editing the goal body mid-work.
+1. **Session start:** run `goal status --full`. The active goal body is the
+   acceptance criteria. Notes are a natural product of review.
+   Only write notes in a review session.
+2. **Session phase:** this session is design (form the goal, or break the
+   problem into small buildable goals), build (implement to the goal), or
+   review (check the work and leave findings).
+   If the user did not say which, ask once before doing goal work. Do not
+   guess from whether notes exist. If they do not pick a phase, stop.
+3. **Track work in goal:** prefer existing goals (`goal list`, `goal start <id>`)
+   over inventing a parallel todo list.
 4. **Non-interactive only:** pass explicit goal IDs; use title args, `--file`,
    `-q`/`--quiet`, and `--yes` as needed. Never rely on TTY pickers or editors.
 5. **Do not complete, stop, delete, or switch goals** unless the user asks.
@@ -15,5 +20,5 @@ When the `goal` CLI is installed and this project is initialized for goal:
 6. **Do not run git commands that change the repo** unless the user asks
    (commit, push, reset, etc.). Goal may still record its own state commits.
 
-For command details, load the `goal` skill / playbook when available.
+For how to run each session, load the `goal` skill when available.
 <!-- goal-agent-rules:end -->
