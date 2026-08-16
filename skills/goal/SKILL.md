@@ -193,6 +193,12 @@ goal delete <id> --yes                    # delete by id (required non-TTY)
 `complete` finishes and deletes the active goal. Always pass `--yes` so prompts
 never hang. Completing is not implied by "the code is done" or "tests pass".
 
+Before `goal complete`, if this is a git repo, run `git status --porcelain`.
+Treat any path outside `.goal/` as uncommitted project work. If there is any,
+stop and ask whether to commit it first. Do not complete until they answer.
+If they say yes, commit, then complete. If they say no, complete without
+committing those files.
+
 ### Queue: next / later
 
 ```bash
@@ -215,7 +221,7 @@ Ids required. Only when the user wants queue changes.
 | Note progress so the next session can resume | Break the problem into smaller buildable goals, or wait for a review session |
 | Edit the goal body mid-build | Leave the body; create a new goal if direction changed |
 | Complete/stop because the patch is finished | Wait for explicit user instruction |
-| Commit project files "to finish the goal" | Only commit when the user asks |
+| Complete without checking the working tree | Check `git status` first; ask if they want a commit |
 | Parallel markdown todo list for the same work | `goal new` / `start` / `list` |
 | Pipe ids or body on stdin | Title args, `--file`, `id=$(goal new ... -q)` |
 | Assume active goal for start/delete/next/later | Those commands do not default to active |
