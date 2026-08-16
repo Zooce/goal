@@ -57,7 +57,8 @@ Pick the phase in this order:
 1. **The user said it.** Design: form the goal, write the acceptance criteria,
    decompose, break down, plan. Build: implement, do the work, first
    batch, address the review notes. Review: review, check against the goal,
-   leave findings.
+   leave findings. With an active goal, starting-work language is build:
+   "let's get to work", "start building", "implement it".
 2. **Orientation only.** "What's next?", "where are we?", status. Answer from
    `goal status --full` / `goal list`. Do not pick a phase yet.
 3. **No active goal, and they described new work.** Ask whether they want this
@@ -81,13 +82,19 @@ Then follow the matching playbook.
 The output of this phase is one or more **buildable** goals. A goal is
 buildable when it has a clearly defined problem, clearly defined input and
 output, clearly defined constraints, and at least a rough idea of the solution.
+The pieces are the goals. Never create a wrapper whose only job is to hold
+them.
 
-- Write that in the goal body (`goal new`, `goal start new`, or
-  `goal edit <id> --file`). Once a goal is buildable and build has started,
-  leave the body alone.
-- If the overall problem is larger than one build session, break it down:
-  `goal new` for each buildable piece. Tell the user the new ids. Complete
-  or delete the original only if they ask.
+Do exactly one of:
+
+1. Refine the current goal (`goal edit <id> --file`) when it is already one
+   buildable piece.
+2. Create independent buildable goals (`goal new` / `goal start new`) when
+   the work is more than one piece. Tell the user the new ids. If an existing
+   goal was split, ask immediately what to do with the original (complete,
+   delete, or keep). Do not complete or delete it unless they say so.
+
+- Once a goal is buildable and build has started, leave the body alone.
 - Do not implement unless they also asked.
 - Do not write notes. The goal body is the artifact.
 
@@ -203,6 +210,7 @@ Ids required. Only when the user wants queue changes.
 | `goal start` / `next` / `later` / `delete` with no id | Always pass the goal id |
 | Keep following this skill after they did not pick a phase | Stop; help normally |
 | Guess design / build / review from notes or the body | Use what the user said, or ask once |
+| Create a parent / wrapper goal when splitting work | Create only the independent pieces; ask what to do with the original |
 | Create goals when they were only thinking out loud | Ask first whether to track it in goal |
 | Note progress so the next session can resume | Break the problem into smaller buildable goals, or wait for a review session |
 | Edit the goal body mid-build | Leave the body; create a new goal if direction changed |
