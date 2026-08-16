@@ -1,70 +1,112 @@
 # goal
 
-A little CLI to help you track (and stay on track) with your project's goals.
+A small CLI that keeps you on one goal at a time, and makes it easy to
+write down the rest without leaving the terminal.
 
-> [!WARNING]
-> THIS IS VERY MUCH AN ACTIVE WORK IN PROGRESS
+## Why
 
-## What problem does this solve?
+Two problems:
 
-Well, two really. I wanted a place to quickly write down ideas, bugs, todos, and all that without leaving my terminal. Second, I needed a way to get _back_ into
-my project after leaving for a while (because life happens) -- I'm always starting projects then I get distracted and all my energy for the project leaves my
-body becaues I can't really remember the frame of mind I was in.
+- Coming back to a project after time away. `goal status` shows what you
+  were doing and any notes on it.
+- Ideas, bugs, and other work show up while you are in the middle of
+  something. `goal new` writes them down (they start in Later) so you can
+  stay on the active goal.
 
-`goal` helps with both of these because it let's you quickly write things down:
+You work on one active goal. Everything else is Next (ready to start) or
+Later (not yet).
+
+## Quick start
 
 ```bash
-$ goal new
+goal setup                 # once on this machine
+goal init                  # once in this project
+goal new "fix the picker"
+goal start 1
+goal status
+goal note "repro: empty list"
+goal complete --yes
 ```
 
-And it uses Git under the hood, adding a little tag in your commit messages so you can see where you are/were:
+On a terminal, `goal new` with no title opens your editor. The first line
+is the title; the rest is the body.
+
+## Everyday use
 
 ```bash
-$ goal status
-
-Goal #1 - do a thing
-
-Commits:
-* 9aaf4cc add `-m` option to `goal commit`
-* a6ee0c1 okay here we go
-* 860aa66 something here
-* 2f4502a on anther branch dude
-| * 0ae89a0 (master) what are you talking about
-|/
-* 0deda9f do it now
-* 405c614 this is empty
-* 11f292b try this out
-* 9ba763a this is working
-* 73b1aa4 The new `goal commit --pick` works
-* bc91336 this is the way
-* fcdce75 holy cow
-* 08800a2 Started Goal #1 - do a thing
-
-Staged changes:
- goal_test.py | 1 +
- 1 file changed, 1 insertion(+)
-
-Unstaged changes:
- .goal_id                               | 2 +-
- 13eb6502-2fb0-4f4e-8dff-f629b55e1c36/1 | 1 -
- 13eb6502-2fb0-4f4e-8dff-f629b55e1c36/2 | 1 -
- 13eb6502-2fb0-4f4e-8dff-f629b55e1c36/3 | 1 -
- 13eb6502-2fb0-4f4e-8dff-f629b55e1c36/m | 1 -
- 5 files changed, 1 insertion(+), 5 deletions(-)
+goal list                  # active + next
+goal list --all            # include later
+goal show 3                # full goal file and notes
+goal start 3               # make 3 the active goal
+goal stop                  # active -> next
+goal stop --later          # active -> later
+goal later 3               # next -> later
+goal next 3                # later -> next (or move next to the front)
+goal edit 3                # open the goal in your editor
+goal search fix            # search goal text (needs ripgrep)
+goal delete 3 --yes
 ```
 
-## Recommended approaches
+There is no parent/child tree. If a goal is too big, create new goals for
+the pieces and complete or delete the original.
 
-`goal` stays simple on purpose: one active goal, plain create / start / stop / complete / delete. When a workflow is awkward, prefer a small habit over a new concept in the tool.
+## Scripts
 
-### Split a goal that got too big
+Pass IDs and content on the command line. Do not pipe IDs or bodies on
+stdin.
 
-If you start a goal and realize it should be several pieces of work:
+```bash
+id=$(goal new "title" -q)
+goal start "$id"
+title="$(goal show --title)"
+goal new --file notes.md
+goal edit 3 --file notes.md
+goal complete --yes
+```
 
-1. Create the new goals (`goal new ...`) for each piece.
-2. Carry over anything that still matters from the original (title intent, notes, acceptance ideas) into those new goals so the spirit is not lost.
-3. Finish the original with either `goal complete` (if the split is the outcome of that work) or `goal delete` (if the original id is no longer useful).
+Non-TTY runs need an explicit ID (no picker) and `--yes` on confirm
+commands (`complete`, `delete`, `deinit`).
 
-There is no parent/child goal tree. Related work is just more goals you can start one at a time.
+## Agents
 
-More recommended approaches can be added here as they come up.
+```bash
+goal install-skill
+goal status --full         # active goal body and notes
+```
+
+`install-skill` writes the goal skill for coding agents. Run it again
+after upgrading `goal`.
+
+## Git is optional
+
+`goal` does not require Git. If this project is a Git repo and `commit`
+is true (the default), start, stop, and complete may commit
+`.goal/.active_id`. To add the active goal to your commit messages:
+
+```bash
+goal install-git-hook
+```
+
+Turn project commits off with `goal config set commit false` or
+`GOAL_COMMIT=false`.
+
+## Build
+
+Requires [Zig 0.16](https://ziglang.org/download/).
+
+```bash
+zig build
+```
+
+The binary is `zig-out/bin/goal`.
+
+## More
+
+```bash
+goal help
+goal help start
+```
+
+Per-command flags live there. Configuration: `goal help config`
+(`base-dir`, `editor`, `commit`; env `GOAL_BASE_DIR`, `GOAL_EDITOR`,
+`GOAL_COMMIT`).
