@@ -40,11 +40,18 @@ one, stop following this skill. Help normally. Do not create or start goals.
    or opening an editor.
 3. **Do not complete, stop, delete, or start a different goal unless the user
    asks.** Finishing implementation is not the same as completing the goal.
+   Completing a goal does not start the next one. To switch in the same
+   session, the user must request it (for example "start 118" or "start the
+   next goal").
 4. **Do not run git commands that change the repo unless the user asks.**
    That includes commit, add, push, reset, and checkout that discards work.
    `goal` itself may create its own commits when you run goal commands that
    mutate state.
 5. **Only write notes in a review session.**
+
+"proceed" / "approved": "proceed" means only the next review batch of the
+current goal. "approved" is sign-off on that batch. Neither completes the
+current goal nor starts a different one.
 
 ## Session phase
 
@@ -221,6 +228,7 @@ Ids required. Only when the user wants queue changes.
 | Note progress so the next session can resume | Break the problem into smaller buildable goals, or wait for a review session |
 | Edit the goal body mid-build | Leave the body; create a new goal if direction changed |
 | Complete/stop because the patch is finished | Wait for explicit user instruction |
+| Treat "proceed" / "approved" as the next goal | Next review batch of the current goal only; name a goal to switch |
 | Complete without checking the working tree | Check `git status` first; ask if they want a commit |
 | Parallel markdown todo list for the same work | `goal new` / `start` / `list` |
 | Pipe ids or body on stdin | Title args, `--file`, `id=$(goal new ... -q)` |

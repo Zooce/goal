@@ -18,6 +18,10 @@ When the `goal` CLI is installed and this project is initialized for goal:
    `-q`/`--quiet`, and `--yes` as needed. Never rely on TTY pickers or editors.
 5. **Do not complete, stop, delete, or switch goals** unless the user asks.
    Finishing the code is not the same as completing the goal.
+   "proceed" is the next review batch of the current goal only.
+   "approved" is sign-off on that batch.
+   Completing a goal does not start the next one. To switch, the user
+   must request it (for example "start 118" or "start the next goal").
 6. **Do not run git commands that change the repo** unless the user asks
    (commit, push, reset, etc.). Goal may still record its own state commits.
 
