@@ -88,10 +88,9 @@ test "'run' shows only built-in defaults" {
     try init_cmd.run(&env.ctx);
 
     // Seed every higher layer with values that must not appear in defaults output.
-    try env.writeFile("xdg/goal/config", "editor=vim\ncommit=false\n");
-    try env.writeFile("proj/.goal/config", "editor=emacs\ncommit=false\n");
+    try env.writeFile("xdg/goal/config", "editor=vim\n");
+    try env.writeFile("proj/.goal/config", "editor=emacs\n");
     try env.setEnv("GOAL_EDITOR", "from-env-layer");
-    try env.setEnv("GOAL_COMMIT", "false");
 
     // Editor default is host-dependent (git/EDITOR/which); resolve it the same way run does.
     const default_editor = try common.getDefaultValue(&env.ctx, .editor);
@@ -111,7 +110,6 @@ test "'run' shows only built-in defaults" {
         \\Built-in default values:
         \\    base-dir = {s}
         \\    editor = {s}
-        \\    commit = true
         \\
     , .{ expected_base, default_editor });
     try std.testing.expectEqualStrings(expected, env.readStdout());

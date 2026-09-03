@@ -131,7 +131,7 @@ test "'run --global' shows only keys present in the global config file" {
 
     // Global file has only editor; project/env have other values that must not leak.
     try env.writeFile("xdg/goal/config", "editor=vim\n");
-    try env.writeFile("proj/.goal/config", "editor=emacs\ncommit=false\n");
+    try env.writeFile("proj/.goal/config", "editor=emacs\nother=true\n");
     try env.setEnv("GOAL_EDITOR", "nvim");
 
     env.resetStdout();
@@ -188,11 +188,10 @@ test "'run' respects config layering (env > project > global > defaults)" {
 
     try init_cmd.run(&env.ctx);
 
-    // Distinct values at each layer for editor and commit.
-    try env.writeFile("xdg/goal/config", "editor=vim\ncommit=false\n");
-    try env.writeFile("proj/.goal/config", "editor=emacs\ncommit=false\n");
+    // Distinct values at each layer for editor.
+    try env.writeFile("xdg/goal/config", "editor=vim\n");
+    try env.writeFile("proj/.goal/config", "editor=emacs\n");
     try env.setEnv("GOAL_EDITOR", "nvim");
-    try env.setEnv("GOAL_COMMIT", "true");
 
     var expected_buf: [std.Io.Dir.max_path_bytes + 256]u8 = undefined;
 
@@ -205,7 +204,6 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = nvim
-            \\    commit = true
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());
@@ -213,7 +211,6 @@ test "'run' respects config layering (env > project > global > defaults)" {
 
     // 2. Project config wins when those env vars are absent.
     env.unsetEnv("GOAL_EDITOR");
-    env.unsetEnv("GOAL_COMMIT");
     env.resetStdout();
     try list_cmd.run(&env.ctx, .{});
     {
@@ -222,7 +219,6 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = emacs
-            \\    commit = false
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());
@@ -242,14 +238,12 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = vim
-            \\    commit = false
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());
     }
 
     // 4. Built-in defaults when no file sets the key.
-    //    commit has a hard-coded default of "true".
     //    editor is host-dependent, so pin it via env for a deterministic full dump.
     {
         const global_config_path = try std.Io.Dir.path.join(env.alloc, &.{ env.xdg_path, "goal", "config" });
@@ -265,7 +259,6 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = nano
-            \\    commit = true
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());

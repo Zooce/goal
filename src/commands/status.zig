@@ -269,7 +269,8 @@ test "parseArgs rejects duplicate --full and unknown args" {
 }
 
 test "status lists note titles; --full includes note bodies" {
-    var env = try TestEnv.init(.{});
+    // No project git so work-tree extras do not mix into the notes output.
+    var env = try TestEnv.init(.{ .project_git = false });
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);

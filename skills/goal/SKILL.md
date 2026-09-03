@@ -45,8 +45,6 @@ one, stop following this skill. Help normally. Do not create or start goals.
    next goal").
 4. **Do not run git commands that change the repo unless the user asks.**
    That includes commit, add, push, reset, and checkout that discards work.
-   `goal` itself may create its own commits when you run goal commands that
-   mutate state.
 5. **Only write notes in a review session.**
 
 "proceed" / "approved": "proceed" means only the next review batch of the

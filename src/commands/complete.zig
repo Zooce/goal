@@ -2,8 +2,6 @@ const std = @import("std");
 
 const Context = @import("Context");
 const cli = @import("cli");
-const git = @import("git");
-const config_common = @import("config_common");
 
 const ActiveId = @import("ActiveId");
 const Directories = @import("Directories");
@@ -29,8 +27,6 @@ pub const help_text =
     \\
     \\On a TTY, complete asks for a final confirm. Pass --yes to skip it.
     \\Non-TTY runs require --yes so scripts never hang on a prompt.
-    \\When project commits are enabled, clearing the active id may create a
-    \\small commit for `.goal/.active_id` only.
     \\
     \\
     \\Usage:
@@ -114,13 +110,6 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
 
     try ActiveId.clear(ctx_, dirs.local.dir);
 
-    // Optional project commit of active id only; never fail after state mutation.
-    if (try config_common.shouldCommitProjectState(ctx_)) {
-        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Completed Goal #{s} - {s}", .{ goal.id, goal.title });
-        defer ctx_.alloc.free(commit_subject);
-        git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
-    }
-
     std.Io.Dir.rename(dirs.active.dir, goal.id, dirs.deleted.dir, goal.id, ctx_.io) catch |err| {
         try ctx_.stderr.print("\nUnable to delete Goal #{s}\n", .{goal.id});
         return err;
@@ -177,35 +166,6 @@ test "goal complete --yes (non-TTY)" {
 
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
-}
-
-test "goal complete --yes (commit=false, no project commit)" {
-    // With GOAL_COMMIT=false, complete still finishes the goal but does not commit in the project repo.
-    var env = try TestEnv.init(.{});
-    defer env.deinit();
-
-    try env.setEnv("GOAL_COMMIT", "false");
-    try init_cmd.run(&env.ctx);
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
-    defer env.alloc.free(goal_id);
-
-    // Seed a commit so git log works; init with commit=false leaves the project history empty.
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "--allow-empty", "-m", "seed" } });
-
-    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "no project commit" } });
-
-    const log_before = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log_before);
-
-    try complete_cmd.run(&env.ctx, .{ .yes = true });
-
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
-    try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
-
-    const log_after = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log_after);
-    try std.testing.expectEqualStrings(log_before, log_after);
-    try std.testing.expect(std.mem.indexOf(u8, log_after, "Completed Goal #1") == null);
 }
 
 test "goal complete leaves staged project files alone" {

@@ -44,9 +44,6 @@ pub const help_text =
     \\
     \\    base-dir    Directory for goal storage
     \\    editor      Default editor for goal editing
-    \\    commit      Create git commits in this project for goal changes
-    \\                (default: true). Set false if you share the repo and do
-    \\                not want goal commits there.
     \\
     \\Options:
     \\
@@ -56,7 +53,6 @@ pub const help_text =
     \\
     \\    GOAL_BASE_DIR    Override the base-dir setting
     \\    GOAL_EDITOR      Override the editor setting
-    \\    GOAL_COMMIT      Override the commit setting
     \\
     \\Help:
     \\

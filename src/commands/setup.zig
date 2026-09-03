@@ -23,8 +23,7 @@ pub const help_text =
     \\You can optionally clone an existing goal directory or turn it into a git
     \\repo. Git is not required either way.
     \\
-    \\On a terminal, setup asks for your editor and whether to create git
-    \\commits in project repos (default: yes). Change them later with `goal config`.
+    \\On a terminal, setup asks for your editor. Change it later with `goal config`.
     \\
     \\Use GOAL_BASE_DIR to store goals somewhere else.
     \\
@@ -105,19 +104,12 @@ pub fn run(ctx_: *const Context) !void {
         }
     }
 
-    // TTY only: editor is written when given; commit is always written (default yes).
+    // TTY only: editor is written when given.
     if (ctx_.stdin_is_tty) {
         if (try cli.getAnswer(ctx_, "\nEditor (default: {s})", .{config.editor})) |editor| {
             defer ctx_.alloc.free(editor);
             try config_cmd.set.run(ctx_, .{ .key = .editor, .value = editor, .global = true });
         }
-
-        const commit = try cli.confirm(ctx_, "\nCreate git commits in project repos for goal changes?", .{}, true);
-        try config_cmd.set.run(ctx_, .{
-            .key = .commit,
-            .value = if (commit) "true" else "false",
-            .global = true,
-        });
     }
 
     try ctx_.stdout.writeAll("\nYou're all set up to use `goal`!\n");
@@ -226,13 +218,12 @@ test "goal setup (clone existing store)" {
     try std.testing.expectEqualStrings(expected, env.readStdout());
 }
 
-test "goal setup (TTY: writes editor and commit)" {
-    // On a terminal, answers are stored in the global config file.
+test "goal setup (TTY: writes editor)" {
+    // On a terminal, a given editor is stored in the global config file.
     var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" }, // no clone path
         .{ .buffer = "\n" }, // decline git init
         .{ .buffer = "nvim\n" },
-        .{ .buffer = "n\n" },
     } });
     defer env.deinit();
     defer env.resetStderr();
@@ -245,20 +236,15 @@ test "goal setup (TTY: writes editor and commit)" {
 
     const global_config = try env.readFile("xdg/goal/config", .{});
     defer env.alloc.free(global_config);
-    try std.testing.expectEqualStrings(
-        \\editor = nvim
-        \\commit = false
-        \\
-    , global_config);
+    try std.testing.expectEqualStrings("editor = nvim\n", global_config);
 }
 
-test "goal setup (TTY: empty answers write default commit)" {
-    // Empty editor keeps the detected default (not written). Empty commit is yes.
+test "goal setup (TTY: empty editor writes no config)" {
+    // Empty editor keeps the detected default (not written).
     var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" }, // no clone path
         .{ .buffer = "\n" }, // decline git init
         .{ .buffer = "\n" }, // editor default
-        .{ .buffer = "\n" }, // commit default (yes)
     } });
     defer env.deinit();
     defer env.resetStderr();
@@ -267,7 +253,5 @@ test "goal setup (TTY: empty answers write default commit)" {
     try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
     try setup_cmd.run(&env.ctx);
 
-    const global_config = try env.readFile("xdg/goal/config", .{});
-    defer env.alloc.free(global_config);
-    try std.testing.expectEqualStrings("commit = true\n", global_config);
+    try std.testing.expect(!try env.pathExists("xdg/goal/config", .{}));
 }

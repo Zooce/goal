@@ -26,7 +26,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    <key>    One of: base-dir, editor, commit
+    \\    <key>    One of: base-dir, editor
     \\
     \\Options:
     \\
@@ -163,7 +163,7 @@ test "'config get --global' returns value from global file only (or nothing)" {
 
     // Key absent from the global file prints nothing, even if env/project have values.
     env.resetStdout();
-    try get_cmd.run(&env.ctx, .{ .key = .commit, .global = true });
+    try get_cmd.run(&env.ctx, .{ .key = .base_dir, .global = true });
     try std.testing.expectEqualStrings("", env.readStdout());
 }
 
@@ -187,7 +187,7 @@ test "'config get' on absent value in scope prints nothing and exits 0" {
     try init_cmd.run(&env.ctx);
 
     env.resetStdout();
-    try get_cmd.run(&env.ctx, .{ .key = .commit, .global = true });
+    try get_cmd.run(&env.ctx, .{ .key = .editor, .global = true });
 
     try std.testing.expectEqualStrings("", env.readStdout());
 }

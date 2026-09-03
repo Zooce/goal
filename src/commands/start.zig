@@ -1,9 +1,6 @@
 const std = @import("std");
 
 const cli = @import("cli");
-const git = @import("git");
-const proc = @import("proc");
-const config_common = @import("config_common");
 
 const Context = @import("Context");
 const ArgIter = @import("args").ArgIter;
@@ -26,8 +23,6 @@ pub const help_text =
     \\If no goal ID is given and stdin is a terminal, you'll select from the list
     \\of goals. Scripts and non-TTY runs must pass a goal ID (or `new`).
     \\
-    \\When project commits are enabled (default), start may create a small commit
-    \\for `.goal/.active_id`. Set `commit=false` or GOAL_COMMIT=false to skip that.
     \\To put the active goal in your commit messages, run `goal install-git-hook`.
     \\
     \\Usage:
@@ -198,13 +193,6 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
     try ActiveId.store(ctx_, dirs.local.dir, goal.id);
     // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 
-    // Optional project commit: never fail start after state is already mutated.
-    if (try config_common.shouldCommitProjectState(ctx_)) {
-        const commit_subject = try std.fmt.allocPrint(ctx_.alloc, "Started Goal #{s} - {s}", .{ goal.id, goal.title });
-        defer ctx_.alloc.free(commit_subject);
-        git.maybeCommit(ctx_, ".goal/.active_id", commit_subject);
-    }
-
     try ctx_.stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
 }
 
@@ -244,11 +232,6 @@ test "start command activates a goal" {
     const active_id = try env.readFile("proj/.goal/.active_id", .{});
     defer env.alloc.free(active_id);
     try std.testing.expectEqualStrings(filename, active_id);
-
-    // verify git commit was made
-    const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log);
-    try std.testing.expect(std.mem.indexOf(u8, log, "Started Goal #1 - fix the bug") != null);
 }
 
 test "cannot start goal if one is already started" {
@@ -332,52 +315,6 @@ test "start + new creates a new goal and starts it" {
     const active_id = try env.readFile("proj/.goal/.active_id", .{});
     defer env.alloc.free(active_id);
     try std.testing.expectEqualStrings("1", active_id);
-
-    // verify git commit was made
-    const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log);
-    try std.testing.expect(std.mem.indexOf(u8, log, "Started Goal #1 - fix the bug") != null);
-}
-
-test "start does not commit the active id file if it's git ignored" {
-    var env = try TestEnv.init(.{});
-    defer env.deinit();
-
-    try init_cmd.run(&env.ctx);
-
-    try env.writeFile("proj/.gitignore", ".goal/");
-
-    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
-
-    const log = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log);
-    try std.testing.expect(std.mem.indexOf(u8, log, "Started Goal #1 - fix the bug") == null);
-}
-
-test "goal start (commit=false, no project commit)" {
-    // With GOAL_COMMIT=false, start still activates the goal but does not commit in the project repo.
-    var env = try TestEnv.init(.{});
-    defer env.deinit();
-
-    try env.setEnv("GOAL_COMMIT", "false");
-    try init_cmd.run(&env.ctx);
-
-    // Seed a commit so git log works; init with commit=false leaves the project history empty.
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "--allow-empty", "-m", "seed" } });
-    const log_before = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log_before);
-
-    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "no project commit" } });
-
-    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
-    const active_id = try env.readFile("proj/.goal/.active_id", .{});
-    defer env.alloc.free(active_id);
-    try std.testing.expectEqualStrings("1", active_id);
-
-    const log_after = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "log", "--oneline" } });
-    defer env.alloc.free(log_after);
-    try std.testing.expectEqualStrings(log_before, log_after);
-    try std.testing.expect(std.mem.indexOf(u8, log_after, "Started Goal #1") == null);
 }
 
 test "goal start new --file (non-TTY)" {

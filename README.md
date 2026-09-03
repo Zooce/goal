@@ -79,16 +79,11 @@ after upgrading `goal`.
 
 ## Git is optional
 
-`goal` does not require Git. If this project is a Git repo and `commit`
-is true (the default), start, stop, and complete may commit
-`.goal/.active_id`. To add the active goal to your commit messages:
+`goal` does not require Git. To add the active goal to your commit messages:
 
 ```bash
 goal install-git-hook
 ```
-
-Turn project commits off with `goal config set commit false` or
-`GOAL_COMMIT=false`.
 
 ## Build
 
@@ -108,5 +103,4 @@ goal help start
 ```
 
 Per-command flags live there. Configuration: `goal help config`
-(`base-dir`, `editor`, `commit`; env `GOAL_BASE_DIR`, `GOAL_EDITOR`,
-`GOAL_COMMIT`).
+(`base-dir`, `editor`; env `GOAL_BASE_DIR`, `GOAL_EDITOR`).

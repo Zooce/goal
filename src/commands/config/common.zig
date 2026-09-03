@@ -8,13 +8,11 @@ const git = @import("git");
 pub const Key = enum {
     base_dir,
     editor,
-    commit,
 
     pub fn name(self_: Key) []const u8 {
         return switch (self_) {
             .base_dir => "base-dir",
             .editor => "editor",
-            .commit => "commit",
         };
     }
 
@@ -22,14 +20,12 @@ pub const Key = enum {
         return switch (self_) {
             .base_dir => "GOAL_BASE_DIR",
             .editor => "GOAL_EDITOR",
-            .commit => "GOAL_COMMIT",
         };
     }
 
     pub fn fromString(key_: []const u8) ?Key {
         if (std.mem.eql(u8, key_, "base-dir")) return .base_dir;
         if (std.mem.eql(u8, key_, "editor")) return .editor;
-        if (std.mem.eql(u8, key_, "commit")) return .commit;
         return null;
     }
 };
@@ -133,19 +129,7 @@ pub fn getDefaultValue(ctx_: *const Context, key_: Key) ![]const u8 {
     return switch (key_) {
         .base_dir => defaultBaseDir(ctx_),
         .editor => defaultEditor(ctx_),
-        .commit => ctx_.alloc.dupe(u8, "true"),
     };
-}
-
-/// True when lifecycle commands should commit project goal state files.
-/// Requires usable git and effective `commit` config true (`GOAL_COMMIT` / config).
-/// Lives here (not in `git`) so git stays free of config imports.
-pub fn shouldCommitProjectState(ctx_: *const Context) !bool {
-    if (!git.isUsable(ctx_, null)) return false;
-
-    const val = try getEffectiveValue(ctx_, .commit);
-    defer ctx_.alloc.free(val);
-    return std.mem.eql(u8, val, "true");
 }
 
 fn defaultEditor(ctx_: *const Context) ![]const u8 {

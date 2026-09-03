@@ -26,7 +26,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    <key>...    One or more of: base-dir, editor, commit
+    \\    <key>...    One or more of: base-dir, editor
     \\
     \\Options:
     \\
@@ -183,34 +183,34 @@ test "config unset --global removes from global file only" {
     try init_cmd.run(&env.ctx);
 
     // Distinct values at both scopes.
-    try env.writeFile("xdg/goal/config", "commit = false\neditor = vim\n");
-    try env.writeFile("proj/.goal/config", "commit = true\n");
+    try env.writeFile("xdg/goal/config", "editor = vim\nbase-dir = /tmp/global-goal\n");
+    try env.writeFile("proj/.goal/config", "editor = emacs\n");
 
     env.resetStdout();
     env.resetStderr();
-    try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{.commit}, .global = true });
+    try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{.editor}, .global = true });
 
     try std.testing.expectEqualStrings("", env.readStdout());
     try std.testing.expectEqualStrings("", env.readStderr());
 
-    // Global file no longer lists commit; other global keys stay.
+    // Global file no longer lists editor; other global keys stay.
     const global_config = try env.readFile("xdg/goal/config", .{});
     defer env.alloc.free(global_config);
-    try std.testing.expect(std.mem.indexOf(u8, global_config, "commit") == null);
-    try std.testing.expect(std.mem.indexOf(u8, global_config, "editor = vim") != null);
+    try std.testing.expect(std.mem.indexOf(u8, global_config, "editor") == null);
+    try std.testing.expect(std.mem.indexOf(u8, global_config, "base-dir = /tmp/global-goal") != null);
 
     // Project file is untouched.
     const proj_config = try env.readFile("proj/.goal/config", .{});
     defer env.alloc.free(proj_config);
-    try std.testing.expect(std.mem.indexOf(u8, proj_config, "commit = true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, proj_config, "editor = emacs") != null);
 
-    // Effective still sees project commit; global-only get is empty for commit.
+    // Effective still sees project editor; global-only get is empty for editor.
     env.resetStdout();
-    try get_cmd.run(&env.ctx, .{ .key = .commit, .global = false });
-    try std.testing.expectEqualStrings("true", env.readStdout());
+    try get_cmd.run(&env.ctx, .{ .key = .editor, .global = false });
+    try std.testing.expectEqualStrings("emacs", env.readStdout());
 
     env.resetStdout();
-    try get_cmd.run(&env.ctx, .{ .key = .commit, .global = true });
+    try get_cmd.run(&env.ctx, .{ .key = .editor, .global = true });
     try std.testing.expectEqualStrings("", env.readStdout());
 }
 
@@ -220,7 +220,7 @@ test "config unset is surgical and does not rewrite other keys" {
 
     try init_cmd.run(&env.ctx);
 
-    try env.writeFile("proj/.goal/config", "editor = vim\ncommit = true\n# keep me\n");
+    try env.writeFile("proj/.goal/config", "editor = vim\nother = true\n# keep me\n");
 
     try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{.editor}, .global = false });
 
@@ -228,7 +228,7 @@ test "config unset is surgical and does not rewrite other keys" {
     defer env.alloc.free(proj_config);
 
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "editor") == null);
-    try std.testing.expect(std.mem.indexOf(u8, proj_config, "commit = true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, proj_config, "other = true") != null);
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "# keep me") != null);
 }
 
@@ -238,7 +238,7 @@ test "config unset removes all duplicate key lines" {
 
     try init_cmd.run(&env.ctx);
 
-    try env.writeFile("proj/.goal/config", "editor = vim\ncommit = true\neditor = emacs\n");
+    try env.writeFile("proj/.goal/config", "editor = vim\nother = true\neditor = emacs\n");
 
     try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{.editor}, .global = false });
 
@@ -246,7 +246,7 @@ test "config unset removes all duplicate key lines" {
     defer env.alloc.free(proj_config);
 
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "editor") == null);
-    try std.testing.expect(std.mem.indexOf(u8, proj_config, "commit = true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, proj_config, "other = true") != null);
 }
 
 test "config unset removes multiple keys in one call" {
@@ -255,16 +255,16 @@ test "config unset removes multiple keys in one call" {
 
     try init_cmd.run(&env.ctx);
 
-    try env.writeFile("proj/.goal/config", "editor = vim\ncommit = false\nbase-dir = /tmp/goal\n");
+    try env.writeFile("proj/.goal/config", "editor = vim\nbase-dir = /tmp/goal\n# keep me\n");
 
-    try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{ .editor, .commit }, .global = false });
+    try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{ .editor, .base_dir }, .global = false });
 
     const proj_config = try env.readFile("proj/.goal/config", .{});
     defer env.alloc.free(proj_config);
 
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "editor") == null);
-    try std.testing.expect(std.mem.indexOf(u8, proj_config, "commit") == null);
-    try std.testing.expect(std.mem.indexOf(u8, proj_config, "base-dir = /tmp/goal") != null);
+    try std.testing.expect(std.mem.indexOf(u8, proj_config, "base-dir") == null);
+    try std.testing.expect(std.mem.indexOf(u8, proj_config, "# keep me") != null);
 }
 
 test "config unset is idempotent when key already absent in target" {
@@ -281,12 +281,12 @@ test "config unset is idempotent when key already absent in target" {
     try std.testing.expectEqualStrings("", env.readStderr());
 
     // File exists but key is absent — still success.
-    try env.writeFile("proj/.goal/config", "commit = true\n");
+    try env.writeFile("proj/.goal/config", "other = true\n");
     try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{.editor}, .global = false });
 
     const proj_config = try env.readFile("proj/.goal/config", .{});
     defer env.alloc.free(proj_config);
-    try std.testing.expectEqualStrings("commit = true\n", proj_config);
+    try std.testing.expectEqualStrings("other = true\n", proj_config);
 
     // Calling again is still success.
     try unset_cmd.run(&env.ctx, .{ .keys = &[_]common.Key{.editor}, .global = false });
@@ -322,7 +322,7 @@ test "'parseArgs' accepts one or more keys" {
 
     // Single key, default project scope.
     {
-        const argv = [_][*:0]const u8{"commit"};
+        const argv = [_][*:0]const u8{"editor"};
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
 
@@ -332,7 +332,7 @@ test "'parseArgs' accepts one or more keys" {
         try std.testing.expect(res == .args);
         try std.testing.expect(!res.args.global);
         try std.testing.expectEqual(@as(usize, 1), res.args.keys.len);
-        try std.testing.expect(res.args.keys[0] == .commit);
+        try std.testing.expect(res.args.keys[0] == .editor);
     }
 
     // Multiple keys.

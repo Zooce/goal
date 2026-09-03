@@ -23,7 +23,7 @@ When the `goal` CLI is installed and this project is initialized for goal:
    Completing a goal does not start the next one. To switch, the user
    must request it (for example "start 118" or "start the next goal").
 6. **Do not run git commands that change the repo** unless the user asks
-   (commit, push, reset, etc.). Goal may still record its own state commits.
+   (commit, push, reset, etc.).
 
 For how to run each session, load the `goal` skill when available.
 <!-- goal-agent-rules:end -->

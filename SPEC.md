@@ -6,7 +6,7 @@
 tasks without leaving the terminal. You run a quick command, your editor opens,
 you write, you save and quit, and you're back to work. Goals are organized into
 three categories — **Later** (unvetted ideas), **Next** (committed but not
-started), and **Active** (in progress now, one per git branch) — giving you a
+started), and **Active** (in progress now, one at a time) — giving you a
 small, honest working set instead of one endless list.
 
 ## What problem does it solve?
@@ -23,9 +23,8 @@ solo developer who just wants to write something down and get back to work.
 - **Not a project management tool.** There are no boards, assignees, due dates,
   or priorities beyond the three categories. If you need those, use Basecamp or
   a similar tool.
-- **Not a team tool.** Goals are yours — scoped to your machine, your branches,
-  your workflow. If your team is coordinating work, a shared PM tool is the
-  right answer.
+- **Not a team tool.** Goals are yours — scoped to your machine, your workflow.
+  If your team is coordinating work, a shared PM tool is the right answer.
 - **Not a global task manager.** Goals are per-project, initialized with
   `goal init` in a repo. It's about what you're doing *here*, not a unified
   inbox across everything you're working on.

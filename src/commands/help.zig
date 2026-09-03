@@ -67,9 +67,6 @@ pub const help_text =
     \\    GOAL_BASE_DIR
     \\               Override the default goal storage directory (default: ~/.goal).
     \\               This allows you to store your goals in a custom location.
-    \\    GOAL_COMMIT
-    \\               Set to false to stop goal from making git commits in the
-    \\               project. See `goal help config`.
     \\
     \\Help:
     \\

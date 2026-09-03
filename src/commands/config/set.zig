@@ -26,7 +26,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    <key>      One of: base-dir, editor, commit
+    \\    <key>      One of: base-dir, editor
     \\    <value>    The value to store
     \\
     \\Options:
@@ -225,7 +225,7 @@ test "config set is surgical and does not snapshot full config" {
 
     try init_cmd.run(&env.ctx);
 
-    try env.writeFile("proj/.goal/config", "editor = vim\ncommit = true\n# keep me\n");
+    try env.writeFile("proj/.goal/config", "editor = vim\nother = true\n# keep me\n");
 
     const args: set_cmd.Args = .{ .key = .editor, .value = "emacs", .global = false };
     try set_cmd.run(&env.ctx, args);
@@ -234,7 +234,7 @@ test "config set is surgical and does not snapshot full config" {
     defer env.alloc.free(proj_config);
 
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "editor = emacs") != null);
-    try std.testing.expect(std.mem.indexOf(u8, proj_config, "commit = true") != null);
+    try std.testing.expect(std.mem.indexOf(u8, proj_config, "other = true") != null);
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "# keep me") != null);
     try std.testing.expect(std.mem.indexOf(u8, proj_config, "base-dir") == null);
 }
