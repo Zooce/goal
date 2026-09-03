@@ -23,8 +23,6 @@ pub const help_text =
     \\If no goal ID is given and stdin is a terminal, you'll select from the list
     \\of goals. Scripts and non-TTY runs must pass a goal ID (or `new`).
     \\
-    \\To put the active goal in your commit messages, run `goal install-git-hook`.
-    \\
     \\Usage:
     \\
     \\    goal start [id | new ...]

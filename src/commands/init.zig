@@ -21,8 +21,6 @@ pub const help_text =
     \\Your goals are stored under ~/.goal/. A small `.goal/` folder is also created
     \\in the project. Git is optional.
     \\
-    \\To put the active goal in your commit messages, run `goal install-git-hook`.
-    \\
     \\
     \\Usage:
     \\
@@ -118,16 +116,13 @@ test "init command" {
     defer env.alloc.free(goal_id);
     try std.testing.expectEqual(@as(usize, uuid.SLICE_LEN), goal_id.len);
 
-    // 3. Init does not install the prepare-commit-msg hook (opt-in via install-git-hook)
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
-
-    // 4. Base directory structure exists (a/, n/, l/, d/)
+    // 3. Base directory structure exists (a/, n/, l/, d/)
     try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
     try std.testing.expect(try env.pathExists(".goal/{s}/n/", .{goal_id}));
     try std.testing.expect(try env.pathExists(".goal/{s}/l/", .{goal_id}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/", .{goal_id}));
 
-    // 5. Meta file exists with correct content
+    // 4. Meta file exists with correct content
     {
         var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
         const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
@@ -139,14 +134,14 @@ test "init command" {
         try std.testing.expectEqualStrings("proj", meta.project_name);
     }
 
-    // 6. Init does not commit local .goal/ to project git
+    // 5. Init does not commit local .goal/ to project git
     {
         const commit_count = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "rev-list", "--all", "--count" }, .cwd = env.proj_path });
         defer env.alloc.free(commit_count);
         try std.testing.expectEqualStrings("0", commit_count);
     }
 
-    // 7. Init does not commit the personal store
+    // 6. Init does not commit the personal store
     {
         const commit_count = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "rev-list", "--all", "--count" }, .cwd = env.base_path });
         defer env.alloc.free(commit_count);
@@ -168,7 +163,7 @@ test "init shows already initialized message when re-run" {
 }
 
 test "goal init (non-git project directory)" {
-    // No project git: init still creates local + base goal dirs (no hook/project commit).
+    // No project git: init still creates local + base goal dirs (no project commit).
     var env = try TestEnv.init(.{ .project_git = false });
     defer env.deinit();
 
@@ -179,7 +174,6 @@ test "goal init (non-git project directory)" {
 
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // Meta uses directory basename as project name.
     {
@@ -219,7 +213,7 @@ test "goal lifecycle (non-git project directory)" {
 
 test "goal lifecycle (git not on PATH)" {
     // Soft path when the git binary is missing: core triage still works.
-    // status / commitmsg / lifecycle must not surface ProcError or leftover stderr.
+    // status / lifecycle must not surface ProcError or leftover stderr.
     var env = try TestEnv.init(.{ .no_git_path = true });
     defer env.deinit();
 
@@ -227,7 +221,6 @@ test "goal lifecycle (git not on PATH)" {
     const stop_cmd = @import("stop");
     const complete_cmd = @import("complete");
     const status_cmd = @import("status");
-    const commitmsg_cmd = @import("commitmsg");
     const deinit_cmd = @import("deinit");
 
     try std.testing.expect(!git.isAvailable(&env.ctx));
@@ -246,13 +239,6 @@ test "goal lifecycle (git not on PATH)" {
         \\Goal #1 - offline only
         \\
     , env.readStdout());
-
-    env.resetStdout();
-    try commitmsg_cmd.main(&env.ctx);
-    try std.testing.expectEqualStrings(
-        "Goal #1 - offline only\n",
-        env.readStdout(),
-    );
 
     try stop_cmd.run(&env.ctx, false);
     try start_cmd.run(&env.ctx, .{ .id = "1" });

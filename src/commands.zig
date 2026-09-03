@@ -32,8 +32,6 @@ pub const Command = enum {
     next,
     later,
 
-    commitmsg,
-    @"install-git-hook",
     @"install-skill",
 
     batman, // just for development
@@ -112,7 +110,6 @@ test "Command.fromString maps known command names" {
     try std.testing.expectEqual(Command.init, Command.fromString("init").?);
     try std.testing.expectEqual(Command.config, Command.fromString("config").?);
     try std.testing.expectEqual(Command.start, Command.fromString("start").?);
-    try std.testing.expectEqual(Command.@"install-git-hook", Command.fromString("install-git-hook").?);
     try std.testing.expectEqual(Command.@"install-skill", Command.fromString("install-skill").?);
 }
 

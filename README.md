@@ -77,14 +77,6 @@ goal status --full         # active goal body and notes
 `install-skill` writes the goal skill for coding agents. Run it again
 after upgrading `goal`.
 
-## Git is optional
-
-`goal` does not require Git. To add the active goal to your commit messages:
-
-```bash
-goal install-git-hook
-```
-
 ## Build
 
 Requires [Zig 0.16](https://ziglang.org/download/).

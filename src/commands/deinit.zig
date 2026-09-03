@@ -1,6 +1,5 @@
 const std = @import("std");
 
-const git = @import("git");
 const cli = @import("cli");
 const uuid = @import("uuid");
 const utils = @import("utils");
@@ -155,9 +154,6 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 
     // -- local delete
 
-    // Remove the prepare-commit-msg hook when a git hooks dir exists.
-    try git.deleteHook(ctx_);
-
     // NOTE:
     // We need a `std.Io.Dir` to call `deleteTree` and because we're deleting
     // the `.goal/` directory we can't have it open while we're deleting it.
@@ -188,7 +184,6 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 
 const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
-const install_git_hook_cmd = @import("install_git_hook");
 const deinit_cmd = @This();
 
 test "deinit command" {
@@ -202,10 +197,8 @@ test "deinit command" {
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
-    // Use goal init to set up the project normally, then opt-in hook install.
+    // Use goal init to set up the project normally.
     try init_cmd.run(&env.ctx);
-    try install_git_hook_cmd.run(&env.ctx);
-    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 
     // Capture goal id before deinit removes it
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -224,9 +217,6 @@ test "deinit command" {
     try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
     // sanity check - /.goal/ should still exist
     try std.testing.expect(try env.pathExists(".goal/", .{}));
-
-    // 3. Git hook is gone
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 }
 
 test "deinit fails when not initialized" {
@@ -251,9 +241,8 @@ test "deinit cancelled at local confirmation" {
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
-    // Set up using the normal init flow; install hook so we can assert it stays.
+    // Set up using the normal init flow.
     try init_cmd.run(&env.ctx);
-    try install_git_hook_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -264,7 +253,6 @@ test "deinit cancelled at local confirmation" {
 
     // Deinit should cancel and leave everything in place.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
-    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}", .{goal_id}));
 }
@@ -280,9 +268,8 @@ test "deinit cancelled at global confirmation" {
     defer env.resetStderr();
     env.ctx.stdin_is_tty = true;
 
-    // Set up using the normal init flow; install hook so we can assert it stays.
+    // Set up using the normal init flow.
     try init_cmd.run(&env.ctx);
-    try install_git_hook_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
     const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
@@ -293,7 +280,6 @@ test "deinit cancelled at global confirmation" {
 
     // Deinit should cancel before any deletion work starts.
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
-    try std.testing.expect(try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}", .{goal_id}));
 }
@@ -315,7 +301,6 @@ test "goal deinit --yes (non-TTY)" {
 
     try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
     try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
-    try std.testing.expect(!try env.pathExists("proj/.git/hooks/prepare-commit-msg", .{}));
 }
 
 test "goal deinit without --yes (non-TTY)" {

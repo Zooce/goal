@@ -88,7 +88,7 @@ pub fn build(b: *std.Build) void {
     // help/main can cross-import; cycles are fine. Each test binary only runs
     // tests from its own root module.
     const cmd_names = [_][]const u8{
-        "help", "setup", "init", "deinit", "sync", "commitmsg", "install_git_hook", "install_skill",
+        "help", "setup", "init", "deinit", "sync", "install_skill",
         "list", "status", "show", "search", "stop", "complete", "new", "note",
         "edit", "delete", "start", "next", "later", "config",
     };

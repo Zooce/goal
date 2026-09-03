@@ -166,55 +166,6 @@ pub fn logGrep(ctx_: *const Context, id_: []const u8) !void {
     });
 }
 
-/// Returns the `.git/hooks` directory path when usable git is present.
-/// Null when git is missing or cwd is not a repo. Caller frees non-null result.
-pub fn hooksPath(ctx_: *const Context) !?[]const u8 {
-    if (!isUsable(ctx_, null)) return null;
-
-    const git_root = proc.exec(ctx_, .{
-        .argv = &.{ "git", "rev-parse", "--show-toplevel" },
-        .quiet = true,
-    }) catch return null;
-    defer ctx_.alloc.free(git_root);
-    return try std.Io.Dir.path.join(ctx_.alloc, &.{ git_root, ".git", "hooks" });
-}
-
-/// Installs the `prepare-commit-msg` hook into `.git/hooks/` when in a git repo.
-/// No-op when git is unavailable (does not error).
-pub fn createHook(ctx_: *const Context) !void {
-    const hooks = try hooksPath(ctx_);
-    const path = hooks orelse return;
-    defer ctx_.alloc.free(path);
-
-    std.Io.Dir.createDirAbsolute(ctx_.io, path, .default_dir) catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
-    };
-
-    var hooks_dir = try std.Io.Dir.openDirAbsolute(ctx_.io, path, .{});
-    defer hooks_dir.close(ctx_.io);
-
-    const hook_content = @embedFile("prepare-commit-msg");
-    try hooks_dir.writeFile(ctx_.io, .{ .sub_path = "prepare-commit-msg", .data = hook_content, .flags = .{ .truncate = true } });
-
-    try hooks_dir.setFilePermissions(ctx_.io, "prepare-commit-msg", std.Io.File.Permissions.fromMode(0o755), .{});
-}
-
-/// Removes the `prepare-commit-msg` hook when present. No-op without git/repo.
-pub fn deleteHook(ctx_: *const Context) !void {
-    const hooks = try hooksPath(ctx_);
-    const path = hooks orelse return;
-    defer ctx_.alloc.free(path);
-
-    const hook_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ path, "prepare-commit-msg" });
-    defer ctx_.alloc.free(hook_path);
-
-    std.Io.Dir.deleteFileAbsolute(ctx_.io, hook_path) catch |err| switch (err) {
-        error.FileNotFound => {},
-        else => return err,
-    };
-}
-
 /// Clone `repo_` into `loc_`. Requires the git binary; errors clearly if missing.
 pub fn clone(ctx_: *const Context, repo_: []const u8, loc_: []const u8) !void {
     if (!isAvailable(ctx_)) {
