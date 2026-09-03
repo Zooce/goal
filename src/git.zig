@@ -71,51 +71,6 @@ pub fn hasChanges(ctx_: *const Context, opts_: ChangeOptions) !bool {
     return found;
 }
 
-/// Prints staged/unstaged/untracked summary. No-op when git is not usable.
-pub fn status(ctx_: *const Context) !void {
-    if (!isUsable(ctx_, null)) return;
-
-    try proc.run(ctx_, .{
-        .label = "Staged changes:",
-        .argv = &.{ "git", "diff", "--stat", "--staged", "--color" },
-    });
-    try proc.run(ctx_, .{
-        .label = "Unstaged changes:",
-        .argv = &.{ "git", "diff", "--stat", "--color" },
-    });
-    try proc.run(ctx_, .{
-        .label = "Untracked files:",
-        .argv = &.{ "git", "ls-files", "--others", "--exclude-standard" },
-        .custom_stdout_fn = splitByNewline,
-    });
-
-    // TODO: if there are no changes - tell the user
-}
-
-fn splitByNewline(ctx_: *const Context, output_: []const u8) !void {
-    try ctx_.stdout.writeAll("\n");
-    var iter = std.mem.splitAny(u8, output_, "\n");
-    while (iter.next()) |file| {
-        if (file.len == 0) continue;
-        try ctx_.stdout.print(" {s}\n", .{file});
-    }
-}
-
-/// Soft `git config user.email`. Null when git is missing, config is unset, or empty.
-/// Caller frees a non-null result.
-pub fn userEmail(ctx_: *const Context) !?[]const u8 {
-    if (!isAvailable(ctx_)) return null;
-    const email = proc.exec(ctx_, .{
-        .argv = &.{ "git", "config", "user.email" },
-        .quiet = true,
-    }) catch return null;
-    if (email.len == 0) {
-        ctx_.alloc.free(email);
-        return null;
-    }
-    return email;
-}
-
 /// Soft `git config --get core.editor`. Null when git is missing or unset.
 /// Caller frees a non-null result.
 pub fn editor(ctx_: *const Context) !?[]const u8 {
@@ -129,41 +84,6 @@ pub fn editor(ctx_: *const Context) !?[]const u8 {
         return null;
     }
     return value;
-}
-
-/// Runs `git log --all --graph --decorate --oneline --grep 'Goal #{id}' --grep '{git user email}' --all-match`
-/// showing the output in stdout. No-op when git is not usable or email is missing.
-///
-/// Example:
-/// ```zig
-/// try git.logGrep(ctx, "42");
-/// ```
-pub fn logGrep(ctx_: *const Context, id_: []const u8) !void {
-    if (!isUsable(ctx_, null)) return;
-
-    const email = try userEmail(ctx_) orelse return;
-    defer ctx_.alloc.free(email);
-
-    var tag_buffer: [16]u8 = undefined;
-    const tag_pattern = try std.fmt.bufPrint(&tag_buffer, "Goal #{s}", .{id_});
-
-    try proc.run(ctx_, .{
-        .label = "Commits:",
-        .argv = &.{
-            "git",
-            "log",
-            "--all",
-            "--graph",
-            "--decorate",
-            "--color",
-            "--oneline",
-            "--grep",
-            tag_pattern,
-            "--grep",
-            email,
-            "--all-match",
-        },
-    });
 }
 
 /// Clone `repo_` into `loc_`. Requires the git binary; errors clearly if missing.

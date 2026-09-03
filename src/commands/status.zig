@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const Context = @import("Context");
-const git = @import("git");
 
 const ActiveId = @import("ActiveId");
 const Directories = @import("Directories");
@@ -17,15 +16,11 @@ pub const help_text =
     \\The `status` Command
     \\
     \\
-    \\Shows the status of your active goal.
+    \\Shows the active goal.
     \\
-    \\Always prints the active goal tag (or a nudge when none is active). When Git
-    \\is available in this project, also lists matching commits and a short work
-    \\tree status. Git is not required for the rest of the output.
-    \\
-    \\Notes on the active goal are listed by id and title. With `--full`, also prints
-    \\the active goal file contents and full note bodies at the end - useful for
-    \\AI agents and scripts that need the full goal details programmatically.
+    \\Prints the active goal tag (or a nudge when none is active). Notes on the
+    \\active goal are listed by id and title. With `--full`, also prints the
+    \\active goal file and full note bodies.
     \\
     \\
     \\Usage:
@@ -34,7 +29,7 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --full    Print the active goal file contents after the status output.
+    \\    --full    Print the active goal file and full note bodies.
     \\
     \\Help:
     \\
@@ -97,9 +92,6 @@ pub fn run(ctx_: *const Context, full_: bool) !void {
 
         try goal.tag(ctx_.stdout);
 
-        try git.logGrep(ctx_, goal.id);
-        try git.status(ctx_);
-
         if (full_) {
             const contents = try dirs.active.dir.readFileAllocOptions(
                 ctx_.io,
@@ -134,10 +126,8 @@ pub fn run(ctx_: *const Context, full_: bool) !void {
             }
         }
     } else {
-        const count = try dirs.next.list(ctx_);
-
         try ctx_.stdout.writeAll("\nYou're not working on a goal right now");
-        if (count > 0) {
+        if (!try dirs.next.isEmpty(ctx_)) {
             try ctx_.stdout.writeAll(", so why not pick from the Next list?\n");
         } else {
             try ctx_.stdout.writeAll(". Run `goal list --later` for inspiration!\n");
@@ -162,22 +152,30 @@ test "status with no active goal" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
+    env.resetStdout();
 
-    // No goals at all → later-list nudge
+    // No goals at all -> later-list nudge
     try status_cmd.run(&env.ctx, false);
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "not working on a goal") != null);
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "goal list --later") != null);
+    try std.testing.expectEqualStrings(
+        \\
+        \\You're not working on a goal right now. Run `goal list --later` for inspiration!
+        \\
+    , env.readStdout());
 
     env.resetStdout();
 
-    // Create a goal and promote to Next → next-list nudge
+    // Create a goal and promote to Next -> next-list nudge
     const filename = try new_cmd.run(&env.ctx, .{ .content = "something later" });
     defer env.alloc.free(filename);
     try next_cmd.run(&env.ctx, &.{filename});
+    env.resetStdout();
 
     try status_cmd.run(&env.ctx, false);
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "not working on a goal") != null);
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "Next list") != null);
+    try std.testing.expectEqualStrings(
+        \\
+        \\You're not working on a goal right now, so why not pick from the Next list?
+        \\
+    , env.readStdout());
 }
 
 test "status --full prints active goal file contents at the end" {
@@ -207,24 +205,29 @@ test "status --full prints active goal file contents at the end" {
     try start_cmd.run(&env.ctx, .{ .id = filename });
     env.resetStdout();
 
-    // Without --full: tag is present, file body is not dumped
+    // Without --full: tag only, no file body
     try status_cmd.run(&env.ctx, false);
-    const without_full = env.readStdout();
-    try std.testing.expect(std.mem.indexOf(u8, without_full, "Goal #1 - ship the feature") != null);
-    try std.testing.expect(std.mem.indexOf(u8, without_full, "Details for the agent:") == null);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - ship the feature
+        \\
+    , env.readStdout());
 
     env.resetStdout();
 
-    // With --full: raw goal file contents appear after normal status output
+    // With --full: raw goal file contents after the tag
     try status_cmd.run(&env.ctx, true);
-    const with_full = env.readStdout();
-    try std.testing.expect(std.mem.indexOf(u8, with_full, "Goal #1 - ship the feature") != null);
-    try std.testing.expect(std.mem.indexOf(u8, with_full, file_contents) != null);
-
-    // File contents come after the tag line
-    const tag_pos = std.mem.indexOf(u8, with_full, "Goal #1 - ship the feature").?;
-    const body_pos = std.mem.indexOf(u8, with_full, "Details for the agent:").?;
-    try std.testing.expect(body_pos > tag_pos);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 - ship the feature
+        \\
+        \\ship the feature
+        \\
+        \\Details for the agent:
+        \\- do the thing
+        \\- then the other thing
+        \\
+    , env.readStdout());
 }
 
 test "parseArgs accepts --full once" {
@@ -269,8 +272,7 @@ test "parseArgs rejects duplicate --full and unknown args" {
 }
 
 test "status lists note titles; --full includes note bodies" {
-    // No project git so work-tree extras do not mix into the notes output.
-    var env = try TestEnv.init(.{ .project_git = false });
+    var env = try TestEnv.init(.{});
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
@@ -310,26 +312,6 @@ test "status lists note titles; --full includes note bodies" {
         \\
         \\  Note #1 - agent update
         \\  found related code
-        \\
-    , env.readStdout());
-}
-
-test "goal status (non-git project, active goal)" {
-    // Without project git, status still shows the active goal tag and notes.
-    // logGrep / status are soft no-ops (no ProcError).
-    var env = try TestEnv.init(.{ .project_git = false });
-    defer env.deinit();
-
-    try init_cmd.run(&env.ctx);
-    const id = try new_cmd.run(&env.ctx, .{ .content = "offline work" });
-    defer env.alloc.free(id);
-    try start_cmd.run(&env.ctx, .{ .id = id });
-
-    env.resetStdout();
-    try status_cmd.run(&env.ctx, false);
-    try std.testing.expectEqualStrings(
-        \\
-        \\Goal #1 - offline work
         \\
     , env.readStdout());
 }
