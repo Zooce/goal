@@ -7,7 +7,6 @@ const help_cmd = @import("help");
 const setup_cmd = @import("setup");
 const init_cmd = @import("init");
 const deinit_cmd = @import("deinit");
-const sync_cmd = @import("sync");
 const list_cmd = @import("list");
 const status_cmd = @import("status");
 const show_cmd = @import("show");
@@ -93,7 +92,6 @@ fn processCommand(ctx_: *const Context, cmd_: Command, iter_: *args.ArgIter) !vo
         .setup => try setup_cmd.main(ctx_, iter_),
         .init => try init_cmd.main(ctx_, iter_),
         .deinit => try deinit_cmd.main(ctx_, iter_),
-        .sync => try sync_cmd.main(ctx_, iter_),
         .list => try list_cmd.main(ctx_, iter_),
         .status => try status_cmd.main(ctx_, iter_),
         .show => try show_cmd.main(ctx_, iter_),

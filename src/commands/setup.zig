@@ -2,8 +2,6 @@ const std = @import("std");
 
 const Context = @import("Context");
 const cli = @import("cli");
-const git = @import("git");
-const proc = @import("proc");
 
 const Command = @import("commands").Command;
 const Config = @import("Config");
@@ -19,9 +17,6 @@ pub const help_text =
     \\
     \\Sets up `goal` on your system by creating the base directory
     \\(default: ~/.goal/), where your goals are stored.
-    \\
-    \\You can optionally clone an existing goal directory or turn it into a git
-    \\repo. Git is not required either way.
     \\
     \\On a terminal, setup asks for your editor. Change it later with `goal config`.
     \\
@@ -83,26 +78,10 @@ pub fn run(ctx_: *const Context) !void {
         return;
     }
 
-    // Optional: clone an existing personal store, else create the directory.
-    if (try cli.getAnswer(ctx_, "\nGot an existing .goal repo? (path or empty)", .{})) |repo| {
-        defer ctx_.alloc.free(repo);
-        try git.clone(ctx_, repo, config.base_dir);
-    } else {
-        std.Io.Dir.createDirAbsolute(ctx_.io, config.base_dir, .default_dir) catch |err| switch (err) {
-            error.PathAlreadyExists => {},
-            else => return err,
-        };
-
-        // Optional git init of the personal store (default: no).
-        if (try cli.confirm(ctx_, "\nInitialize as a git repository?", .{}, false)) {
-            if (git.isAvailable(ctx_)) {
-                try proc.run(ctx_, .{ .argv = &.{ "git", "init", "-q" }, .cwd = config.base_dir });
-                try ctx_.stdout.writeAll("\nWhen you have a remote ready run `goal config`.\n");
-            } else {
-                try ctx_.stderr.writeAll("\ngit is not available; skipped git init.\n");
-            }
-        }
-    }
+    std.Io.Dir.createDirAbsolute(ctx_.io, config.base_dir, .default_dir) catch |err| switch (err) {
+        error.PathAlreadyExists => {},
+        else => return err,
+    };
 
     // TTY only: editor is written when given.
     if (ctx_.stdin_is_tty) {
@@ -131,14 +110,10 @@ test "goal setup (already setup)" {
     try std.testing.expectEqualStrings("\nYou're already setup to use `goal`. Enjoy!\n", env.readStdout());
 }
 
-test "goal setup (no git: create base dir only)" {
-    // Decline clone and decline git init: base dir exists, not a git repo.
-    var env = try TestEnv.init(.{ .stdin_calls = &.{
-        .{ .buffer = "\n" }, // no clone path
-        .{ .buffer = "\n" }, // decline git init
-    } });
+test "goal setup (creates base dir)" {
+    // Missing base dir: setup creates it and does not git init.
+    var env = try TestEnv.init(.{});
     defer env.deinit();
-    defer env.resetStderr();
 
     try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
     try setup_cmd.run(&env.ctx);
@@ -149,80 +124,20 @@ test "goal setup (no git: create base dir only)" {
     try std.testing.expectEqualStrings("\nYou're all set up to use `goal`!\n", env.readStdout());
 }
 
-test "goal setup (git init personal store)" {
-    // Decline clone, accept git init.
-    var env = try TestEnv.init(.{ .stdin_calls = &.{
-        .{ .buffer = "\n" }, // no clone path
-        .{ .buffer = "y\n" }, // git init
-    } });
-    defer env.deinit();
-    defer env.resetStderr();
-
-    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
-    try setup_cmd.run(&env.ctx);
-
-    try std.testing.expect(try env.pathExists(".goal/", .{}));
-    try std.testing.expect(try env.pathExists(".goal/.git/", .{}));
-    try std.testing.expectEqualStrings(
-        \\
-        \\When you have a remote ready run `goal config`.
-        \\
-        \\You're all set up to use `goal`!
-        \\
-    , env.readStdout());
-}
-
-test "goal setup (clone existing store)" {
+test "goal setup (existing .git left alone)" {
+    // Already-setup store that is a git repo: setup does not delete .git.
     var env = try TestEnv.init(.{});
     defer env.deinit();
-    defer env.resetStderr();
 
-    // Build a cloneable source store under the temp tree.
-    const source_path = try std.Io.Dir.path.join(env.alloc, &.{ env.tmp_path, "source-goal" });
-    defer env.alloc.free(source_path);
-    try std.Io.Dir.createDirAbsolute(env.io, source_path, .default_dir);
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "init" }, .cwd = source_path });
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "config", "user.email", "test@example.com" }, .cwd = source_path });
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "config", "user.name", "test" }, .cwd = source_path });
-    try env.writeFile("source-goal/marker", "from-clone\n");
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "add", "marker" }, .cwd = source_path });
-    try proc.run(&env.ctx, .{ .argv = &.{ "git", "commit", "-m", "add marker" }, .cwd = source_path });
-
-    try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
-    env.resetStdout(); // drop seed git noise before asserting setup output
-
-    // Feed the clone path on stdin (rebind after building the path).
-    const path_line = try std.fmt.allocPrint(env.alloc, "{s}\n", .{source_path});
-    defer env.alloc.free(path_line);
-    env._state.stdin_reader = std.testing.Reader.init(&env._state.stdin_buffer, &.{
-        .{ .buffer = path_line },
-    });
-    env.ctx.stdin = &env._state.stdin_reader.interface;
-
+    try std.testing.expect(try env.pathExists(".goal/.git/", .{}));
     try setup_cmd.run(&env.ctx);
-
-    try std.testing.expect(try env.pathExists(".goal/", .{}));
-    try std.testing.expect(try env.pathExists(".goal/marker", .{}));
-    const marker = try env.readFile(".goal/marker", .{});
-    defer env.alloc.free(marker);
-    try std.testing.expectEqualStrings("from-clone\n", marker);
-
-    const expected = try std.fmt.allocPrint(env.alloc,
-        \\
-        \\Cloning: {s} into {s}
-        \\
-        \\You're all set up to use `goal`!
-        \\
-    , .{ source_path, env.base_path });
-    defer env.alloc.free(expected);
-    try std.testing.expectEqualStrings(expected, env.readStdout());
+    try std.testing.expect(try env.pathExists(".goal/.git/", .{}));
+    try std.testing.expectEqualStrings("\nYou're already setup to use `goal`. Enjoy!\n", env.readStdout());
 }
 
 test "goal setup (TTY: writes editor)" {
     // On a terminal, a given editor is stored in the global config file.
     var env = try TestEnv.init(.{ .stdin_calls = &.{
-        .{ .buffer = "\n" }, // no clone path
-        .{ .buffer = "\n" }, // decline git init
         .{ .buffer = "nvim\n" },
     } });
     defer env.deinit();
@@ -242,9 +157,7 @@ test "goal setup (TTY: writes editor)" {
 test "goal setup (TTY: empty editor writes no config)" {
     // Empty editor keeps the detected default (not written).
     var env = try TestEnv.init(.{ .stdin_calls = &.{
-        .{ .buffer = "\n" }, // no clone path
-        .{ .buffer = "\n" }, // decline git init
-        .{ .buffer = "\n" }, // editor default
+        .{ .buffer = "\n" },
     } });
     defer env.deinit();
     defer env.resetStderr();

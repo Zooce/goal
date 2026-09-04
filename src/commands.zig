@@ -13,7 +13,6 @@ pub const Command = enum {
     setup,
     init,
     deinit,
-    sync,
 
     list,
     status,

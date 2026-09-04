@@ -38,7 +38,7 @@ pub fn build(b: *std.Build) void {
     const proc = namedModule(b, target, optimize, "proc", "src/proc.zig", &.{context.import});
     const cli = namedModule(b, target, optimize, "cli", "src/cli.zig", &.{context.import});
     // git is a leaf: process helpers only. Config / config_common depend on git
-    // (editor, isUsable); git never depends on them -- no import cycle.
+    // (editor); git never depends on them -- no import cycle.
     const git = namedModule(b, target, optimize, "git", "src/git.zig", &.{
         context.import, proc.import,
     });
@@ -88,7 +88,7 @@ pub fn build(b: *std.Build) void {
     // help/main can cross-import; cycles are fine. Each test binary only runs
     // tests from its own root module.
     const cmd_names = [_][]const u8{
-        "help", "setup", "init", "deinit", "sync", "install_skill",
+        "help", "setup", "init", "deinit", "install_skill",
         "list", "status", "show", "search", "stop", "complete", "new", "note",
         "edit", "delete", "start", "next", "later", "config",
     };
