@@ -2,7 +2,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const Context = @import("Context");
-const git = @import("git");
 
 const Config = @This();
 
@@ -206,10 +205,7 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
         ctx_.alloc.free(editor);
     }
 
-    // Priority 2: Git core.editor setting
-    if (try git.editor(ctx_)) |e| return e;
-
-    // Priority 3: EDITOR/VISUAL environment variables
+    // Priority 2: EDITOR/VISUAL environment variables
     if (try optionalEnvVarOwned(ctx_, "EDITOR")) |editor| {
         if (editor.len > 0) return editor;
         ctx_.alloc.free(editor);
@@ -220,7 +216,7 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
         ctx_.alloc.free(editor);
     }
 
-    // Priority 4: Fallback to common editors
+    // Priority 3: Fallback to common editors
     const common_editors = [_][]const u8{ "helix", "nvim", "vim", "nano", "code" };
     for (common_editors) |editor| {
         if (isEditorAvailable(ctx_, editor)) {

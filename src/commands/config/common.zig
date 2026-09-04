@@ -3,7 +3,6 @@ const builtin = @import("builtin");
 
 const Context = @import("Context");
 const utils = @import("utils");
-const git = @import("git");
 
 pub const Key = enum {
     base_dir,
@@ -133,8 +132,6 @@ pub fn getDefaultValue(ctx_: *const Context, key_: Key) ![]const u8 {
 }
 
 fn defaultEditor(ctx_: *const Context) ![]const u8 {
-    if (try git.editor(ctx_)) |e| return e;
-
     if (ctx_.environ_map.get("EDITOR")) |editor| {
         if (editor.len > 0) return try ctx_.alloc.dupe(u8, editor);
     }

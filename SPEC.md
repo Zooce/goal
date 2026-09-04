@@ -26,5 +26,5 @@ solo developer who just wants to write something down and get back to work.
 - **Not a team tool.** Goals are yours — scoped to your machine, your workflow.
   If your team is coordinating work, a shared PM tool is the right answer.
 - **Not a global task manager.** Goals are per-project, initialized with
-  `goal init` in a repo. It's about what you're doing *here*, not a unified
+  `goal init`. It's about what you're doing *here*, not a unified
   inbox across everything you're working on.

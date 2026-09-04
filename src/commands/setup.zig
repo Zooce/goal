@@ -111,7 +111,7 @@ test "goal setup (already setup)" {
 }
 
 test "goal setup (creates base dir)" {
-    // Missing base dir: setup creates it and does not git init.
+    // Missing base dir: setup creates it and does not add a .git directory.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -125,11 +125,11 @@ test "goal setup (creates base dir)" {
 }
 
 test "goal setup (existing .git left alone)" {
-    // Already-setup store that is a git repo: setup does not delete .git.
+    // Already-setup store that happens to contain .git: setup does not delete it.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
-    try std.testing.expect(try env.pathExists(".goal/.git/", .{}));
+    try env.writeFile(".goal/.git/HEAD", "");
     try setup_cmd.run(&env.ctx);
     try std.testing.expect(try env.pathExists(".goal/.git/", .{}));
     try std.testing.expectEqualStrings("\nYou're already setup to use `goal`. Enjoy!\n", env.readStdout());

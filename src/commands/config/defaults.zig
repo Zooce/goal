@@ -92,7 +92,7 @@ test "'run' shows only built-in defaults" {
     try env.writeFile("proj/.goal/config", "editor=emacs\n");
     try env.setEnv("GOAL_EDITOR", "from-env-layer");
 
-    // Editor default is host-dependent (git/EDITOR/which); resolve it the same way run does.
+    // Editor default is host-dependent (EDITOR/VISUAL/which); resolve it the same way run does.
     const default_editor = try common.getDefaultValue(&env.ctx, .editor);
     defer env.alloc.free(default_editor);
     try std.testing.expect(!std.mem.eql(u8, default_editor, "from-env-layer"));

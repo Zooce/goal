@@ -1,40 +1,23 @@
-//! Project root discovery without requiring git.
+//! Project root discovery.
 //!
 //! Fallback order:
-//! 1. Soft `git rev-parse --show-toplevel` when that works (honors Context.cwd)
-//! 2. Walk up for project/.goal/.goal_id (initialized project)
-//! 3. Walk up for a `.git` entry (repo root without calling git)
-//! 4. Absolute cwd
+//! 1. Walk up for project/.goal/.goal_id (initialized project)
+//! 2. Walk up for a `.git` entry (repo root without calling git)
+//! 3. Absolute cwd
 //!
-//! When Context.cwd is set (tests), steps 2-3 never walk above that path so a
-//! temp project under a parent git checkout cannot pick the outer repo.
+//! When Context.cwd is set (tests), the walk never goes above that path so a
+//! temp project under a parent checkout cannot pick the outer repo.
 //!
-//! Step 2 requires `.goal_id` so the personal store (`~/.goal/`) is not
+//! Step 1 requires `.goal_id` so the personal store (`~/.goal/`) is not
 //! mistaken for a project-local `.goal/` directory.
 const std = @import("std");
 
 const Context = @import("Context");
-const proc = @import("proc");
 
 /// Absolute path of the project root. Caller frees the returned string.
 pub fn findRoot(ctx_: *const Context) ![]const u8 {
     const start = try absoluteCwd(ctx_);
     defer ctx_.alloc.free(start);
-
-    // Tests set Context.cwd as an isolation boundary. Skip rev-parse there: a
-    // temp tree nested under another git checkout would resolve to the outer
-    // repo. Use filesystem markers under the ceiling instead.
-    //
-    // Production (cwd unset): prefer soft rev-parse so subdirs resolve to the
-    // real git root when git is available.
-    if (ctx_.cwd == null) {
-        if (proc.exec(ctx_, .{
-            .argv = &.{ "git", "rev-parse", "--show-toplevel" },
-            .quiet = true,
-        })) |root| {
-            return root;
-        } else |_| {}
-    }
 
     const ceiling: ?[]const u8 = if (ctx_.cwd != null) start else null;
 

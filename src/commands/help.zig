@@ -29,8 +29,6 @@ pub const help_text =
     \\`goal` is a simple CLI to help you keep track of your goals, while focusing on
     \\one at a time.
     \\
-    \\Although not required, `goal` caters to projects tracked with Git.
-    \\
     \\
     \\Usage:
     \\

@@ -5,7 +5,7 @@
 #
 # What this script does:
 #   1) Creates a temp workspace under .testing/
-#   2) Creates isolated local + global git repos for goal
+#   2) Creates an isolated temp workspace for goal
 #   3) Bootstraps with `goal init` (unless testing `goal init` itself)
 #   4) Runs the command(s) you pass in
 #   5) Prints all output and exit codes
@@ -166,15 +166,6 @@ echo
 echo "== binary =="
 echo "$goal_bin"
 echo
-
-# Initialize isolated git repos
-git -C "$base_root/.goal" init >/dev/null
-git -C "$base_root/.goal" config user.email test@example.com
-git -C "$base_root/.goal" config user.name test
-
-git -C "$repo_dir" init >/dev/null
-git -C "$repo_dir" config user.email test@example.com
-git -C "$repo_dir" config user.name test
 
 # Isolate goal environment
 export GOAL_BASE_DIR="$base_root"

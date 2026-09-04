@@ -19,7 +19,7 @@ pub const help_text =
     \\Initializes `goal` in your project.
     \\
     \\Your goals are stored under ~/.goal/. A small `.goal/` folder is also created
-    \\in the project. Git is optional.
+    \\in the project.
     \\
     \\
     \\Usage:
@@ -96,8 +96,6 @@ pub fn run(ctx_: *const Context) !void {
 // ---------------------------------------------------------------------------
 
 const TestEnv = @import("TestEnv");
-const git = @import("git");
-const proc = @import("proc");
 const uuid = @import("uuid");
 const init_cmd = @This();
 
@@ -133,20 +131,6 @@ test "init command" {
         try std.testing.expectEqual(@as(u8, 1), meta.next_id);
         try std.testing.expectEqualStrings("proj", meta.project_name);
     }
-
-    // 5. Init does not commit local .goal/ to project git
-    {
-        const commit_count = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "rev-list", "--all", "--count" }, .cwd = env.proj_path });
-        defer env.alloc.free(commit_count);
-        try std.testing.expectEqualStrings("0", commit_count);
-    }
-
-    // 6. Init does not commit the personal store
-    {
-        const commit_count = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "rev-list", "--all", "--count" }, .cwd = env.base_path });
-        defer env.alloc.free(commit_count);
-        try std.testing.expectEqualStrings("0", commit_count);
-    }
 }
 
 test "init shows already initialized message when re-run" {
@@ -160,93 +144,6 @@ test "init shows already initialized message when re-run" {
     env.resetStdout();
     try init_cmd.run(&env.ctx);
     try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "already initialized") != null);
-}
-
-test "goal init (non-git project directory)" {
-    // No project git: init still creates local + base goal dirs (no project commit).
-    var env = try TestEnv.init(.{ .project_git = false });
-    defer env.deinit();
-
-    try init_cmd.run(&env.ctx);
-
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
-    defer env.alloc.free(goal_id);
-
-    try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
-    try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
-
-    // Meta uses directory basename as project name.
-    {
-        var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
-        defer base_dir.close(env.io);
-        var meta = try Meta.load(&env.ctx, base_dir);
-        defer meta.deinit();
-        try std.testing.expectEqualStrings("proj", meta.project_name);
-    }
-}
-
-test "goal lifecycle (non-git project directory)" {
-    // Full core path without project git: init, new, start, stop, complete, deinit.
-    var env = try TestEnv.init(.{ .project_git = false });
-    defer env.deinit();
-
-    const start_cmd = @import("start");
-    const stop_cmd = @import("stop");
-    const complete_cmd = @import("complete");
-    const deinit_cmd = @import("deinit");
-
-    try init_cmd.run(&env.ctx);
-
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
-    defer env.alloc.free(goal_id);
-
-    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "no git goal" } });
-    try stop_cmd.run(&env.ctx, false);
-    try start_cmd.run(&env.ctx, .{ .id = "1" });
-    try complete_cmd.run(&env.ctx, .{ .yes = true });
-
-    try deinit_cmd.run(&env.ctx, .{ .yes = true });
-    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
-    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
-}
-
-test "goal lifecycle (git not on PATH)" {
-    // Soft path when the git binary is missing: core triage still works.
-    // status / lifecycle must not surface ProcError or leftover stderr.
-    var env = try TestEnv.init(.{ .no_git_path = true });
-    defer env.deinit();
-
-    const start_cmd = @import("start");
-    const stop_cmd = @import("stop");
-    const complete_cmd = @import("complete");
-    const status_cmd = @import("status");
-    const deinit_cmd = @import("deinit");
-
-    try std.testing.expect(!git.isAvailable(&env.ctx));
-
-    try init_cmd.run(&env.ctx);
-
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
-    defer env.alloc.free(goal_id);
-
-    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "offline only" } });
-
-    env.resetStdout();
-    try status_cmd.run(&env.ctx, false);
-    try std.testing.expectEqualStrings(
-        \\
-        \\Goal #1 - offline only
-        \\
-    , env.readStdout());
-
-    try stop_cmd.run(&env.ctx, false);
-    try start_cmd.run(&env.ctx, .{ .id = "1" });
-    try complete_cmd.run(&env.ctx, .{ .yes = true });
-
-    try deinit_cmd.run(&env.ctx, .{ .yes = true });
-    try std.testing.expect(!try env.pathExists("proj/.goal/", .{}));
-    try std.testing.expect(!try env.pathExists(".goal/{s}", .{goal_id}));
 }
 
 test "init with custom project name" {

@@ -187,7 +187,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
         return err;
     };
 
-    // Set active goal in current repo
+    // Set active goal in the current project
     try ActiveId.store(ctx_, dirs.local.dir, goal.id);
     // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 

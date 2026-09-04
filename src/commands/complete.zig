@@ -22,8 +22,7 @@ pub const help_text =
     \\This also deletes the goal.
     \\
     \\Complete only finishes the goal (clears the active id and moves the goal
-    \\to deleted). It does not inspect or commit staged/unstaged project work -
-    \\handle that with git yourself before or after.
+    \\to deleted). It does not inspect or change your project files.
     \\
     \\On a TTY, complete asks for a final confirm. Pass --yes to skip it.
     \\Non-TTY runs require --yes so scripts never hang on a prompt.
@@ -123,7 +122,6 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
 // ---------------------------------------------------------------------------
 
 const TestEnv = @import("TestEnv");
-const proc = @import("proc");
 const init_cmd = @import("init");
 const start_cmd = @import("start");
 const complete_cmd = @This();
@@ -168,8 +166,8 @@ test "goal complete --yes (non-TTY)" {
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
 }
 
-test "goal complete leaves staged project files alone" {
-    // Complete does not commit or unstage the user's project work.
+test "goal complete leaves project files alone" {
+    // Complete only touches goal state, not the user's project files.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -180,20 +178,12 @@ test "goal complete leaves staged project files alone" {
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
 
     try env.writeFile("proj/file.txt", "a new file");
-    try proc.run(&env.ctx, .{
-        .argv = &.{ "git", "add", "file.txt" },
-    });
 
     try complete_cmd.run(&env.ctx, .{ .yes = true });
 
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
     try std.testing.expect(try env.pathExists("proj/file.txt", .{}));
-
-    // Project file remains staged; complete only touches goal state.
-    const staged = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "diff", "--name-only", "--staged" } });
-    defer env.alloc.free(staged);
-    try std.testing.expect(std.mem.indexOf(u8, staged, "file.txt") != null);
 }
 
 test "goal complete without --yes (non-TTY)" {

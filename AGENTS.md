@@ -46,7 +46,7 @@ Prefer plain language in help text, comments, and tests: **goal ID**, **active g
 
 Use plain ASCII in source, help text, comments, and tests. No special Unicode characters (ellipsis, fancy dashes, smart quotes, arrows, and so on). Write `...`, `-` / `--`, and straight quotes instead.
 
-**Capitalized Zig files are types, not helper namespaces.** Files like `Goal.zig`, `Note.zig`, `Directories.zig`, `ActiveId.zig` define an object-like type (`const X = @This();` plus fields/methods). Do not bolt free-function bags onto those types, and do not use a capitalized filename as a helpers-only module (e.g. a `Notes.zig` that only exports `nextId` / `list`). Free functions and domain helpers go under lowercase modules (`utils.zig`, `cli.zig`, `git.zig`).
+**Capitalized Zig files are types, not helper namespaces.** Files like `Goal.zig`, `Note.zig`, `Directories.zig`, `ActiveId.zig` define an object-like type (`const X = @This();` plus fields/methods). Do not bolt free-function bags onto those types, and do not use a capitalized filename as a helpers-only module (e.g. a `Notes.zig` that only exports `nextId` / `list`). Free functions and domain helpers go under lowercase modules (`utils.zig`, `cli.zig`).
 
 **Narrow module roles.** Entity types (`Goal`, `Note`) load and print one item. `Directories` owns on-disk layout and opens dirs; parameterized or optional paths (e.g. `notes/<goal_id>/`) open lazily via a method that returns `Dir`, not as fields of `Directories.open`. Commands own create/mutate workflows (allocate id, write or editor, validate, UX) - do not put "create" on a collection type. Domain free helpers that are not methods live under `utils/`.
 
@@ -91,7 +91,7 @@ Same pattern for other modules: `const show_cmd = @This();`, `const new_cmd = @T
 
 When creating a test, always comment on each section of the test that tests something interesting.
 
-**Prefer full-string output asserts.** When checking stdout or stderr, use `expectEqualStrings` (or equal) against the entire expected buffer. Do not probe with `indexOf`, `startsWith`, or other partial matches unless the full string is genuinely unbounded or non-deterministic (timestamps, paths with temp dirs, git log noise). Full strings catch spacing, ordering, and missing/extra lines.
+**Prefer full-string output asserts.** When checking stdout or stderr, use `expectEqualStrings` (or equal) against the entire expected buffer. Do not probe with `indexOf`, `startsWith`, or other partial matches unless the full string is genuinely unbounded or non-deterministic (timestamps, paths with temp dirs). Full strings catch spacing, ordering, and missing/extra lines.
 
 **No leftover stderr.** `TestEnv.deinit` panics if the stderr buffer is non-empty. After any intentional stderr (error messages, TTY prompts from `confirm` / `getAnswer`), call `env.resetStderr()`. Do not leave expected stderr for deinit to “show later” - there is no dump-on-success path.
 

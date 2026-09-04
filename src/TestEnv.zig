@@ -4,7 +4,6 @@ const std = @import("std");
 const builtin = @import("builtin");
 
 const Context = @import("Context");
-const proc = @import("proc");
 
 /// Holds state that must be heap-allocated so Context's pointer fields
 /// (environ_map, stdout, stderr, stdin) reference stable addresses after
@@ -53,40 +52,25 @@ _path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined,
 pub const Options = struct {
     /// Mock stdin prompts for interactive commands.
     stdin_calls: []const std.testing.Reader.Call = &.{},
-    /// Git-init the simulated project root (`proj/`). Default true.
-    /// Set false for non-git project tests.
-    project_git: bool = true,
-    /// Simulate "git not installed": sets `Context.git_off`, skips all TestEnv
-    /// git init, and points the child environ PATH at an empty bin dir.
-    ///
-    /// Note: Zig resolves argv[0] from the *parent* PATH, so child PATH alone
-    /// cannot hide `git`. Soft helpers honor `git_off` via `git.isAvailable`.
-    /// This seam is temporary while goal spawns the git CLI; libgit2 will use a
-    /// real "backend unavailable" check instead.
-    no_git_path: bool = false,
 };
 
 /// Create an isolated test environment.
 ///
 /// Sets up a temporary directory tree under the system temp dir (TMPDIR or
-/// /tmp), not under .zig-cache inside the project. Nested checkouts would
-/// otherwise make git treat the outer repo as the project root.
+/// /tmp), not under .zig-cache inside the project. Nested trees would
+/// otherwise pick the outer repo as the project root.
 ///
 /// Layout:
-///   - `.goal/`   - simulated global config directory (git-initialized unless
-///                 `no_git_path`)
+///   - `.goal/`   - simulated global config directory
 ///   - `xdg/`     - simulated `$XDG_CONFIG_HOME`
 ///   - `proj/`    - simulated project root, also the CWD
-///                 (git-initialized when `opts_.project_git` is true and not
-///                 `no_git_path`)
 ///
 /// Captures stdout/stderr into fixed buffers so tests can inspect output.
 /// Configures a mock stdin reader from `opts_.stdin_calls` for testing prompts.
 /// Pre-populates environment variables so commands behave as if run in a
 /// real goal workspace.
 ///
-/// The returned `ctx` field is immediately usable with `proc.exec`,
-/// `proc.run`, and command implementations.
+/// The returned `ctx` field is immediately usable with command implementations.
 ///
 /// Caller must call `deinit()` when done.
 pub fn init(opts_: Options) !TestEnv {
@@ -135,15 +119,7 @@ pub fn init(opts_: Options) !TestEnv {
     try state.environ_map.put("GOAL_BASE_DIR", tmp_path);
     try state.environ_map.put("XDG_CONFIG_HOME", xdg_path);
 
-    // Soft "no git" seam: empty child PATH + Context.git_off (see Options).
-    if (opts_.no_git_path) {
-        const empty_bin = try std.Io.Dir.path.join(alloc, &.{ tmp_path, "no-git-bin" });
-        defer alloc.free(empty_bin);
-        try ensureDir(io, empty_bin);
-        try state.environ_map.put("PATH", empty_bin);
-    }
-
-    var ctx: Context = .{
+    const ctx: Context = .{
         .alloc = alloc,
         .io = io,
         .environ_map = &state.environ_map,
@@ -151,15 +127,7 @@ pub fn init(opts_: Options) !TestEnv {
         .stderr = &state.stderr_writer,
         .stdin = &state.stdin_reader.interface,
         .cwd = proj_path,
-        .git_off = opts_.no_git_path,
     };
-
-    if (!opts_.no_git_path) {
-        try initGitRepo(&ctx, base_path);
-        if (opts_.project_git) {
-            try initGitRepo(&ctx, proj_path);
-        }
-    }
 
     return .{
         .alloc = alloc,
@@ -330,21 +298,6 @@ fn createSystemTmpPath(alloc_: std.mem.Allocator, io_: std.Io) ![]u8 {
     return path;
 }
 
-fn initGitRepo(ctx_: *Context, cwd_: []const u8) !void {
-    const cmds = [_]struct {
-        argv: []const []const u8,
-    }{
-        .{ .argv = &.{ "git", "init" } },
-        .{ .argv = &.{ "git", "config", "user.email", "test@example.com" } },
-        .{ .argv = &.{ "git", "config", "user.name", "test" } },
-    };
-
-    for (cmds) |cmd| {
-        const out = try proc.exec(ctx_, .{ .argv = cmd.argv, .cwd = cwd_ });
-        ctx_.alloc.free(out);
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -353,7 +306,7 @@ test "TestEnv.init creates isolated workspace" {
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
-    // Lives under system temp, not project .zig-cache (avoids nested git).
+    // Lives under system temp, not project .zig-cache (avoids nested checkouts).
     try std.testing.expect(std.mem.indexOf(u8, env.tmp_path, ".zig-cache") == null);
 
     // verify test dirs were created
@@ -361,36 +314,9 @@ test "TestEnv.init creates isolated workspace" {
     try std.testing.expect(try env.pathExists("xdg/", .{}));
     try std.testing.expect(try env.pathExists("proj/", .{}));
 
-    // verify git was initialized
-    var email = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.email" }, .cwd = env.base_path });
-    try std.testing.expectEqualStrings("test@example.com", email);
-    env.alloc.free(email);
-
-    var user = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.name" }, .cwd = env.base_path });
-    try std.testing.expectEqualStrings("test", user);
-    env.alloc.free(user);
-
-    email = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.email" } });
-    try std.testing.expectEqualStrings("test@example.com", email);
-    env.alloc.free(email);
-
-    user = try proc.exec(&env.ctx, .{ .argv = &.{ "git", "config", "user.name" } });
-    try std.testing.expectEqualStrings("test", user);
-    env.alloc.free(user);
-
     // verify environment variables
     try std.testing.expectEqualStrings(env.tmp_path, env.ctx.environ_map.get("GOAL_BASE_DIR").?);
     try std.testing.expectEqualStrings(env.xdg_path, env.ctx.environ_map.get("XDG_CONFIG_HOME").?);
-}
-
-test "TestEnv.no_git_path marks git unavailable" {
-    // Soft helpers see no git; no repos were seeded under base or proj.
-    var env = try TestEnv.init(.{ .no_git_path = true });
-    defer env.deinit();
-
-    try std.testing.expect(env.ctx.git_off);
-    try std.testing.expect(!try env.pathExists("proj/.git/", .{}));
-    try std.testing.expect(!try env.pathExists(".goal/.git/", .{}));
 }
 
 test "writeFile and readFile round-trip" {
