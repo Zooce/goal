@@ -18,6 +18,8 @@ pub fn confirm(ctx_: *const Context, comptime fmt_: []const u8, args_: anytype, 
     // Prompts on stderr so stdout stays free for scriptable data.
     try ctx_.stderr.print(fmt_, args_);
     try ctx_.stderr.writeAll(if (default_yes_) " (Y/n): " else " (y/N): ");
+    // stdout may hold a picker list (2k buffer in main); flush before blocking.
+    try ctx_.stdout.flush();
     try ctx_.stderr.flush();
 
     const answer = try ctx_.stdin.takeDelimiter('\n') orelse "";
@@ -39,6 +41,8 @@ pub fn getAnswer(ctx_: *const Context, comptime fmt_: []const u8, args_: anytype
     // Prompts on stderr so stdout stays free for scriptable data.
     try ctx_.stderr.print(fmt_, args_);
     try ctx_.stderr.writeAll(": ");
+    // stdout may hold a picker list (2k buffer in main); flush before blocking.
+    try ctx_.stdout.flush();
     try ctx_.stderr.flush();
 
     const answer = try ctx_.stdin.takeDelimiter('\n') orelse "";
