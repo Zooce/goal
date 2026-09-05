@@ -29,20 +29,23 @@ pub const help_text =
     \\
     \\Installs or updates the goal skill for coding agents.
     \\
-    \\Writes ~/.agents/skills/goal/ (or a --dest / --local directory). Run it
-    \\again after upgrading goal to refresh those files. On a terminal it asks
-    \\before linking into detected agent skill directories; non-TTY runs need
-    \\--yes to create those links.
+    \\Writes ~/.agents/skills/goal/ (or a --dest / --local directory). If that
+    \\path already exists, asks before replacing the files; pass --overwrite to
+    \\skip that prompt. A dest that is a symlink to a directory is followed.
+    \\On a terminal it asks before linking into detected agent skill
+    \\directories; non-TTY runs need --yes to create those links.
     \\
     \\
     \\Usage:
     \\
-    \\    goal install-skill [--local] [--dest <dir>] [--yes]
+    \\    goal install-skill [--local] [--dest <dir>] [--overwrite] [--yes]
     \\
     \\Options:
     \\
     \\    --local          Write the skill in this project (.agents/skills/goal).
     \\    --dest <dir>     Write the skill package to this directory.
+    \\    --overwrite      Replace an existing skill without asking (required to
+    \\                     overwrite when stdin is not a TTY).
     \\    --yes            Create agent skill links without asking (required to
     \\                     link when stdin is not a TTY).
     \\
@@ -60,6 +63,7 @@ pub const help_text =
 pub const Args = struct {
     local: bool = false,
     dest: ?[]const u8 = null,
+    overwrite: bool = false,
     yes: bool = false,
 };
 
@@ -73,12 +77,13 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
 
 pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
     // goal install-skill
-    // goal install-skill --local --dest DIR --yes
+    // goal install-skill --local --dest DIR --overwrite --yes
     // goal install-skill -h
     // goal install-skill help
 
     var local = false;
     var dest: ?[]const u8 = null;
+    var overwrite = false;
     var yes = false;
 
     while (iter_.next()) |arg| {
@@ -106,6 +111,12 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
             continue;
         }
 
+        if (std.mem.eql(u8, arg, "--overwrite")) {
+            if (overwrite) return Self.duplicateFlag(ctx_, arg);
+            overwrite = true;
+            continue;
+        }
+
         if (std.mem.eql(u8, arg, "--yes")) {
             if (yes) return Self.duplicateFlag(ctx_, arg);
             yes = true;
@@ -115,12 +126,27 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
         return Self.unexpectedArgument(ctx_, arg);
     }
 
-    return .{ .args = .{ .local = local, .dest = dest, .yes = yes } };
+    return .{ .args = .{ .local = local, .dest = dest, .overwrite = overwrite, .yes = yes } };
 }
 
 pub fn run(ctx_: *const Context, args_: Args) !void {
     const dest = try skillDest(ctx_, args_);
     defer ctx_.alloc.free(dest);
+
+    if ((try destIsDirectory(ctx_, dest)) and !args_.overwrite) {
+        if (!ctx_.stdin_is_tty) {
+            try ctx_.stderr.print(
+                \\
+                \\The goal skill already exists at {s}. Pass --overwrite to replace it.
+                \\
+            , .{dest});
+            return error.PathAlreadyExists;
+        }
+        if (!try cli.confirm(ctx_, "\nOverwrite the goal skill at {s}?", .{dest}, false)) {
+            try ctx_.stdout.writeAll("\nSkipped overwrite.\n");
+            return;
+        }
+    }
 
     try writeSkillPackage(ctx_, dest);
     try ctx_.stdout.print("\nWrote {s}\n", .{dest});
@@ -157,8 +183,35 @@ fn skillDest(ctx_: *const Context, args_: Args) ![]const u8 {
     return try std.Io.Dir.path.join(ctx_.alloc, &.{ home, ".agents", "skills", "goal" });
 }
 
+fn destIsDirectory(ctx_: *const Context, dest_: []const u8) !bool {
+    const followed = std.Io.Dir.cwd().statFile(ctx_.io, dest_, .{ .follow_symlinks = true }) catch |err| switch (err) {
+        error.FileNotFound => {
+            const nofollow = std.Io.Dir.cwd().statFile(ctx_.io, dest_, .{ .follow_symlinks = false }) catch |e| switch (e) {
+                error.FileNotFound => return false,
+                else => return e,
+            };
+            if (nofollow.kind == .sym_link) {
+                try ctx_.stderr.print("\n{s} is a dangling symlink.\n", .{dest_});
+                return error.NotDir;
+            }
+            try ctx_.stderr.print("\n{s} exists and is not a directory.\n", .{dest_});
+            return error.NotDir;
+        },
+        else => return err,
+    };
+    if (followed.kind != .directory) {
+        try ctx_.stderr.print("\n{s} exists and is not a directory.\n", .{dest_});
+        return error.NotDir;
+    }
+    return true;
+}
+
 fn writeSkillPackage(ctx_: *const Context, dest_: []const u8) !void {
-    try std.Io.Dir.cwd().createDirPath(ctx_.io, dest_);
+    // createDirPath on a directory symlink returns NotDir (io_uring stats
+    // with SYMLINK_NOFOLLOW). Write through an existing dest instead.
+    if (!try destIsDirectory(ctx_, dest_)) {
+        try std.Io.Dir.cwd().createDirPath(ctx_.io, dest_);
+    }
     try writeDestFile(ctx_, dest_, "SKILL.md", skill_md);
     try writeDestFile(ctx_, dest_, "always-on.md", always_on_md);
 }
@@ -266,18 +319,20 @@ test "parseArgs install-skill flags" {
         try std.testing.expect(res == .args);
         try std.testing.expect(!res.args.local);
         try std.testing.expect(res.args.dest == null);
+        try std.testing.expect(!res.args.overwrite);
         try std.testing.expect(!res.args.yes);
     }
 
-    // local, dest, and yes
+    // local, dest, overwrite, and yes
     {
-        const argv = [_][*:0]const u8{ "--local", "--dest", "/tmp/goal-skill", "--yes" };
+        const argv = [_][*:0]const u8{ "--local", "--dest", "/tmp/goal-skill", "--overwrite", "--yes" };
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
         const res = try install_skill_cmd.parseArgs(&env.ctx, &iter);
         try std.testing.expect(res == .args);
         try std.testing.expect(res.args.local);
         try std.testing.expectEqualStrings("/tmp/goal-skill", res.args.dest.?);
+        try std.testing.expect(res.args.overwrite);
         try std.testing.expect(res.args.yes);
     }
 }
@@ -398,7 +453,8 @@ test "goal install-skill --dest writes that directory" {
     try std.testing.expectEqualStrings(expected, env.readStdout());
 }
 
-test "goal install-skill overwrites an existing skill" {
+test "goal install-skill --overwrite (existing dest)" {
+    // --overwrite skips the confirm and replaces files already at dest.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -408,9 +464,122 @@ test "goal install-skill overwrites an existing skill" {
     try std.Io.Dir.cwd().createDirPath(env.io, dest_dir);
     try env.writeFile(".agents/skills/goal/SKILL.md", "old skill\n");
 
-    try install_skill_cmd.run(&env.ctx, .{});
+    try install_skill_cmd.run(&env.ctx, .{ .overwrite = true });
 
     const written = try env.readFile(".agents/skills/goal/SKILL.md", .{});
     defer env.alloc.free(written);
     try std.testing.expectEqualStrings(skill_md, written);
+}
+
+test "goal install-skill (existing dest, non-TTY)" {
+    // Non-TTY must not hang on confirm - require --overwrite.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try env.setEnv("HOME", env.tmp_path);
+    const dest_dir = try std.Io.Dir.path.join(env.alloc, &.{ env.tmp_path, ".agents", "skills", "goal" });
+    defer env.alloc.free(dest_dir);
+    try std.Io.Dir.cwd().createDirPath(env.io, dest_dir);
+    try env.writeFile(".agents/skills/goal/SKILL.md", "old skill\n");
+
+    try std.testing.expectError(error.PathAlreadyExists, install_skill_cmd.run(&env.ctx, .{}));
+
+    const expected = try std.fmt.allocPrint(env.alloc,
+        \\
+        \\The goal skill already exists at {s}. Pass --overwrite to replace it.
+        \\
+    , .{dest_dir});
+    defer env.alloc.free(expected);
+    try std.testing.expectEqualStrings(expected, env.readStderr());
+
+    const written = try env.readFile(".agents/skills/goal/SKILL.md", .{});
+    defer env.alloc.free(written);
+    try std.testing.expectEqualStrings("old skill\n", written);
+}
+
+test "goal install-skill (existing dest, TTY, confirm yes)" {
+    // TTY overwrite confirm "yes" replaces the existing skill files.
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
+        .{ .buffer = "yes\n" },
+    } });
+    defer env.deinit();
+    defer env.resetStderr();
+    env.ctx.stdin_is_tty = true;
+
+    try env.setEnv("HOME", env.tmp_path);
+    const dest_dir = try std.Io.Dir.path.join(env.alloc, &.{ env.tmp_path, ".agents", "skills", "goal" });
+    defer env.alloc.free(dest_dir);
+    try std.Io.Dir.cwd().createDirPath(env.io, dest_dir);
+    try env.writeFile(".agents/skills/goal/SKILL.md", "old skill\n");
+
+    try install_skill_cmd.run(&env.ctx, .{});
+
+    const prompt = try std.fmt.allocPrint(env.alloc, "\nOverwrite the goal skill at {s}? (y/N): ", .{dest_dir});
+    defer env.alloc.free(prompt);
+    try std.testing.expectEqualStrings(prompt, env.readStderr());
+
+    const expected = try std.fmt.allocPrint(env.alloc, "\nWrote {s}\n", .{dest_dir});
+    defer env.alloc.free(expected);
+    try std.testing.expectEqualStrings(expected, env.readStdout());
+
+    const written = try env.readFile(".agents/skills/goal/SKILL.md", .{});
+    defer env.alloc.free(written);
+    try std.testing.expectEqualStrings(skill_md, written);
+}
+
+test "goal install-skill (existing dest, TTY, confirm no)" {
+    // Declining the overwrite prompt leaves the existing files in place.
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
+        .{ .buffer = "n\n" },
+    } });
+    defer env.deinit();
+    defer env.resetStderr();
+    env.ctx.stdin_is_tty = true;
+
+    try env.setEnv("HOME", env.tmp_path);
+    const dest_dir = try std.Io.Dir.path.join(env.alloc, &.{ env.tmp_path, ".agents", "skills", "goal" });
+    defer env.alloc.free(dest_dir);
+    try std.Io.Dir.cwd().createDirPath(env.io, dest_dir);
+    try env.writeFile(".agents/skills/goal/SKILL.md", "old skill\n");
+
+    try install_skill_cmd.run(&env.ctx, .{});
+
+    const prompt = try std.fmt.allocPrint(env.alloc, "\nOverwrite the goal skill at {s}? (y/N): ", .{dest_dir});
+    defer env.alloc.free(prompt);
+    try std.testing.expectEqualStrings(prompt, env.readStderr());
+    try std.testing.expectEqualStrings("\nSkipped overwrite.\n", env.readStdout());
+
+    const written = try env.readFile(".agents/skills/goal/SKILL.md", .{});
+    defer env.alloc.free(written);
+    try std.testing.expectEqualStrings("old skill\n", written);
+}
+
+test "goal install-skill --overwrite follows dest symlink" {
+    // Dest is a directory symlink: write through it, do not replace the link.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try env.setEnv("HOME", env.tmp_path);
+
+    const real_dir = try std.Io.Dir.path.join(env.alloc, &.{ env.tmp_path, "real-skill" });
+    defer env.alloc.free(real_dir);
+    try std.Io.Dir.cwd().createDirPath(env.io, real_dir);
+    try env.writeFile("real-skill/SKILL.md", "old skill\n");
+
+    const dest = try std.Io.Dir.path.join(env.alloc, &.{ env.tmp_path, ".agents", "skills", "goal" });
+    defer env.alloc.free(dest);
+    const dest_parent = std.Io.Dir.path.dirname(dest).?;
+    try std.Io.Dir.cwd().createDirPath(env.io, dest_parent);
+    try std.Io.Dir.symLinkAbsolute(env.io, real_dir, dest, .{ .is_directory = true });
+
+    try install_skill_cmd.run(&env.ctx, .{ .overwrite = true });
+
+    const written = try env.readFile("real-skill/SKILL.md", .{});
+    defer env.alloc.free(written);
+    try std.testing.expectEqualStrings(skill_md, written);
+
+    var buf: [std.fs.max_path_bytes]u8 = undefined;
+    const n = try std.Io.Dir.readLinkAbsolute(env.io, dest, &buf);
+    try std.testing.expectEqualStrings(real_dir, buf[0..n]);
 }
