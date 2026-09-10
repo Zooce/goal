@@ -197,13 +197,16 @@ goal note "short title" -q                # print only note id
 
 ```bash
 goal complete --yes                       # complete active goal (required non-TTY)
+goal complete <id> --yes                  # complete that goal without starting it
 goal delete <id> --yes                    # delete by id (required non-TTY)
 ```
 
-`complete` finishes and deletes the active goal. Always pass `--yes` so prompts
-never hang. Completing is not implied by "the code is done" or "tests pass".
+`complete` finishes a goal and moves it to deleted. No id means the active
+goal. An id completes that goal without starting it and without changing
+the active goal. Always pass `--yes` so prompts never hang. Completing is
+not implied by "the code is done" or "tests pass".
 
-Before `goal complete`, if this is a git repo, run `git status --porcelain`.
+Before completing a goal, if this is a git repo, run `git status --porcelain`.
 Treat any path outside `.goal/` as uncommitted project work. If there is any,
 stop and ask whether to commit it first. Do not complete until they answer.
 If they say yes, commit, then complete. If they say no, complete without

@@ -47,7 +47,7 @@ pub const help_text =
     \\    show               Print a goal's full file contents.
     \\    search             Search goal contents with a regex (ripgrep).
     \\    stop               Stop working on the active goal.
-    \\    complete           Complete the active goal.
+    \\    complete           Complete a goal.
     \\    next               Promote a goal from Later to Next.
     \\    later              Demote a goal from Next to Later.
     \\    list               List goals.

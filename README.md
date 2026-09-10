@@ -44,6 +44,8 @@ goal later 3               # next -> later
 goal next 3                # later -> next (or move next to the front)
 goal edit 3                # open the goal in your editor
 goal search fix            # search goal text (needs ripgrep)
+goal complete --yes        # active goal
+goal complete 3 --yes      # a Next or Later goal
 goal delete 3 --yes
 ```
 
@@ -62,10 +64,11 @@ title="$(goal show --title)"
 goal new --file notes.md
 goal edit 3 --file notes.md
 goal complete --yes
+goal complete "$id" --yes
 ```
 
-Non-TTY runs need an explicit ID (no picker) and `--yes` on confirm
-commands (`complete`, `delete`, `deinit`).
+Non-TTY runs need `--yes` on confirm commands (`complete`, `delete`,
+`deinit`). Commands that pick a goal need an explicit ID (no picker).
 
 ## Agents
 
