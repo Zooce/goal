@@ -180,11 +180,16 @@ Once build has started, do not reshape the body; create a new goal instead.
 
 ### Notes (review findings only)
 
-There must be an active goal. Notes attach only to that goal.
+With no goal ID, the note attaches to the active goal (an error if there
+is none). `goal note <id> ...` attaches to that goal (Active, Next, or
+Later) without starting it. A single positional without `--file` is still
+note text on the active goal (`goal note 5` is a note titled "5").
 
 ```bash
 goal note "Missing: X does not meet the goal because Y"
 goal note --file findings.md
+goal note <id> "on another goal"
+goal note <id> --file findings.md
 goal note "short title" -q                # print only note id
 ```
 

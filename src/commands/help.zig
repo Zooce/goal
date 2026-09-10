@@ -41,7 +41,7 @@ pub const help_text =
     \\    init               Initialze `goal` in a project.
     \\    deinit             Remove `goal` from a project (reverses init).
     \\    new                Create a new goal.
-    \\    note               Append a note to the active goal.
+    \\    note               Append a note to a goal.
     \\    start              Start working on a goal (optionally create a new one).
     \\    status             Show your active goal's status.
     \\    show               Print a goal's full file contents.
