@@ -107,6 +107,10 @@ pub fn build(b: *std.Build) void {
     for (cmd_names, 0..) |name, i| {
         main_mod.addImport(name, cmd_mods[i]);
     }
+    // Product version lives in build.zig.zon; the binary imports it at compile time.
+    main_mod.addAnonymousImport("build.zig.zon", .{
+        .root_source_file = b.path("build.zig.zon"),
+    });
 
     const exe = b.addExecutable(.{
         .name = "goal",
@@ -131,4 +135,11 @@ pub fn build(b: *std.Build) void {
     for (cmd_mods) |m| {
         test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = m })).step);
     }
+
+    // goal --version stdout is the zon version compiled into the binary.
+    const version_run = b.addRunArtifact(exe);
+    version_run.addArg("--version");
+    version_run.expectStdOutEqual(b.fmt("goal {s}\n", .{@import("build.zig.zon").version}));
+    version_run.expectStdErrEqual("");
+    test_step.dependOn(&version_run.step);
 }

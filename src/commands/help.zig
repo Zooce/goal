@@ -33,6 +33,7 @@ pub const help_text =
     \\
     \\    goal <command>
     \\    goal help [command]
+    \\    goal --version
     \\
     \\Commands:
     \\

@@ -88,7 +88,9 @@ Requires [Zig 0.16](https://ziglang.org/download/).
 zig build
 ```
 
-The binary is `zig-out/bin/goal`.
+The binary is `zig-out/bin/goal`. `goal --version` prints the version from
+`build.zig.zon`. Git tags are `v<version>` (for example zon `0.1.0` is
+tag `v0.1.0`).
 
 ## More
 

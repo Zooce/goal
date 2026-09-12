@@ -2,6 +2,7 @@ const std = @import("std");
 const Command = @import("commands").Command;
 const args = @import("args");
 const Context = @import("Context");
+const version = @import("build.zig.zon").version;
 
 const help_cmd = @import("help");
 const setup_cmd = @import("setup");
@@ -65,6 +66,12 @@ pub fn main(init_: std.process.Init) !u8 {
     _ = iter.next();
 
     if (iter.next()) |_arg| {
+        // Top-level --version (not a command; same layer as --help).
+        if (std.mem.eql(u8, _arg, "--version")) {
+            try stdout.print("goal {s}\n", .{version});
+            return 0;
+        }
+
         const cmd = args.stringToCommand(_arg) catch {
             try stderr.print(
                 \\
