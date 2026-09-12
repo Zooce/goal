@@ -13,30 +13,12 @@ const Self = Command.next;
 
 pub const help_text =
     \\
-    \\The `next` Command
+    \\Moves Later goals to Next, or moves a Next goal to the front of Next.
     \\
+    \\IDs are applied in the order you give them (first ID ends up first).
+    \\Active goals: stop first (`goal stop` or `goal stop --later`).
     \\
-    \\Promotes goals from the Later list to the Next list, or moves already
-    \\Next goals to the front of the Next list.
-    \\
-    \\Later goals are promoted into Next. If a goal is already in Next, calling
-    \\`goal next` again keeps it in Next and puts it first in list order (most
-    \\recently placed into Next sorts first).
-    \\
-    \\Multiple goal IDs are accepted in the order you want them on the Next
-    \\list: the first ID becomes most recently next'd (first in Next), the next
-    \\ID second, and so on. That matches several single `goal next` calls in
-    \\the reverse order, without the backwards heuristic:
-    \\
-    \\    goal next 23 42 11
-    \\    # same Next order as: goal next 11; goal next 42; goal next 23
-    \\
-    \\If a goal is currently active, stop it first with `goal stop` (which moves
-    \\it to Next automatically) or `goal stop --later` (which moves it to Later).
-    \\
-    \\If no goal ID is given and stdin is a terminal, you'll select from the
-    \\Later list (one or more IDs). Scripts and non-TTY runs must pass goal IDs.
-    \\
+    \\No goal ID: pick from Later on a TTY. Scripts must pass goal IDs.
     \\
     \\Usage:
     \\
@@ -44,23 +26,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id...]    Goal ID(s). Optional on a TTY (picker); required when not a TTY.
-    \\               Order is the Next list order you want (first ID ends up first).
-    \\
-    \\Examples:
-    \\
-    \\    goal next              # pick from Later list interactively (TTY)
-    \\    goal next 3            # promote goal #3 from Later to Next
-    \\    goal next 3            # if already Next, move it to the top of Next
-    \\    goal next 23 42 11     # Next order: 23, then 42, then 11
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal next [help | -h | --help]
-    \\    OR
-    \\        goal help next
+    \\    [id...]    Goal ID(s). Optional on a TTY; required when not a TTY.
     \\
 ;
 

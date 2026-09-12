@@ -12,28 +12,14 @@ const Self = Command.setup;
 
 pub const help_text =
     \\
-    \\The `setup` Command
+    \\Creates the base directory (default: ~/.goal/) where goals are stored.
     \\
-    \\
-    \\Sets up `goal` on your system by creating the base directory
-    \\(default: ~/.goal/), where your goals are stored.
-    \\
-    \\On a terminal, setup asks for your editor. Change it later with `goal config`.
-    \\
+    \\On a terminal, asks for your editor. Change it later with `goal config`.
     \\Use GOAL_BASE_DIR to store goals somewhere else.
-    \\
     \\
     \\Usage:
     \\
     \\    goal setup
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal setup [help | -h | --help]
-    \\    OR
-    \\        goal help setup
     \\
 ;
 

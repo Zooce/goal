@@ -10,15 +10,9 @@ const Self = Command.config;
 
 pub const help_text =
     \\
-    \\The `config set` Command
+    \\Write a config key. Other keys and comments are left alone.
     \\
-    \\
-    \\Write a configuration key. Writes are surgical: only the requested key is
-    \\modified; other keys and comments are left alone.
-    \\
-    \\By default writes to the project config (`.goal/config`). Use --global for
-    \\the global config file.
-    \\
+    \\Default: project config (`.goal/config`). --global: global file.
     \\
     \\Usage:
     \\
@@ -32,12 +26,6 @@ pub const help_text =
     \\Options:
     \\
     \\    --global    Write to the global config file
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal config set [help | -h | --help]
     \\
 ;
 

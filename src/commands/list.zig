@@ -9,32 +9,18 @@ const Self = Command.list;
 
 pub const help_text =
     \\
-    \\The `list` Command
-    \\
-    \\
-    \\Lists your goals. Shows the active and next goals by default.
-    \\
+    \\Lists your goals. Active and Next by default. Flags can be combined.
     \\
     \\Usage:
     \\
     \\    goal list [--active | --next | --later | --all]
     \\
-    \\Arguments:
+    \\Options:
     \\
-    \\    [--active]    List the active goals. (default)
-    \\    [--next]      List the next goals. (default)
-    \\    [--later]     List the later goals.
-    \\    [--all]       List all goals.
-    \\
-    \\    NOTE: Any combinations of these arguments can be provided.
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal list [help | -h | --help]
-    \\    OR
-    \\        goal help list
+    \\    --active    List the active goals (default)
+    \\    --next      List the next goals (default)
+    \\    --later     List the later goals
+    \\    --all       List all goals
     \\
 ;
 

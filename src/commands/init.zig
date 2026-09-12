@@ -13,26 +13,13 @@ const Self = Command.init;
 
 pub const help_text =
     \\
-    \\The `init` Command
+    \\Initializes `goal` in this project.
     \\
-    \\
-    \\Initializes `goal` in your project.
-    \\
-    \\Your goals are stored under ~/.goal/. A small `.goal/` folder is also created
-    \\in the project.
-    \\
+    \\Goals live under ~/.goal/. A small `.goal/` folder is also created here.
     \\
     \\Usage:
     \\
     \\    goal init
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal init [help | -h | --help]
-    \\    OR
-    \\        goal help init
     \\
 ;
 

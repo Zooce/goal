@@ -15,26 +15,14 @@ const Self = Command.note;
 
 pub const help_text =
     \\
-    \\The `note` Command
-    \\
-    \\
     \\Append a note to a goal without changing the goal file.
-    \\Notes are plain text (first line is the title; the rest is the body).
+    \\First line is the title; the rest is the body.
     \\
-    \\If no content is given and stdin is a terminal, the note is opened in
-    \\your configured editor (active goal only). For scripts, pass text or --file.
+    \\No goal ID: the active goal. A goal ID attaches to that goal without
+    \\starting it. `goal note 5` is a note titled "5" on the active goal, not a
+    \\goal ID.
     \\
-    \\    goal note "quick capture"
-    \\    goal note --file details.md
-    \\    goal note 3 "on another goal"
-    \\    goal note 3 --file details.md -q
-    \\
-    \\With no goal ID, the note attaches to the active goal. A goal ID attaches
-    \\the note to that goal (Active, Next, or Later) without starting it.
-    \\
-    \\A single argument without --file is note text, not a goal ID
-    \\(`goal note 5` is a note titled "5" on the active goal).
-    \\
+    \\No text: editor on a TTY (active goal only). Scripts: text or --file.
     \\
     \\Usage:
     \\
@@ -50,16 +38,8 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --file <path>    Create the note from a file's contents (not with text).
-    \\    -q, --quiet      Print only the new note ID (no prose).
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal note [help | -h | --help]
-    \\    OR
-    \\        goal help note
+    \\    --file <path>    Create the note from a file (not with text).
+    \\    -q, --quiet      Print only the new note ID.
     \\
 ;
 

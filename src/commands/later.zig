@@ -12,17 +12,10 @@ const Self = Command.later;
 
 pub const help_text =
     \\
-    \\The `later` Command
+    \\Moves a Next goal to Later.
     \\
-    \\
-    \\Demotes a goal from the Next list to the Later list.
-    \\
-    \\Only Next goals can be demoted. If a goal is currently active and you want
-    \\it to go straight to Later, stop it with `goal stop --later`.
-    \\
-    \\If no goal ID is given and stdin is a terminal, you'll select one from the
-    \\Next list. Scripts and non-TTY runs must pass a goal ID.
-    \\
+    \\Only Next goals. For the active goal, use `goal stop --later`.
+    \\No goal ID: pick from Next on a TTY. Scripts must pass a goal ID.
     \\
     \\Usage:
     \\
@@ -30,20 +23,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]    The goal ID. Optional on a TTY (picker); required when not a TTY.
-    \\
-    \\Examples:
-    \\
-    \\    goal later        # pick from Next list interactively (TTY)
-    \\    goal later 3      # demote goal #3 from Next to Later
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal later [help | -h | --help]
-    \\    OR
-    \\        goal help later
+    \\    [id]    Goal ID. Optional on a TTY; required when not a TTY.
     \\
 ;
 

@@ -24,17 +24,11 @@ const known_agents = [_]struct { name: []const u8, skills_rel: []const u8 }{
 
 pub const help_text =
     \\
-    \\The `install-skill` Command
-    \\
-    \\
     \\Installs or updates the goal skill for coding agents.
     \\
-    \\Writes ~/.agents/skills/goal/ (or a --dest / --local directory). If that
-    \\path already exists, asks before replacing the files; pass --overwrite to
-    \\skip that prompt. A dest that is a symlink to a directory is followed.
-    \\On a terminal it asks before linking into detected agent skill
-    \\directories; non-TTY runs need --yes to create those links.
-    \\
+    \\Writes ~/.agents/skills/goal/ (or --dest / --local). Asks before replacing
+    \\existing files unless --overwrite. Asks before linking into detected agent
+    \\skill directories unless --yes (required when not a TTY).
     \\
     \\Usage:
     \\
@@ -44,18 +38,8 @@ pub const help_text =
     \\
     \\    --local          Write the skill in this project (.agents/skills/goal).
     \\    --dest <dir>     Write the skill package to this directory.
-    \\    --overwrite      Replace an existing skill without asking (required to
-    \\                     overwrite when stdin is not a TTY).
-    \\    --yes            Create agent skill links without asking (required to
-    \\                     link when stdin is not a TTY).
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal install-skill [help | -h | --help]
-    \\    OR
-    \\        goal help install-skill
+    \\    --overwrite      Replace an existing skill without asking.
+    \\    --yes            Create agent skill links without asking.
     \\
 ;
 

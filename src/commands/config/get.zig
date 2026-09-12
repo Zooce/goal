@@ -10,15 +10,10 @@ const Self = Command.config;
 
 pub const help_text =
     \\
-    \\The `config get` Command
+    \\Print a config key's raw value.
     \\
-    \\
-    \\Print a single configuration key's raw value (no key prefix or extra formatting).
-    \\
-    \\By default resolves the effective value: env vars > project config > global
-    \\config > defaults. With --global, reads only the global config file (prints
-    \\nothing if the key is absent there).
-    \\
+    \\Default: effective value (env > project > global > defaults).
+    \\--global: global file only (prints nothing if the key is absent).
     \\
     \\Usage:
     \\
@@ -30,13 +25,7 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --global    Read from the global config file only
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal config get [help | -h | --help]
+    \\    --global    Read the global config file only
     \\
 ;
 

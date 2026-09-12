@@ -12,29 +12,15 @@ const Self = Command.stop;
 
 pub const help_text =
     \\
-    \\The `stop` Command
-    \\
-    \\
-    \\Stop working on the active goal.
-    \\
-    \\The goal will be moved into the Next list.
-    \\
+    \\Stop working on the active goal. Moves it to Next.
     \\
     \\Usage:
     \\
     \\    goal stop [--later]
     \\
-    \\Arguments:
+    \\Options:
     \\
-    \\    [--later]    Move the goal to the Later list.
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal stop [help | -h | --help]
-    \\    OR
-    \\        goal help stop
+    \\    --later    Move the goal to Later instead.
     \\
 ;
 

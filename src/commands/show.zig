@@ -13,39 +13,13 @@ const Self = Command.show;
 
 pub const help_text =
     \\
-    \\The `show` Command
+    \\Prints a goal file, or selected fields for scripts.
     \\
+    \\Looks in Active, Next, Later, and Deleted. Deleted goals are labeled (full
+    \\output only). Notes print after the goal body; field flags skip notes.
     \\
-    \\Prints the full contents of a goal file, or selected fields for scripts.
-    \\
-    \\Searches Active, Next, Later, and Deleted. Deleted goals are labeled so
-    \\scripts and humans can tell them apart (full output only). After the goal
-    \\body, any notes attached to that goal are listed with their full text.
-    \\Field flags (--id, --title, ...) do not include notes.
-    \\
-    \\When no goal ID argument is given, the ID is chosen as follows:
-    \\
-    \\    1. the active goal, if one is set
-    \\    2. TTY picker, or error when stdin is not a terminal
-    \\
-    \\An ID on the command line always wins.
-    \\
-    \\Field flags print only those fields, in the order you list them,
-    \\one field per line (each ends with a newline). With no field flags, the
-    \\full raw goal file is printed.
-    \\
-    \\    goal show --id
-    \\    goal show --id --title
-    \\    goal show 3 --tag
-    \\    goal show --path
-    \\
-    \\Single-field output is safe for command substitution (trailing newline
-    \\is stripped by $()). Multi-field output is line-oriented so titles and
-    \\paths with spaces stay intact:
-    \\
-    \\    title="$(goal show --title)"
-    \\    mapfile -t parts < <(goal show --id --title)
-    \\
+    \\No goal ID: the active goal, or a TTY picker. An ID on the command line
+    \\always wins. Field flags print one value per line, in the order you list them.
     \\
     \\Usage:
     \\
@@ -53,23 +27,15 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]    The goal ID. Optional: see above when omitted.
+    \\    [id]    Goal ID. Optional: see above when omitted.
     \\
     \\Options:
     \\
     \\    --id          Goal ID
     \\    --title       First line / title
     \\    --tag         Tag line: Goal #<id> - <title>
-    \\    --path        Filesystem path to the goal file
+    \\    --path        Path to the goal file
     \\    --category    active, next, later, or deleted
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal show [help | -h | --help]
-    \\    OR
-    \\        goal help show
     \\
 ;
 

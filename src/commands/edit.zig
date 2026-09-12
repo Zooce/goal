@@ -14,28 +14,11 @@ const Self = Command.edit;
 
 pub const help_text =
     \\
-    \\The `edit` Command
+    \\Edit a goal in your editor, or replace the file with --file.
     \\
-    \\
-    \\Opens your editor to edit the details of a goal, or replaces the goal file
-    \\from a file:
-    \\
-    \\    goal edit 3
-    \\    goal edit 3 --file notes.md
-    \\    goal edit --file notes.md
-    \\
-    \\When no goal ID argument is given, the ID is chosen as follows:
-    \\
-    \\    1. the active goal, if one is set
-    \\    2. TTY picker, or error when stdin is not a terminal
-    \\
-    \\An ID on the command line always wins.
-    \\
-    \\Content source:
-    \\
-    \\    --file <path>    replace the goal file with this file's contents
-    \\    no --file        open the editor (TTY only)
-    \\
+    \\No goal ID: the active goal, or a TTY picker. An ID on the command line
+    \\always wins. --file replaces the goal file; without it, opens the editor
+    \\(TTY only).
     \\
     \\Alias: open
     \\
@@ -45,19 +28,11 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]    The goal ID. Optional: see above when omitted.
+    \\    [id]    Goal ID. Optional: see above when omitted.
     \\
     \\Options:
     \\
     \\    --file <path>    Replace the goal file with this file's contents.
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal edit [help | -h | --help]
-    \\    OR
-    \\        goal help edit
     \\
 ;
 

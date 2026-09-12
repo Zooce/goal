@@ -10,15 +10,9 @@ const Self = Command.config;
 
 pub const help_text =
     \\
-    \\The `config unset` Command
+    \\Remove one or more config keys. Succeeds even if a key is already absent.
     \\
-    \\
-    \\Remove one or more configuration keys from the target scope. Idempotent:
-    \\succeeds even if a key (or the config file) is already absent.
-    \\
-    \\By default targets the project config (`.goal/config`). Use --global for
-    \\the global config file. Other keys and comments are left alone.
-    \\
+    \\Default: project config (`.goal/config`). --global: global file.
     \\
     \\Usage:
     \\
@@ -31,12 +25,6 @@ pub const help_text =
     \\Options:
     \\
     \\    --global    Remove from the global config file
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal config unset [help | -h | --help]
     \\
 ;
 

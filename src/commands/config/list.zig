@@ -10,13 +10,9 @@ const Self = Command.config;
 
 pub const help_text =
     \\
-    \\The `config list` Command
+    \\Show the effective config, or only the global file with --global.
     \\
-    \\
-    \\Show effective (merged) configuration, or only the global config file with --global.
-    \\
-    \\Effective config is layered: env vars > project config > global config > defaults.
-    \\
+    \\Layered: env vars > project config > global config > defaults.
     \\
     \\Usage:
     \\
@@ -24,13 +20,7 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --global    Show only keys present in the global config file
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal config list [help | -h | --help]
+    \\    --global    Show only keys in the global config file
     \\
 ;
 

@@ -13,15 +13,10 @@ const Self = Command.status;
 
 pub const help_text =
     \\
-    \\The `status` Command
-    \\
-    \\
     \\Shows the active goal.
     \\
-    \\Prints the active goal tag (or a nudge when none is active). Notes on the
-    \\active goal are listed by id and title. With `--full`, also prints the
-    \\active goal file and full note bodies.
-    \\
+    \\Prints the tag (or a nudge when none is active) and note titles.
+    \\`--full` also prints the goal file and full note bodies.
     \\
     \\Usage:
     \\
@@ -30,14 +25,6 @@ pub const help_text =
     \\Options:
     \\
     \\    --full    Print the active goal file and full note bodies.
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal status [help | -h | --help]
-    \\    OR
-    \\        goal help status
     \\
 ;
 

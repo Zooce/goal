@@ -9,22 +9,11 @@ const Self = Command.config;
 
 pub const help_text =
     \\
-    \\The `config defaults` Command
-    \\
-    \\
-    \\Show built-in default values only (for triage/debugging). Ignores env vars,
-    \\project config, and global config.
-    \\
+    \\Show built-in defaults only. Ignores env, project, and global config.
     \\
     \\Usage:
     \\
     \\    goal config defaults
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal config defaults [help | -h | --help]
     \\
 ;
 

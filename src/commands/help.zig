@@ -29,16 +29,16 @@ pub const help_text =
     \\`goal` is a simple CLI to help you keep track of your goals, while focusing on
     \\one at a time.
     \\
-    \\
     \\Usage:
     \\
     \\    goal <command>
+    \\    goal help [command]
     \\
     \\Commands:
     \\
-    \\    help        Show this help message or the message for a command.
-    \\    setup              Setup `goal` for the first time.
-    \\    init               Initialze `goal` in a project.
+    \\    help               Show this help or help for a command.
+    \\    setup              Set up `goal` for the first time.
+    \\    init               Initialize `goal` in a project.
     \\    deinit             Remove `goal` from a project (reverses init).
     \\    new                Create a new goal.
     \\    note               Append a note to a goal.
@@ -58,17 +58,7 @@ pub const help_text =
     \\
     \\Environment Variables:
     \\
-    \\    GOAL_BASE_DIR
-    \\               Override the default goal storage directory (default: ~/.goal).
-    \\               This allows you to store your goals in a custom location.
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal [help | -h | --help]
-    \\    OR
-    \\        goal help help   # yes this works too :)
+    \\    GOAL_BASE_DIR    Override the default goal storage directory (~/.goal).
     \\
 ;
 

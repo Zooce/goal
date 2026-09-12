@@ -16,12 +16,10 @@ const Self = Command.start;
 
 pub const help_text =
     \\
-    \\The `start` Command
-    \\
     \\Activates a goal (and optionally creates a new one).
     \\
-    \\If no goal ID is given and stdin is a terminal, you'll select from the list
-    \\of goals. Scripts and non-TTY runs must pass a goal ID (or `new`).
+    \\No goal ID: pick from the list on a TTY. Scripts must pass a goal ID (or `new`).
+    \\`new` takes the same options as `goal new` (title, --file, -q/--quiet).
     \\
     \\Usage:
     \\
@@ -29,25 +27,8 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id]     The goal ID. Required when stdin is not a terminal.
-    \\    [new ...]  Create and start a new goal. Same options as `goal new`
-    \\             (title, --file, -q/--quiet). See `goal help new`.
-    \\
-    \\Examples:
-    \\
-    \\    goal start              # pick interactively (TTY)
-    \\    goal start 3
-    \\    goal start new
-    \\    goal start new "fix the bug"
-    \\    goal start new --file notes.md
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal start [help | -h | --help]
-    \\    OR
-    \\        goal help start
+    \\    [id]       Goal ID. Required when stdin is not a terminal.
+    \\    [new ...]  Create and start a new goal. See `goal help new`.
     \\
 ;
 

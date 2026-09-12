@@ -11,22 +11,10 @@ const Self = Command.search;
 
 pub const help_text =
     \\
-    \\The `search` Command
+    \\Search goal files with a regular expression (ripgrep). Requires `rg` on PATH.
     \\
-    \\
-    \\Search goal file contents with a regular expression (via ripgrep).
-    \\
-    \\Searches Active, Next, and Later by default (same category order as
-    \\`goal list`). Within each category, goals use the same order as list:
-    \\Next by most recently next'd, Later by most recently created.
-    \\
-    \\For each matching goal, prints `Goal #<id> - <title>`, a blank line, then
-    \\indented body match lines (no line numbers). The title line is not repeated
-    \\under the header when it also matches. Deleted goals are skipped unless
-    \\you pass --all.
-    \\
-    \\Requires `rg` (ripgrep) on PATH.
-    \\
+    \\Searches Active, Next, and Later (same order as `goal list`). --all includes
+    \\deleted goals.
     \\
     \\Usage:
     \\
@@ -38,21 +26,7 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --all    Include deleted goals after Active, Next, and Later.
-    \\
-    \\Examples:
-    \\
-    \\    goal search "cool_.*"
-    \\    goal search fix
-    \\    goal search fix --all
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal search [help | -h | --help]
-    \\    OR
-    \\        goal help search
+    \\    --all    Include deleted goals.
     \\
 ;
 

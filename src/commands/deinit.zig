@@ -13,16 +13,8 @@ const Self = Command.deinit;
 
 pub const help_text =
     \\
-    \\The `deinit` Command
-    \\
-    \\
-    \\Reverses `goal init` by removing the local `.goal/` directory and the global
+    \\Reverses `goal init`: removes the local `.goal/` directory and the global
     \\`~/.goal/<goal_id>/` directory.
-    \\
-    \\On a TTY, deinit asks for confirmation before removing local and global data.
-    \\Pass --yes to skip those prompts. Non-TTY runs require --yes so scripts never
-    \\hang on a prompt.
-    \\
     \\
     \\Usage:
     \\
@@ -30,15 +22,7 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --yes    Skip confirmation prompts (required when stdin is not a TTY)
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal deinit [help | -h | --help]
-    \\    OR
-    \\        goal help deinit
+    \\    --yes    Skip confirm (required when not a TTY).
     \\
 ;
 

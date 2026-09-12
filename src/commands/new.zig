@@ -14,26 +14,12 @@ const Self = Command.new;
 
 pub const help_text =
     \\
-    \\The `new` Command
-    \\
-    \\
     \\Creates a new goal (duh).
     \\
-    \\If no content is given and stdin is a terminal, the goal file is opened in
-    \\your configured editor. The first line is the title; the rest is the body.
+    \\No content: editor on a TTY. First line is the title; the rest is the body.
+    \\Scripts: title argument or --file. -q/--quiet prints only the new goal ID.
     \\
-    \\For scripts, pass a title argument or --file. Use -q/--quiet to print only
-    \\the new goal ID (handy for id=$(goal new ... -q)):
-    \\
-    \\    goal new "just a title"
-    \\    goal new --file notes.md
-    \\    goal new --file notes.md -q
-    \\
-    \\If a title argument is provided it cannot match a command. For example,
-    \\the following would be invalid:
-    \\
-    \\    goal new "new"
-    \\
+    \\A title cannot match a command name (`goal new "new"` is invalid).
     \\
     \\Usage:
     \\
@@ -42,20 +28,12 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [title]    The title (or full body) of the goal (optional).
+    \\    [title]    Title (or full body). Optional.
     \\
     \\Options:
     \\
-    \\    --file <path>    Create the goal from a file's contents (not with title).
-    \\    -q, --quiet      Print only the new goal ID (no prose).
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal new [help | -h | --help]
-    \\    OR
-    \\        goal help new
+    \\    --file <path>    Create the goal from a file (not with title).
+    \\    -q, --quiet      Print only the new goal ID.
     \\
 ;
 

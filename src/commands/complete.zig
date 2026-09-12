@@ -14,18 +14,10 @@ const Self = Command.complete;
 
 pub const help_text =
     \\
-    \\The `complete` Command
-    \\
-    \\
     \\Completes a goal and moves it to deleted. Does not change project files.
     \\
-    \\With no goal ID, completes the active goal. With a goal ID, completes
-    \\that goal (the active goal, Next, or Later) without starting it.
-    \\Completing a non-active goal leaves the active goal alone.
-    \\
-    \\On a TTY, complete asks for a final confirm. Pass --yes to skip it.
-    \\Non-TTY runs require --yes so scripts never hang on a prompt.
-    \\
+    \\No goal ID: the active goal. A goal ID completes that goal without starting
+    \\it or changing the active goal.
     \\
     \\Usage:
     \\
@@ -37,15 +29,7 @@ pub const help_text =
     \\
     \\Options:
     \\
-    \\    --yes    Skip confirmation prompts (required when stdin is not a TTY).
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal complete [help | -h | --help]
-    \\    OR
-    \\        goal help complete
+    \\    --yes    Skip confirm (required when not a TTY).
     \\
 ;
 

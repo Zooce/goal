@@ -14,53 +14,40 @@ const Self = Command.config;
 
 pub const help_text =
     \\
-    \\The `config` Command
+    \\Manage configuration.
     \\
-    \\
-    \\Manage configuration settings for goal.
-    \\
-    \\Configuration is layered: env vars > project config > global config > defaults.
-    \\Use subcommands to inspect or change settings. Writes are surgical (only the
-    \\requested key is modified).
-    \\
+    \\Layered: env vars > project config > global config > defaults.
+    \\Writes change only the requested key.
     \\
     \\Usage:
     \\
-    \\    goal config list [--global]              Show configuration values
-    \\    goal config get <key> [--global]         Print a raw value
-    \\    goal config set <key> <value> [--global] Set a value
-    \\    goal config unset <key>... [--global]    Remove explicit value(s)
-    \\    goal config defaults                     Show built-in defaults
+    \\    goal config list [--global]
+    \\    goal config get <key> [--global]
+    \\    goal config set <key> <value> [--global]
+    \\    goal config unset <key>... [--global]
+    \\    goal config defaults
     \\
     \\Subcommands:
     \\
-    \\    list        Show effective (merged) config, or --global file only
-    \\    get         Print a single key's raw value
-    \\    set         Write a key (project config by default; --global for global)
-    \\    unset       Remove a key from the target scope
-    \\    defaults    Show built-in default values only
+    \\    list        Show effective config, or --global file only
+    \\    get         Print a key's raw value
+    \\    set         Write a key (project config; --global for global)
+    \\    unset       Remove a key
+    \\    defaults    Show built-in defaults
     \\
     \\Settings:
     \\
     \\    base-dir    Directory for goal storage
-    \\    editor      Default editor for goal editing
+    \\    editor      Default editor
     \\
     \\Options:
     \\
-    \\    --global    Target the global config file (list/get/set/unset)
+    \\    --global    Use the global config file (list/get/set/unset)
     \\
     \\Environment Variables:
     \\
-    \\    GOAL_BASE_DIR    Override the base-dir setting
-    \\    GOAL_EDITOR      Override the editor setting
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal config [help | -h | --help]
-    \\    OR
-    \\        goal help config
+    \\    GOAL_BASE_DIR    Override base-dir
+    \\    GOAL_EDITOR      Override editor
     \\
 ;
 

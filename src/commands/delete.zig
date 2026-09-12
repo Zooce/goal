@@ -12,17 +12,9 @@ const Self = Command.delete;
 
 pub const help_text =
     \\
-    \\The `delete` Command
-    \\
-    \\
     \\Deletes a goal.
     \\
-    \\If no goal ID is given and stdin is a terminal, you'll select from the list
-    \\of goals. Scripts and non-TTY runs must pass one or more goal IDs.
-    \\
-    \\On a TTY, delete asks for confirmation unless you pass --yes. Non-TTY runs
-    \\require --yes so scripts never hang on a prompt.
-    \\
+    \\No goal ID: pick from the list on a TTY. Scripts must pass one or more goal IDs.
     \\
     \\Usage:
     \\
@@ -30,19 +22,11 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    [id...]    Goal ID(s). Optional on a TTY (picker); required when not a TTY.
+    \\    [id...]    Goal ID(s). Optional on a TTY; required when not a TTY.
     \\
     \\Options:
     \\
-    \\    --yes    Skip the confirmation prompt (required when stdin is not a TTY).
-    \\
-    \\Help:
-    \\
-    \\    To show this message use one of the following:
-    \\
-    \\        goal delete [help | -h | --help]
-    \\    OR
-    \\        goal help delete
+    \\    --yes    Skip confirm (required when not a TTY).
     \\
 ;
 
