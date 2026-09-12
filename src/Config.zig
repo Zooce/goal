@@ -19,14 +19,15 @@ pub fn deinit(self_: *Config) void {
 ///
 /// Caller is responsible for freeing memory with `config.deinit()`.
 pub fn load(ctx_: *const Context) !Config {
-    const config_file = config_file: {
-        const config_path = try getConfigPath(ctx_);
-        defer ctx_.alloc.free(config_path);
+    const config_path = try getConfigPath(ctx_);
+    defer ctx_.alloc.free(config_path);
 
-        break :config_file std.Io.Dir.openFileAbsolute(ctx_.io, config_path, .{}) catch |err| switch (err) {
-            error.FileNotFound => return try init(ctx_, null, null),
-            else => return err,
-        };
+    const config_file = std.Io.Dir.openFileAbsolute(ctx_.io, config_path, .{}) catch |err| switch (err) {
+        error.FileNotFound => return try init(ctx_, null, null),
+        else => {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{config_path});
+            return err;
+        },
     };
     defer config_file.close(ctx_.io);
 
@@ -85,7 +86,7 @@ pub fn load(ctx_: *const Context) !Config {
     } else |err| switch (err) {
         error.EndOfStream => {},
         else => {
-            try ctx_.stderr.writeAll("\nError while reading config file...\n");
+            try ctx_.stderr.print("\nError while reading config file ({s})...\n", .{config_path});
             return err;
         },
     }
@@ -192,8 +193,11 @@ fn defaultBaseDir(ctx_: *const Context) ![]const u8 {
     }
 
     // Priority 2: Default to HOME/.goal or USERPROFILE/.goal
-    const home_path = try optionalEnvVarOwned(ctx_, if (builtin.os.tag == .windows) "USERPROFILE" else "HOME") orelse
+    const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
+    const home_path = try optionalEnvVarOwned(ctx_, home_var) orelse {
+        try ctx_.stderr.print("\n{s} environment variable not set.\n", .{home_var});
         return error.EnvironmentVariableMissing;
+    };
     defer ctx_.alloc.free(home_path);
     return std.Io.Dir.path.join(ctx_.alloc, &.{ home_path, ".goal" });
 }
@@ -224,6 +228,11 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
         }
     }
 
+    try ctx_.stderr.writeAll(
+        \\
+        \\No editor found. Set GOAL_EDITOR or EDITOR.
+        \\
+    );
     return error.NoEditorFound;
 }
 

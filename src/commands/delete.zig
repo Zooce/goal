@@ -172,7 +172,7 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
 
     for (args_.ids.items) |id| {
         var goal = Goal.init(ctx_, dirs_.later.dir, id, .{ .quiet = true }) catch
-            try Goal.init(ctx_, dirs_.next.dir, id, .{});
+            try Goal.init(ctx_, dirs_.next.dir, id, .{ .quiet = true });
         defer goal.deinit();
         try ctx_.stdout.print("  {s}. {s}\n", .{ goal.id, goal.title });
     }

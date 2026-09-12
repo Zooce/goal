@@ -164,7 +164,10 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
             try ctx_.stderr.print("\nGoal content cannot be empty! You're so funny.\n", .{});
             return error.EmptyGoalTitle;
         }
-        const goal_file = try dirs.later.dir.createFile(ctx_.io, file_name, .{ .exclusive = true });
+        const goal_file = dirs.later.dir.createFile(ctx_.io, file_name, .{ .exclusive = true }) catch |err| {
+            try ctx_.stderr.print("\nUnable to create goal file: {s}\n", .{file_name});
+            return err;
+        };
         defer goal_file.close(ctx_.io);
         try goal_file.writeStreamingAll(ctx_.io, raw);
         try goal_file.sync(ctx_.io);
@@ -183,8 +186,14 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
         defer config.deinit();
 
         const cmd = [_][]const u8{ config.editor, file_path };
-        var editor = try std.process.spawn(ctx_.io, .{ .argv = &cmd });
-        _ = try editor.wait(ctx_.io);
+        var editor = std.process.spawn(ctx_.io, .{ .argv = &cmd }) catch |err| {
+            try ctx_.stderr.print("\nUnable to start editor {s} for {s}\n", .{ config.editor, file_path });
+            return err;
+        };
+        _ = editor.wait(ctx_.io) catch |err| {
+            try ctx_.stderr.print("\nEditor {s} failed for {s}\n", .{ config.editor, file_path });
+            return err;
+        };
 
         var goal = try Goal.init(ctx_, dirs.later.dir, file_name, .{});
         defer goal.deinit();
@@ -305,6 +314,44 @@ test "parseArgs --file reads file into content" {
     defer if (res.args.content) |c| env.alloc.free(c);
 
     try std.testing.expectEqualStrings(body, res.args.content.?);
+}
+
+test "parseArgs --file (missing file names the path)" {
+    // --file I/O names the path the user passed, not a bare FileNotFound.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    const argv = [_][*:0]const u8{ "--file", "missing.md" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.FileNotFound, new_cmd.parseArgs(&env.ctx, &iter));
+    try std.testing.expectEqualStrings("\nUnable to open missing.md\n", env.readStderr());
+}
+
+test "goal new (missing editor names the editor and file)" {
+    // Spawn failure names the editor and the goal file it would have opened.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+    try env.setEnv("GOAL_EDITOR", "goal-editor-does-not-exist");
+
+    try std.testing.expectError(error.FileNotFound, new_cmd.run(&env.ctx, .{ .content = null }));
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+    const file_path = try std.Io.Dir.path.join(env.alloc, &.{ env.base_path, goal_id, "l", "1" });
+    defer env.alloc.free(file_path);
+    const expected = try std.fmt.allocPrint(
+        env.alloc,
+        "\nUnable to start editor goal-editor-does-not-exist for {s}\n",
+        .{file_path},
+    );
+    defer env.alloc.free(expected);
+    try std.testing.expectEqualStrings(expected, env.readStderr());
 }
 
 test "parseArgs non-TTY without title or --file requires content" {

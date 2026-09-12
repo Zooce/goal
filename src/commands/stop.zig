@@ -73,7 +73,10 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
         try ActiveId.clear(ctx_, dirs.local.dir);
 
         const dest = if (later_) dirs.later.dir else dirs.next.dir;
-        try std.Io.Dir.rename(dirs.active.dir, id, dest, id, ctx_.io);
+        std.Io.Dir.rename(dirs.active.dir, id, dest, id, ctx_.io) catch |err| {
+            try ctx_.stderr.print("\nUnable to move Goal #{s}\n", .{id});
+            return err;
+        };
         // Next list order is most recently placed into Next first.
         if (!later_) try dirs.next.touch(ctx_, id, .now);
 

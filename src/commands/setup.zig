@@ -66,7 +66,10 @@ pub fn run(ctx_: *const Context) !void {
 
     std.Io.Dir.createDirAbsolute(ctx_.io, config.base_dir, .default_dir) catch |err| switch (err) {
         error.PathAlreadyExists => {},
-        else => return err,
+        else => {
+            try ctx_.stderr.print("\nUnable to create directory: {s}\n", .{config.base_dir});
+            return err;
+        },
     };
 
     // TTY only: editor is written when given.
@@ -153,4 +156,23 @@ test "goal setup (TTY: empty editor writes no config)" {
     try setup_cmd.run(&env.ctx);
 
     try std.testing.expect(!try env.pathExists("xdg/goal/config", .{}));
+}
+
+test "goal setup (config path is a directory)" {
+    // Config.load names the config path; keep the existing informal wording.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    // XDG config path is xdg/goal/config; a directory can be opened but not read.
+    try env.writeFile("xdg/goal/.keep", "");
+    const config_path = try std.Io.Dir.path.join(env.alloc, &.{ env.xdg_path, "goal", "config" });
+    defer env.alloc.free(config_path);
+    try std.Io.Dir.createDirAbsolute(env.io, config_path, .default_dir);
+
+    try std.testing.expectError(error.ReadFailed, setup_cmd.run(&env.ctx));
+
+    const expected = try std.fmt.allocPrint(env.alloc, "\nError while reading config file ({s}/goal/config)...\n", .{env.xdg_path});
+    defer env.alloc.free(expected);
+    try std.testing.expectEqualStrings(expected, env.readStderr());
 }

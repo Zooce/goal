@@ -103,7 +103,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
 
     if (id.len == 0) return Self.missingArgument(ctx_);
 
-    var goal = Goal.init(ctx_, dirs.next.dir, id, .{}) catch |err| {
+    var goal = Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch |err| {
         if (err == error.FileNotFound) {
             try ctx_.stderr.print(
                 \\
@@ -117,7 +117,10 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
     };
     defer goal.deinit();
 
-    try std.Io.Dir.rename(dirs.next.dir, id, dirs.later.dir, id, ctx_.io);
+    std.Io.Dir.rename(dirs.next.dir, id, dirs.later.dir, id, ctx_.io) catch |err| {
+        try ctx_.stderr.print("\nUnable to move Goal #{s}\n", .{id});
+        return err;
+    };
 
     try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
 }

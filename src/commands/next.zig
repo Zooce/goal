@@ -149,16 +149,16 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8, ts_: std.Io.F
         var goal = goal_val;
         defer goal.deinit();
 
-        try std.Io.Dir.rename(dirs_.later.dir, id_, dirs_.next.dir, id_, ctx_.io);
+        std.Io.Dir.rename(dirs_.later.dir, id_, dirs_.next.dir, id_, ctx_.io) catch |err| {
+            try ctx_.stderr.print("\nUnable to move Goal #{s}\n", .{id_});
+            return err;
+        };
         // Placement time drives Next list order (most recent first).
         try dirs_.next.touch(ctx_, id_, ts_);
 
         try ctx_.stdout.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
     } else |later_err| {
-        if (later_err != error.FileNotFound) {
-            try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id_});
-            return later_err;
-        }
+        if (later_err != error.FileNotFound) return later_err;
         var next_goal = Goal.init(ctx_, dirs_.next.dir, id_, .{ .quiet = true }) catch |next_err| {
             if (next_err == error.FileNotFound) {
                 try ctx_.stderr.print(
@@ -168,8 +168,6 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8, ts_: std.Io.F
                     \\Run `goal list --all` to see your goals.
                     \\
                 , .{id_});
-            } else {
-                try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id_});
             }
             return next_err;
         };

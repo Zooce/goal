@@ -5,7 +5,10 @@ const Context = @import("Context");
 pub fn load(ctx_: *const Context, local_dir_: std.Io.Dir) !?[]const u8 {
     const active_id_file = local_dir_.openFile(ctx_.io, ".active_id", .{}) catch |err| switch (err) {
         error.FileNotFound => return null,
-        else => return err,
+        else => {
+            try ctx_.stderr.writeAll("\nUnable to open .active_id\n");
+            return err;
+        },
     };
     defer active_id_file.close(ctx_.io);
 
@@ -19,7 +22,10 @@ pub fn load(ctx_: *const Context, local_dir_: std.Io.Dir) !?[]const u8 {
 }
 
 pub fn store(ctx_: *const Context, local_dir_: std.Io.Dir, id_: []const u8) !void {
-    const active_file = try local_dir_.createFile(ctx_.io, "~.active_id", .{});
+    const active_file = local_dir_.createFile(ctx_.io, "~.active_id", .{}) catch |err| {
+        try ctx_.stderr.writeAll("\nUnable to write .active_id\n");
+        return err;
+    };
     defer active_file.close(ctx_.io);
 
     var writer_buf: [16]u8 = undefined;
@@ -28,7 +34,10 @@ pub fn store(ctx_: *const Context, local_dir_: std.Io.Dir, id_: []const u8) !voi
     try writer.interface.flush();
     try active_file.sync(ctx_.io);
 
-    try std.Io.Dir.rename(local_dir_, "~.active_id", local_dir_, ".active_id", ctx_.io);
+    std.Io.Dir.rename(local_dir_, "~.active_id", local_dir_, ".active_id", ctx_.io) catch |err| {
+        try ctx_.stderr.writeAll("\nUnable to write .active_id\n");
+        return err;
+    };
 }
 
 pub fn clear(ctx_: *const Context, local_dir_: std.Io.Dir) !void {

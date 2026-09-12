@@ -92,7 +92,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     {
         const existing_file = std.Io.Dir.openFileAbsolute(ctx_.io, config_path, .{}) catch |err| switch (err) {
             error.FileNotFound => return, // already absent — idempotent success
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nUnable to open {s}\n", .{config_path});
+                return err;
+            },
         };
         defer existing_file.close(ctx_.io);
 
@@ -109,12 +112,18 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             if (keep) try lines.append(ctx_.alloc, try ctx_.alloc.dupe(u8, line));
         } else |err| switch (err) {
             error.EndOfStream => {},
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nError while reading config file ({s})...\n", .{config_path});
+                return err;
+            },
         }
     }
 
     {
-        const config_file = try std.Io.Dir.createFileAbsolute(ctx_.io, config_path, .{});
+        const config_file = std.Io.Dir.createFileAbsolute(ctx_.io, config_path, .{}) catch |err| {
+            try ctx_.stderr.print("\nUnable to create config file: {s}\n", .{config_path});
+            return err;
+        };
         defer config_file.close(ctx_.io);
 
         for (lines.items) |line| {

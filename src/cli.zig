@@ -54,14 +54,26 @@ pub fn getAnswer(ctx_: *const Context, comptime fmt_: []const u8, args_: anytype
 /// `ctx_.cwd` when set (tests), otherwise the process cwd. Caller frees.
 pub fn readPathAll(ctx_: *const Context, path_: []const u8) ![]u8 {
     if (std.fs.path.isAbsolute(path_)) {
-        return std.Io.Dir.cwd().readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited);
+        return std.Io.Dir.cwd().readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited) catch |err| {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{path_});
+            return err;
+        };
     }
     if (ctx_.cwd) |cwd| {
-        var dir = try std.Io.Dir.openDirAbsolute(ctx_.io, cwd, .{});
+        var dir = std.Io.Dir.openDirAbsolute(ctx_.io, cwd, .{}) catch |err| {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{cwd});
+            return err;
+        };
         defer dir.close(ctx_.io);
-        return dir.readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited);
+        return dir.readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited) catch |err| {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{path_});
+            return err;
+        };
     }
-    return std.Io.Dir.cwd().readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited);
+    return std.Io.Dir.cwd().readFileAlloc(ctx_.io, path_, ctx_.alloc, .unlimited) catch |err| {
+        try ctx_.stderr.print("\nUnable to open {s}\n", .{path_});
+        return err;
+    };
 }
 
 /// First line of goal content (trimmed), used as the title for messages.

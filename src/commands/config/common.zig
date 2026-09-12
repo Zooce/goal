@@ -49,7 +49,10 @@ pub fn defaultBaseDir(ctx_: *const Context) ![]const u8 {
     }
 
     const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
-    const home = ctx_.environ_map.get(home_var) orelse return error.EnvironmentVariableMissing;
+    const home = ctx_.environ_map.get(home_var) orelse {
+        try ctx_.stderr.print("\n{s} environment variable not set.\n", .{home_var});
+        return error.EnvironmentVariableMissing;
+    };
     return std.Io.Dir.path.join(ctx_.alloc, &.{ home, ".config", "goal" });
 }
 
@@ -64,7 +67,10 @@ pub fn lineHasKey(line_: []const u8, key_str_: []const u8) bool {
 pub fn getFromConfigFile(ctx_: *const Context, path_: []const u8, key_str_: []const u8) !?[]const u8 {
     const config_file = std.Io.Dir.openFileAbsolute(ctx_.io, path_, .{}) catch |err| switch (err) {
         error.FileNotFound => return null,
-        else => return err,
+        else => {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{path_});
+            return err;
+        },
     };
     defer config_file.close(ctx_.io);
 
@@ -82,7 +88,10 @@ pub fn getFromConfigFile(ctx_: *const Context, path_: []const u8, key_str_: []co
         result = try ctx_.alloc.dupe(u8, val);
     } else |err| switch (err) {
         error.EndOfStream => return result,
-        else => return err,
+        else => {
+            try ctx_.stderr.print("\nError while reading config file ({s})...\n", .{path_});
+            return err;
+        },
     }
 
     return result;
@@ -147,6 +156,11 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
         }
     }
 
+    try ctx_.stderr.writeAll(
+        \\
+        \\No editor found. Set GOAL_EDITOR or EDITOR.
+        \\
+    );
     return error.NoEditorFound;
 }
 

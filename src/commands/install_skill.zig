@@ -172,7 +172,10 @@ fn destIsDirectory(ctx_: *const Context, dest_: []const u8) !bool {
         error.FileNotFound => {
             const nofollow = std.Io.Dir.cwd().statFile(ctx_.io, dest_, .{ .follow_symlinks = false }) catch |e| switch (e) {
                 error.FileNotFound => return false,
-                else => return e,
+                else => {
+                    try ctx_.stderr.print("\nUnable to open {s}\n", .{dest_});
+                    return e;
+                },
             };
             if (nofollow.kind == .sym_link) {
                 try ctx_.stderr.print("\n{s} is a dangling symlink.\n", .{dest_});
@@ -181,7 +184,10 @@ fn destIsDirectory(ctx_: *const Context, dest_: []const u8) !bool {
             try ctx_.stderr.print("\n{s} exists and is not a directory.\n", .{dest_});
             return error.NotDir;
         },
-        else => return err,
+        else => {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{dest_});
+            return err;
+        },
     };
     if (followed.kind != .directory) {
         try ctx_.stderr.print("\n{s} exists and is not a directory.\n", .{dest_});
@@ -194,7 +200,10 @@ fn writeSkillPackage(ctx_: *const Context, dest_: []const u8) !void {
     // createDirPath on a directory symlink returns NotDir (io_uring stats
     // with SYMLINK_NOFOLLOW). Write through an existing dest instead.
     if (!try destIsDirectory(ctx_, dest_)) {
-        try std.Io.Dir.cwd().createDirPath(ctx_.io, dest_);
+        std.Io.Dir.cwd().createDirPath(ctx_.io, dest_) catch |err| {
+            try ctx_.stderr.print("\nUnable to create directory: {s}\n", .{dest_});
+            return err;
+        };
     }
     try writeDestFile(ctx_, dest_, "SKILL.md", skill_md);
     try writeDestFile(ctx_, dest_, "always-on.md", always_on_md);
@@ -204,7 +213,10 @@ fn writeDestFile(ctx_: *const Context, dest_: []const u8, name_: []const u8, con
     const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ dest_, name_ });
     defer ctx_.alloc.free(path);
 
-    const file = try std.Io.Dir.createFileAbsolute(ctx_.io, path, .{});
+    const file = std.Io.Dir.createFileAbsolute(ctx_.io, path, .{}) catch |err| {
+        try ctx_.stderr.print("\nUnable to create {s}\n", .{path});
+        return err;
+    };
     defer file.close(ctx_.io);
     try file.writeStreamingAll(ctx_.io, content_);
 }
@@ -257,10 +269,16 @@ fn ensureDirSymlink(ctx_: *const Context, link_: []const u8, target_: []const u8
         if (std.Io.Dir.readLinkAbsolute(ctx_.io, link_, &buf)) |n| {
             if (std.mem.eql(u8, buf[0..n], target_)) return;
         } else |_| {}
-        try std.Io.Dir.deleteFileAbsolute(ctx_.io, link_);
+        std.Io.Dir.deleteFileAbsolute(ctx_.io, link_) catch |err| {
+            try ctx_.stderr.print("\nUnable to delete {s}\n", .{link_});
+            return err;
+        };
     }
 
-    try std.Io.Dir.symLinkAbsolute(ctx_.io, target_, link_, .{ .is_directory = true });
+    std.Io.Dir.symLinkAbsolute(ctx_.io, target_, link_, .{ .is_directory = true }) catch |err| {
+        try ctx_.stderr.print("\nUnable to link {s}\n", .{link_});
+        return err;
+    };
 }
 
 fn homeDir(ctx_: *const Context) !?[]const u8 {

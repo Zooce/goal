@@ -94,10 +94,16 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     defer ctx_.alloc.free(config_path);
 
     {
-        const config_dir = std.Io.Dir.path.dirname(config_path) orelse return error.InvalidPath;
+        const config_dir = std.Io.Dir.path.dirname(config_path) orelse {
+            try ctx_.stderr.print("\nUnable to open {s}\n", .{config_path});
+            return error.InvalidPath;
+        };
         std.Io.Dir.createDirAbsolute(ctx_.io, config_dir, .default_dir) catch |err| switch (err) {
             error.PathAlreadyExists => {},
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nUnable to create directory: {s}\n", .{config_dir});
+                return err;
+            },
         };
     }
 
@@ -112,7 +118,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     {
         const existing_file = std.Io.Dir.openFileAbsolute(ctx_.io, config_path, .{}) catch |err| switch (err) {
             error.FileNotFound => null,
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nUnable to open {s}\n", .{config_path});
+                return err;
+            },
         };
         if (existing_file) |config_file| {
             defer config_file.close(ctx_.io);
@@ -124,7 +133,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
                 try lines.append(ctx_.alloc, try ctx_.alloc.dupe(u8, line));
             } else |err| switch (err) {
                 error.EndOfStream => {},
-                else => return err,
+                else => {
+                    try ctx_.stderr.print("\nError while reading config file ({s})...\n", .{config_path});
+                    return err;
+                },
             }
         }
     }
@@ -144,7 +156,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     }
 
     {
-        const config_file = try std.Io.Dir.createFileAbsolute(ctx_.io, config_path, .{});
+        const config_file = std.Io.Dir.createFileAbsolute(ctx_.io, config_path, .{}) catch |err| {
+            try ctx_.stderr.print("\nUnable to create config file: {s}\n", .{config_path});
+            return err;
+        };
         defer config_file.close(ctx_.io);
 
         for (lines.items) |line| {

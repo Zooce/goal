@@ -7,7 +7,7 @@ const Context = @import("Context");
 pub const Options = struct {
     incl_desc: bool = false,
 
-    // Don't print error messages.
+    // Don't print FileNotFound (caller has a domain message). Other I/O still prints here.
     quiet: bool = false,
 };
 
@@ -45,7 +45,9 @@ _ctx: *const Context,
 /// ```
 pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Options) !Goal {
     const goal_file = dir_.openFile(ctx_.io, id_, .{}) catch |err| {
-        if (!opts_.quiet) try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id_});
+        if (!(opts_.quiet and err == error.FileNotFound)) {
+            try ctx_.stderr.print("\nUnable to open goal file: {s}\n", .{id_});
+        }
         return err;
     };
     defer goal_file.close(ctx_.io);

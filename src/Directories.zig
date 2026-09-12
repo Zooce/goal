@@ -68,7 +68,10 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
         const goal_id_file = std.Io.Dir.openFileAbsolute(ctx_.io, goal_id_path, .{}) catch |err| switch (err) {
             // if the file doesn't exist and we're allowed to create it, then do so
             error.FileNotFound => if (opts_.create) {
-                const goal_id_file = try std.Io.Dir.createFileAbsolute(ctx_.io, goal_id_path, .{ .exclusive = true });
+                const goal_id_file = std.Io.Dir.createFileAbsolute(ctx_.io, goal_id_path, .{ .exclusive = true }) catch |create_err| {
+                    try ctx_.stderr.print("\nUnable to create {s}\n", .{goal_id_path});
+                    return create_err;
+                };
                 defer goal_id_file.close(ctx_.io);
 
                 try uuid.v4(&goal_id, ctx_.io);
@@ -172,11 +175,20 @@ pub fn notes(self_: *const Directories, goal_id_: []const u8, opts_: Options) !D
     const sub = try std.fmt.bufPrint(&sub_buf, "notes/{s}", .{goal_id_});
 
     const dir = if (opts_.create)
-        try self_.base.dir.createDirPathOpen(self_._ctx.io, sub, .{
+        self_.base.dir.createDirPathOpen(self_._ctx.io, sub, .{
             .open_options = .{ .iterate = opts_.iterate },
-        })
+        }) catch |err| {
+            try self_._ctx.stderr.print("\nUnable to create directory: {s}\n", .{path});
+            return err;
+        }
     else
-        try self_.base.dir.openDir(self_._ctx.io, sub, .{ .iterate = opts_.iterate });
+        self_.base.dir.openDir(self_._ctx.io, sub, .{ .iterate = opts_.iterate }) catch |err| {
+            // Missing notes dir is normal (goal has no notes yet).
+            if (err != error.FileNotFound) {
+                try self_._ctx.stderr.print("\nUnable to open directory: {s}\n", .{path});
+            }
+            return err;
+        };
 
     return .{
         .dir = dir,

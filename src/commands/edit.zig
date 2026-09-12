@@ -168,7 +168,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         dir_path = dirs.next.path;
         break :goal Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch {
             dir_path = dirs.later.path;
-            break :goal try Goal.init(ctx_, dirs.later.dir, id, .{});
+            break :goal Goal.init(ctx_, dirs.later.dir, id, .{ .quiet = true }) catch |err| {
+                if (err == error.FileNotFound) return Self.fileNotFound(ctx_, id);
+                return err;
+            };
         };
     };
     defer goal.deinit();
@@ -181,7 +184,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             try ctx_.stderr.writeAll("\nGoal content cannot be empty!\n");
             return error.EmptyGoalTitle;
         }
-        const goal_file = try goal.dir.createFile(ctx_.io, id, .{});
+        const goal_file = goal.dir.createFile(ctx_.io, id, .{}) catch |err| {
+            try ctx_.stderr.print("\nUnable to write goal file: {s}\n", .{id});
+            return err;
+        };
         defer goal_file.close(ctx_.io);
         try goal_file.writeStreamingAll(ctx_.io, raw);
         try goal_file.sync(ctx_.io);
@@ -198,8 +204,14 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
     defer config.deinit();
 
     const cmd = [_][]const u8{ config.editor, file_path };
-    var editor = try std.process.spawn(ctx_.io, .{ .argv = &cmd });
-    _ = try editor.wait(ctx_.io);
+    var editor = std.process.spawn(ctx_.io, .{ .argv = &cmd }) catch |err| {
+        try ctx_.stderr.print("\nUnable to start editor {s} for {s}\n", .{ config.editor, file_path });
+        return err;
+    };
+    _ = editor.wait(ctx_.io) catch |err| {
+        try ctx_.stderr.print("\nEditor {s} failed for {s}\n", .{ config.editor, file_path });
+        return err;
+    };
 
     // empty file check
     // TODO: consider editing in a temporary file and if it's empty then error and don't save it
@@ -284,6 +296,22 @@ test "run rejects empty content and blank first-line title" {
 // How the goal ID is chosen when omitted on the command line:
 //   1. the active goal                            (goal edit --file ...)
 //   2. TTY picker, or error when not a TTY
+
+test "goal edit (missing goal names the id)" {
+    // FileNotFound uses the domain message, not "Unable to open goal file".
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+
+    try std.testing.expectError(error.FileNotFound, edit_cmd.run(&env.ctx, .{ .id = "999", .content = "x" }));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #999 doesn't exist! Run `goal edit` to pick from the list of goals.
+        \\
+    , env.readStderr());
+}
 
 test "goal edit (no active goal, non-TTY)" {
     var env = try TestEnv.init(.{});

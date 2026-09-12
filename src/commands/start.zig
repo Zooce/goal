@@ -159,7 +159,10 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
         };
 
         break :goal Goal.init(ctx_, dirs.later.dir, id, .{ .quiet = true }) catch
-            try Goal.init(ctx_, dirs.next.dir, id, .{});
+            Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch |err| {
+                if (err == error.FileNotFound) return Self.fileNotFound(ctx_, id);
+                return err;
+            };
     };
     defer goal.deinit();
 
@@ -244,9 +247,14 @@ test "start with invalid goal ID shows error" {
     try init_cmd.run(&env.ctx);
 
     // Run: start 999
-    // Verify: goal not found error
+    // Verify: domain message names the goal ID (not a bare FileNotFound).
     const args: Args = .{ .id = "999" };
     try std.testing.expectError(error.FileNotFound, start_cmd.run(&env.ctx, args));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #999 doesn't exist! Run `goal start` to pick from the list of goals.
+        \\
+    , env.readStderr());
 }
 
 test "can only start if there are inactive goals to start" {

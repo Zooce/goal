@@ -68,7 +68,10 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
                 try ctx_.stdout.print("\nNo global config file found.\n", .{});
                 return err;
             },
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nUnable to open {s}\n", .{global_config_path});
+                return err;
+            },
         };
 
         try ctx_.stdout.print(

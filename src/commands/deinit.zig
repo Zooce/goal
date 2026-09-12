@@ -86,7 +86,10 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
                 try ctx_.stderr.writeAll("\ngoal is not initialized in this project. Run `goal init` to get started!\n");
                 return error.GoalNotInitialized;
             },
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nUnable to open {s}\n", .{goal_id_path});
+                return err;
+            },
         };
         defer goal_id_file.close(ctx_.io);
 
@@ -116,7 +119,10 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     const has_global_data = has_global_data: {
         std.Io.Dir.accessAbsolute(ctx_.io, global_goal_path, .{}) catch |err| switch (err) {
             error.FileNotFound => break :has_global_data false,
-            else => return err,
+            else => {
+                try ctx_.stderr.print("\nUnable to open {s}\n", .{global_goal_path});
+                return err;
+            },
         };
         break :has_global_data true;
     };
@@ -143,7 +149,10 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     // the `.goal/` directory we can't have it open while we're deleting it.
     // It turns out since the `sub_dir` parameter is an absolute path, we can
     // delete it from any directory (including `cwd`).
-    try std.Io.Dir.cwd().deleteTree(ctx_.io, local_goal_path);
+    std.Io.Dir.cwd().deleteTree(ctx_.io, local_goal_path) catch |err| {
+        try ctx_.stderr.print("\nUnable to delete {s}\n", .{local_goal_path});
+        return err;
+    };
 
     if (!has_global_data) {
         try ctx_.stdout.writeAll("\ngoal deinit complete!\n");
@@ -157,7 +166,10 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     // the `~/.goal/<goal_id>` directory we can't have it open while we're
     // deleting it. It turns out since the `sub_dir` parameter is an absolute
     // path, we can delete it from any directory (including `cwd`).
-    try std.Io.Dir.cwd().deleteTree(ctx_.io, global_goal_path);
+    std.Io.Dir.cwd().deleteTree(ctx_.io, global_goal_path) catch |err| {
+        try ctx_.stderr.print("\nUnable to delete {s}\n", .{global_goal_path});
+        return err;
+    };
 
     try ctx_.stdout.writeAll("\ngoal deinit complete!\n");
 }

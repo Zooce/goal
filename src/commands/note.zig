@@ -237,7 +237,10 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
         }
 
         {
-            const note_file = try notes_dir.dir.createFile(ctx_.io, file_name, .{ .exclusive = true });
+            const note_file = notes_dir.dir.createFile(ctx_.io, file_name, .{ .exclusive = true }) catch |err| {
+                try ctx_.stderr.print("\nUnable to create note file: {s}\n", .{file_name});
+                return err;
+            };
             defer note_file.close(ctx_.io);
             try note_file.writeStreamingAll(ctx_.io, raw);
             try note_file.sync(ctx_.io);
@@ -256,7 +259,10 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
     defer ctx_.alloc.free(file_path);
 
     {
-        const note_file = try notes_dir.dir.createFile(ctx_.io, file_name, .{ .exclusive = true });
+        const note_file = notes_dir.dir.createFile(ctx_.io, file_name, .{ .exclusive = true }) catch |err| {
+            try ctx_.stderr.print("\nUnable to create note file: {s}\n", .{file_name});
+            return err;
+        };
         note_file.close(ctx_.io);
     }
     // Drop the reserved file if editor setup fails or the title is empty.
@@ -267,8 +273,14 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
     defer config.deinit();
 
     const cmd = [_][]const u8{ config.editor, file_path };
-    var editor = try std.process.spawn(ctx_.io, .{ .argv = &cmd });
-    _ = try editor.wait(ctx_.io);
+    var editor = std.process.spawn(ctx_.io, .{ .argv = &cmd }) catch |err| {
+        try ctx_.stderr.print("\nUnable to start editor {s} for {s}\n", .{ config.editor, file_path });
+        return err;
+    };
+    _ = editor.wait(ctx_.io) catch |err| {
+        try ctx_.stderr.print("\nEditor {s} failed for {s}\n", .{ config.editor, file_path });
+        return err;
+    };
 
     var note = try Note.init(ctx_, notes_dir.dir, file_name, .{});
     defer note.deinit();
