@@ -1,0 +1,74 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    # ubuntu-24.04 is x86_64. We run the binary to check --version, so the
+    # runner must match the artifact. ubuntu-latest could become ARM.
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: "0.16.0"
+
+      - name: Check tag matches build.zig.zon
+        run: |
+          tag="$GITHUB_REF_NAME"
+          case "$tag" in
+            v[0-9]*) ;;
+            *)
+              echo "tag must look like v<version>: $tag" >&2
+              exit 1
+              ;;
+          esac
+          version="${tag#v}"
+          zon_version=$(sed -n 's/^[[:space:]]*\.version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' build.zig.zon | head -n1)
+          if [ -z "$zon_version" ]; then
+            echo "could not read .version from build.zig.zon" >&2
+            exit 1
+          fi
+          if [ "$version" != "$zon_version" ]; then
+            echo "tag $tag does not match build.zig.zon version $zon_version" >&2
+            exit 1
+          fi
+
+      - name: Build Linux x86_64
+        run: zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux
+
+      - name: Check binary version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          got=$(./zig-out/bin/goal --version)
+          want="goal $version"
+          if [ "$got" != "$want" ]; then
+            echo "goal --version was '$got', expected '$want'" >&2
+            exit 1
+          fi
+
+      - name: Stage assets
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          mkdir -p dist
+          asset="goal-${version}-x86_64-linux"
+          cp zig-out/bin/goal "dist/$asset"
+          (cd dist && sha256sum "$asset" > SHA256SUMS)
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          asset="goal-${version}-x86_64-linux"
+          gh release create "$GITHUB_REF_NAME" \
+            --title "$GITHUB_REF_NAME" \
+            --notes "goal ${version}" \
+            "dist/$asset" \
+            dist/SHA256SUMS

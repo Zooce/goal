@@ -89,8 +89,16 @@ zig build
 ```
 
 The binary is `zig-out/bin/goal`. `goal --version` prints the version from
-`build.zig.zon`. Git tags are `v<version>` (for example zon `0.1.0` is
-tag `v0.1.0`).
+`build.zig.zon`.
+
+## Releases
+
+Pushing a git tag `v<version>` (for example zon `0.1.0` is tag `v0.1.0`)
+publishes a GitHub Release with a Linux x86_64 binary and SHA256
+checksums. You can download the binary from
+https://github.com/Zooce/goal/releases without compiling.
+
+How to cut a release is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## More
 
