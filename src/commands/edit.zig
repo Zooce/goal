@@ -243,6 +243,8 @@ const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
 const new_cmd = @import("new");
 const start_cmd = @import("start");
+const next_cmd = @import("next");
+const list_cmd = @import("list");
 const edit_cmd = @This();
 
 test "edit with content replaces goal file" {
@@ -511,4 +513,34 @@ test "parseArgs accepts id and --file in either order" {
         try std.testing.expectEqualStrings("3", res.args.id.?);
         try std.testing.expectEqualStrings("title\n", res.args.content.?);
     }
+}
+
+test "goal edit --file (Next order unchanged)" {
+    // Editing a Next goal must not move it in the Next list.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, third, second });
+    try edit_cmd.run(&env.ctx, .{ .id = third, .content = "gamma edited" });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  3. gamma edited
+        \\  2. beta
+        \\
+    , env.readStdout());
 }

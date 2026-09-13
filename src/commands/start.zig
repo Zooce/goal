@@ -115,6 +115,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
         return error.GoalAlreadyActive;
     }
 
+    var from_next = false;
     var goal = goal: {
         const id = if (args_) |args| switch (args) {
             .id => |_id| _id,
@@ -158,11 +159,13 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
             ctx_.alloc.free(id);
         };
 
-        break :goal Goal.init(ctx_, dirs.later.dir, id, .{ .quiet = true }) catch
-            Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch |err| {
+        break :goal Goal.init(ctx_, dirs.later.dir, id, .{ .quiet = true }) catch {
+            from_next = true;
+            break :goal Goal.init(ctx_, dirs.next.dir, id, .{ .quiet = true }) catch |err| {
                 if (err == error.FileNotFound) return Self.fileNotFound(ctx_, id);
                 return err;
             };
+        };
     };
     defer goal.deinit();
 
@@ -170,6 +173,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
         try ctx_.stderr.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
         return err;
     };
+    if (from_next) try dirs.next.removeFromOrder(ctx_, &.{goal.id});
 
     // Set active goal in the current project
     try ActiveId.store(ctx_, dirs.local.dir, goal.id);
@@ -185,6 +189,8 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
 const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
 const new_cmd = @import("new");
+const next_cmd = @import("next");
+const list_cmd = @import("list");
 const start_cmd = @This();
 
 test "start command activates a goal" {
@@ -358,4 +364,33 @@ test "parseArgs start new --file yields new content" {
     try std.testing.expect(args == .new);
     try std.testing.expect(args.new.quiet);
     try std.testing.expectEqualStrings("from file", args.new.content.?);
+}
+
+test "goal start (Next goal leaves Next order)" {
+    // Starting a Next goal drops it from the list. Remaining Next goals keep order.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+    try start_cmd.run(&env.ctx, .{ .id = second });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  3. gamma
+        \\
+    , env.readStdout());
 }

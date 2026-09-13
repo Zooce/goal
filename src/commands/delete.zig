@@ -185,14 +185,20 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
         }
     }
 
+    var from_next: std.ArrayList([]const u8) = .empty;
+    defer from_next.deinit(ctx_.alloc);
+
     for (args_.ids.items) |id| {
         std.Io.Dir.rename(dirs_.later.dir, id, dirs_.deleted.dir, id, ctx_.io) catch {
             std.Io.Dir.rename(dirs_.next.dir, id, dirs_.deleted.dir, id, ctx_.io) catch |err| {
                 try ctx_.stderr.print("\nUnable to delete goal {s}.\n", .{id});
                 return err;
             };
+            try from_next.append(ctx_.alloc, id);
         };
     }
+
+    if (from_next.items.len > 0) try dirs_.next.removeFromOrder(ctx_, from_next.items);
 
     try ctx_.stdout.writeAll("\nAll done! Smell ya later!\n");
 }
@@ -204,6 +210,8 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
 const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
 const new_cmd = @import("new");
+const next_cmd = @import("next");
+const list_cmd = @import("list");
 const delete_cmd = @This();
 
 test "goal delete (no id, non-TTY)" {
@@ -294,4 +302,39 @@ test "parseArgs accepts --yes with goal IDs" {
     try std.testing.expectEqual(@as(usize, 2), args.ids.items.len);
     try std.testing.expectEqualStrings("3", args.ids.items[0]);
     try std.testing.expectEqualStrings("4", args.ids.items[1]);
+}
+
+test "goal delete --yes (Next goal leaves Next order)" {
+    // Deleting a Next goal drops it from the list. Remaining Next goals keep order.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+    var ids: std.ArrayList([]const u8) = .empty;
+    defer ids.deinit(env.alloc);
+    try ids.append(env.alloc, second);
+    try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  3. gamma
+        \\
+    , env.readStdout());
 }

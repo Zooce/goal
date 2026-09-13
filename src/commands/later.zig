@@ -121,6 +121,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
         try ctx_.stderr.print("\nUnable to move Goal #{s}\n", .{id});
         return err;
     };
+    try dirs.next.removeFromOrder(ctx_, &.{id});
 
     try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
 }
@@ -133,6 +134,7 @@ const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
 const new_cmd = @import("new");
 const next_cmd = @import("next");
+const list_cmd = @import("list");
 const later_cmd = @This();
 
 test "later command demotes goal from next to later" {
@@ -195,4 +197,33 @@ test "goal later (no id, non-TTY)" {
 
     try std.testing.expect(!env.ctx.stdin_is_tty);
     try std.testing.expectError(error.MissingArgument, later_cmd.run(&env.ctx, null));
+}
+
+test "goal later (drops id from Next order)" {
+    // Remaining Next goals keep their relative order after one is demoted.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+    try later_cmd.run(&env.ctx, second);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  3. gamma
+        \\
+    , env.readStdout());
 }

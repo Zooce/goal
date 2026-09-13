@@ -116,11 +116,11 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     errdefer active.close(ctx_);
 
     // <base-dir>/.goal/<goal_id>/n/
-    // Next list order: most recently placed into Next first (file mtime).
+    // Next list order: explicit id list in `order` (not mtime).
     var next = next: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "n" });
         var d = try Dir.open(ctx_, path, "Upcoming Goals", opts_);
-        d.list_sort = .mtime_desc;
+        d.list_sort = .order;
         break :next d;
     };
     errdefer next.close(ctx_);
@@ -207,6 +207,8 @@ pub const Sort = enum {
     id_desc,
     /// File modification time descending - most recently placed/touched first.
     mtime_desc,
+    /// Explicit id list (`order` file). Used by Next.
+    order,
 };
 
 pub const Dir = struct {
@@ -218,6 +220,10 @@ pub const Dir = struct {
     label: ?[]const u8,
     /// Default sort used by `list` (goal category dirs set this in `open`).
     list_sort: Sort = .none,
+
+    /// Next queue order (one id per line, first line first). Not a goal file.
+    pub const order_file_name = "order";
+    const order_file_tmp = "~order";
 
     /// Takes ownership of `path_` memory.
     pub fn open(ctx_: *const Context, path_: []const u8, comptime label_: ?[]const u8, opts_: Options) !Dir {
@@ -251,18 +257,21 @@ pub const Dir = struct {
         ctx_.alloc.free(self_.path);
     }
 
-    /// True when the directory has no file entries.
+    /// True when the directory has no goal files (numeric ids). Other files
+    /// such as Next's `order` list do not count.
     pub fn isEmpty(self_: Dir, ctx_: *const Context) !bool {
         var iter = self_.dir.iterate();
         while (try iter.next(ctx_.io)) |entry| {
-            if (entry.kind == .file) return false;
+            if (entry.kind != .file) continue;
+            if (!isGoalId(entry.name)) continue;
+            return false;
         }
         return true;
     }
 
     /// Set access/modify times so the file sorts under `mtime_desc` as intended.
     /// Pass `.now` to put a file first; pass staggered `.new` timestamps when
-    /// several files need distinct order in one pass (e.g. multi-id `goal next`).
+    /// several files need distinct order in one pass.
     /// Uses `setTimestamps` (not `setTimestampsNow`) because Zig 0.16.0's Dir
     /// `setTimestampsNow` calls the wrong vtable entry.
     pub fn touch(self_: Dir, ctx_: *const Context, name_: []const u8, ts_: std.Io.File.SetTimestamp) !void {
@@ -290,14 +299,11 @@ pub const Dir = struct {
     /// List files as `Item` values. `Item` must provide:
     /// `init`, `deinit`, `printListLine`, and `print` (when `incl_desc`).
     pub fn listItems(self_: Dir, ctx_: *const Context, comptime Item: type, opts_: ListOptions) !u8 {
-        var ids = try self_.collectFileNames(ctx_);
+        var ids = try self_.sortedFileNames(ctx_, opts_.sort);
         defer {
             for (ids.items) |name| ctx_.alloc.free(name);
             ids.deinit(ctx_.alloc);
         }
-
-        const sort = opts_.sort orelse self_.list_sort;
-        try self_.sortFileNames(ctx_, ids.items, sort);
 
         if (ids.items.len == 0) {
             if (!opts_.show_none) return 0;
@@ -338,7 +344,11 @@ pub const Dir = struct {
             for (ids.items) |name| ctx_.alloc.free(name);
             ids.deinit(ctx_.alloc);
         }
-        try self_.sortFileNames(ctx_, ids.items, sort_ orelse self_.list_sort);
+        const sort = sort_ orelse self_.list_sort;
+        switch (sort) {
+            .order => try self_.applyOrder(ctx_, &ids),
+            else => try self_.sortFileNames(ctx_, ids.items, sort),
+        }
         return ids;
     }
 
@@ -352,6 +362,7 @@ pub const Dir = struct {
         var iter = self_.dir.iterate();
         while (try iter.next(ctx_.io)) |entry| {
             if (entry.kind != .file) continue;
+            if (!isGoalId(entry.name)) continue;
             try ids.append(ctx_.alloc, try ctx_.alloc.dupe(u8, entry.name));
         }
         return ids;
@@ -370,6 +381,7 @@ pub const Dir = struct {
                     return numericIdLess(b, a);
                 }
             }.less),
+            .order => unreachable,
             .mtime_desc => {
                 const Timed = struct {
                     name: []const u8,
@@ -399,9 +411,165 @@ pub const Dir = struct {
         }
     }
 
+    /// Put `ids_` at the front of Next, in the given order. Existing Next goals
+    /// keep their relative order after that block. Duplicates in `ids_` are
+    /// kept once (first occurrence).
+    pub fn prependToOrder(self_: Dir, ctx_: *const Context, ids_: []const []const u8) !void {
+        var names = try self_.sortedFileNames(ctx_, .order);
+        defer {
+            for (names.items) |name| ctx_.alloc.free(name);
+            names.deinit(ctx_.alloc);
+        }
+
+        var out: std.ArrayList([]const u8) = .empty;
+        defer {
+            for (out.items) |name| ctx_.alloc.free(name);
+            out.deinit(ctx_.alloc);
+        }
+
+        for (ids_) |id| {
+            if (sliceContains(out.items, id)) continue;
+            try out.append(ctx_.alloc, try ctx_.alloc.dupe(u8, id));
+        }
+        for (names.items) |name| {
+            if (sliceContains(ids_, name)) continue;
+            try out.append(ctx_.alloc, try ctx_.alloc.dupe(u8, name));
+        }
+
+        try self_.writeOrderFile(ctx_, out.items);
+    }
+
+    /// Drop `ids_` from the Next order list. Ids that were not in the list are
+    /// ignored. Remaining ids keep their relative order.
+    pub fn removeFromOrder(self_: Dir, ctx_: *const Context, ids_: []const []const u8) !void {
+        var names = try self_.sortedFileNames(ctx_, .order);
+        defer {
+            for (names.items) |name| ctx_.alloc.free(name);
+            names.deinit(ctx_.alloc);
+        }
+
+        var out: std.ArrayList([]const u8) = .empty;
+        defer {
+            for (out.items) |name| ctx_.alloc.free(name);
+            out.deinit(ctx_.alloc);
+        }
+
+        for (names.items) |name| {
+            if (sliceContains(ids_, name)) continue;
+            try out.append(ctx_.alloc, try ctx_.alloc.dupe(u8, name));
+        }
+
+        try self_.writeOrderFile(ctx_, out.items);
+    }
+
+    /// Reorder `ids_` to match the `order` file. Missing order file: derive
+    /// from mtime (newest first) and persist so the current list does not shuffle.
+    /// Ids in the file with no goal are skipped. Goal files not in the file
+    /// are appended (they do not jump the queue).
+    fn applyOrder(self_: Dir, ctx_: *const Context, ids_: *std.ArrayList([]const u8)) !void {
+        var persisted = try self_.readOrderFile(ctx_);
+        defer if (persisted) |*p| {
+            for (p.items) |name| ctx_.alloc.free(name);
+            p.deinit(ctx_.alloc);
+        };
+
+        if (persisted) |order| {
+            try mergeOrder(ctx_, ids_, order.items);
+        } else {
+            try self_.sortFileNames(ctx_, ids_.items, .mtime_desc);
+            if (ids_.items.len > 0) try self_.writeOrderFile(ctx_, ids_.items);
+        }
+    }
+
+    fn readOrderFile(self_: Dir, ctx_: *const Context) !?std.ArrayList([]const u8) {
+        const contents = self_.dir.readFileAllocOptions(ctx_.io, order_file_name, ctx_.alloc, .unlimited, .of(u8), 0) catch |err| switch (err) {
+            error.FileNotFound => return null,
+            else => {
+                try ctx_.stderr.writeAll("\nUnable to read Next order file\n");
+                return err;
+            },
+        };
+        defer ctx_.alloc.free(contents);
+
+        var ids: std.ArrayList([]const u8) = .empty;
+        errdefer {
+            for (ids.items) |name| ctx_.alloc.free(name);
+            ids.deinit(ctx_.alloc);
+        }
+
+        var lines = std.mem.splitScalar(u8, contents, '\n');
+        while (lines.next()) |line| {
+            const trimmed = std.mem.trim(u8, line, " \t\r");
+            if (trimmed.len == 0) continue;
+            if (!isGoalId(trimmed)) continue;
+            try ids.append(ctx_.alloc, try ctx_.alloc.dupe(u8, trimmed));
+        }
+        return ids;
+    }
+
+    fn writeOrderFile(self_: Dir, ctx_: *const Context, ids_: []const []const u8) !void {
+        const file = self_.dir.createFile(ctx_.io, order_file_tmp, .{}) catch |err| {
+            try ctx_.stderr.writeAll("\nUnable to write Next order file\n");
+            return err;
+        };
+        defer file.close(ctx_.io);
+
+        var write_buffer: [256]u8 = undefined;
+        var writer = file.writer(ctx_.io, &write_buffer);
+        for (ids_) |id| {
+            try writer.interface.writeAll(id);
+            try writer.interface.writeByte('\n');
+        }
+        try writer.interface.flush();
+        try file.sync(ctx_.io);
+
+        std.Io.Dir.rename(self_.dir, order_file_tmp, self_.dir, order_file_name, ctx_.io) catch |err| {
+            try ctx_.stderr.writeAll("\nUnable to write Next order file\n");
+            return err;
+        };
+    }
+
+    fn mergeOrder(ctx_: *const Context, files_: *std.ArrayList([]const u8), order_: []const []const u8) !void {
+        var used = try ctx_.alloc.alloc(bool, files_.items.len);
+        defer ctx_.alloc.free(used);
+        @memset(used, false);
+
+        var ordered: std.ArrayList([]const u8) = .empty;
+        errdefer ordered.deinit(ctx_.alloc);
+
+        for (order_) |id| {
+            for (files_.items, 0..) |name, i| {
+                if (used[i]) continue;
+                if (std.mem.eql(u8, name, id)) {
+                    try ordered.append(ctx_.alloc, name);
+                    used[i] = true;
+                    break;
+                }
+            }
+        }
+        for (files_.items, 0..) |name, i| {
+            if (!used[i]) try ordered.append(ctx_.alloc, name);
+        }
+
+        files_.deinit(ctx_.alloc);
+        files_.* = ordered;
+    }
+
     fn numericIdLess(a: []const u8, b: []const u8) bool {
         const na = std.fmt.parseInt(u32, a, 10) catch return true;
         const nb = std.fmt.parseInt(u32, b, 10) catch return false;
         return na < nb;
     }
 };
+
+fn isGoalId(name_: []const u8) bool {
+    _ = std.fmt.parseInt(u32, name_, 10) catch return false;
+    return true;
+}
+
+fn sliceContains(haystack_: []const []const u8, needle_: []const u8) bool {
+    for (haystack_) |s| {
+        if (std.mem.eql(u8, s, needle_)) return true;
+    }
+    return false;
+}

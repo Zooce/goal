@@ -12,7 +12,7 @@ const Self = Command.stop;
 
 pub const help_text =
     \\
-    \\Stop working on the active goal. Moves it to Next.
+    \\Stop working on the active goal. Moves it to Next (first in Next).
     \\
     \\Usage:
     \\
@@ -60,7 +60,7 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
 }
 
 pub fn run(ctx_: *const Context, later_: bool) !void {
-    var dirs = try Directories.open(ctx_, .{});
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
     const active_id = try ActiveId.load(ctx_, dirs.local.dir);
@@ -77,8 +77,7 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
             try ctx_.stderr.print("\nUnable to move Goal #{s}\n", .{id});
             return err;
         };
-        // Next list order is most recently placed into Next first.
-        if (!later_) try dirs.next.touch(ctx_, id, .now);
+        if (!later_) try dirs.next.prependToOrder(ctx_, &.{id});
 
         if (later_) {
             try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
@@ -96,7 +95,10 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
 
 const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
+const new_cmd = @import("new");
+const next_cmd = @import("next");
 const start_cmd = @import("start");
+const list_cmd = @import("list");
 const stop_cmd = @This();
 
 test "goal stop moves active goal to next" {
@@ -113,4 +115,35 @@ test "goal stop moves active goal to next" {
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/n/1", .{goal_id}));
     try std.testing.expect(!try env.pathExists(".goal/{s}/a/1", .{goal_id}));
+}
+
+test "goal stop (first in Next)" {
+    // Stopping the active goal puts it first in Next. Existing Next order follows.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second });
+    try start_cmd.run(&env.ctx, .{ .id = third });
+    try stop_cmd.run(&env.ctx, false);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  3. gamma
+        \\  1. alpha
+        \\  2. beta
+        \\
+    , env.readStdout());
 }

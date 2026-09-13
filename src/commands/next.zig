@@ -15,6 +15,7 @@ pub const help_text =
     \\
     \\Moves Later goals to Next, or moves a Next goal to the front of Next.
     \\
+    \\Next order is the order you set with `goal next` (and `goal stop` to Next).
     \\IDs are applied in the order you give them (first ID ends up first).
     \\Active goals: stop first (`goal stop` or `goal stop --later`).
     \\
@@ -82,16 +83,12 @@ pub fn run(ctx_: *const Context, ids_: []const []const u8) !void {
 
     const ids = if (ids_.len > 0) ids_ else try resolveIds(ctx_, dirs, &owned_ids);
 
-    // Process CLI / picker order (first id first for messages). Assign distinct
-    // mtimes so the first id is most recently next'd (highest mtime). Tight loops
-    // of touch(.now) can share one nanosecond and fall back to id_desc ties.
-    // parseArgs / resolveIds already trim and drop empty entries.
-    const now = std.Io.Timestamp.now(ctx_.io, .real);
-    for (ids, 0..) |id, idx| {
-        // first id -> now; second -> now-1; ... last -> now-(n-1)
-        const ts: std.Io.Timestamp = .{ .nanoseconds = now.nanoseconds - @as(i96, @intCast(idx)) };
-        try next(ctx_, dirs, id, .{ .new = ts });
+    // Move files first, then write Next order once so argv order is the front
+    // of the list (first id first) and remaining Next goals keep their order.
+    for (ids) |id| {
+        try next(ctx_, dirs, id);
     }
+    try dirs.next.prependToOrder(ctx_, ids);
 }
 
 /// When no ids were given on the CLI, fill `out_` from the Later list (TTY picker)
@@ -143,8 +140,8 @@ fn resolveIds(ctx_: *const Context, dirs_: Directories, out_: *std.ArrayList([]c
     return out_.items;
 }
 
-fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8, ts_: std.Io.File.SetTimestamp) !void {
-    // Later -> Next (promote), or already Next -> touch to top of Next order.
+fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8) !void {
+    // Later -> Next (promote), or already Next (reorder happens in prependToOrder).
     if (Goal.init(ctx_, dirs_.later.dir, id_, .{ .quiet = true })) |goal_val| {
         var goal = goal_val;
         defer goal.deinit();
@@ -153,8 +150,6 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8, ts_: std.Io.F
             try ctx_.stderr.print("\nUnable to move Goal #{s}\n", .{id_});
             return err;
         };
-        // Placement time drives Next list order (most recent first).
-        try dirs_.next.touch(ctx_, id_, ts_);
 
         try ctx_.stdout.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
     } else |later_err| {
@@ -172,8 +167,6 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8, ts_: std.Io.F
             return next_err;
         };
         defer next_goal.deinit();
-        // Already in Next: bump mtime so it sorts first under mtime_desc.
-        try dirs_.next.touch(ctx_, id_, ts_);
         try ctx_.stdout.print("\nGoal #{s} - '{s}' is now first in Next.\n", .{ next_goal.id, next_goal.title });
     }
 }
@@ -281,7 +274,7 @@ test "goal next (already next moves to top)" {
 }
 
 test "goal next (multiple ids set Next order)" {
-    // goal next 1 3 2 => Next order 1, 3, 2 (not pure id desc, so mtime order is proven).
+    // goal next 1 3 2 => Next order 1, 3, 2 (argv order, not id desc).
     // Same as: goal next 2; goal next 3; goal next 1
     var env = try TestEnv.init(.{});
     defer env.deinit();
@@ -360,4 +353,33 @@ test "parseArgs accepts multiple goal IDs" {
     try std.testing.expectEqualStrings("23", ids.items[0]);
     try std.testing.expectEqualStrings("42", ids.items[1]);
     try std.testing.expectEqualStrings("11", ids.items[2]);
+}
+
+test "goal next (write drops missing ids from order)" {
+    // Ids in the order file with no goal are dropped on the next write.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+    const order_path = try std.fmt.allocPrint(env.alloc, ".goal/{s}/n/order", .{goal_id});
+    defer env.alloc.free(order_path);
+    try env.writeFile(order_path, "99\n1\n2\n3\n");
+
+    try next_cmd.run(&env.ctx, &.{first});
+
+    const order = try env.readFile(".goal/{s}/n/order", .{goal_id});
+    defer env.alloc.free(order);
+    try std.testing.expectEqualStrings("1\n2\n3\n", order);
 }

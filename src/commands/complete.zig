@@ -79,7 +79,7 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
 }
 
 pub fn run(ctx_: *const Context, args_: Args) !void {
-    var dirs = try Directories.open(ctx_, .{});
+    var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
     const active_id = try ActiveId.load(ctx_, dirs.local.dir);
@@ -89,6 +89,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         id: []const u8,
         dir: std.Io.Dir,
         clear_active: bool,
+        from_next: bool = false,
     };
 
     // Which file to move, and whether the active id should clear.
@@ -100,7 +101,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
                 }
             }
             if (dirs.next.dir.access(ctx_.io, id, .{})) |_| {
-                break :resolved .{ .id = id, .dir = dirs.next.dir, .clear_active = false };
+                break :resolved .{ .id = id, .dir = dirs.next.dir, .clear_active = false, .from_next = true };
             } else |_| {}
             if (dirs.later.dir.access(ctx_.io, id, .{})) |_| {
                 break :resolved .{ .id = id, .dir = dirs.later.dir, .clear_active = false };
@@ -152,6 +153,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         try ctx_.stderr.print("\nUnable to delete Goal #{s}\n", .{goal.id});
         return err;
     };
+    if (resolved.from_next) try dirs.next.removeFromOrder(ctx_, &.{goal.id});
 
     try ctx_.stdout.print("\nGoal #{s} is now complete! I'm so proud of you. You did it!\n", .{goal.id});
 }
@@ -165,6 +167,7 @@ const init_cmd = @import("init");
 const new_cmd = @import("new");
 const next_cmd = @import("next");
 const start_cmd = @import("start");
+const list_cmd = @import("list");
 const complete_cmd = @This();
 
 test "completing a goal" {
@@ -473,4 +476,33 @@ test "parseArgs rejects a second id" {
     defer iter.deinit();
 
     try std.testing.expectError(error.TooManyArguments, complete_cmd.parseArgs(&env.ctx, &iter));
+}
+
+test "goal complete --yes (Next goal leaves Next order)" {
+    // Completing a Next goal drops it from the list. Remaining Next goals keep order.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+    try complete_cmd.run(&env.ctx, .{ .id = second, .yes = true });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  3. gamma
+        \\
+    , env.readStdout());
 }
