@@ -173,6 +173,11 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
         try ctx_.stderr.print("\nUnable to move Goal #{s} to the active directory!\n", .{goal.id});
         return err;
     };
+    // Starting counts as activity. Rename keeps the old mtime.
+    dirs.active.touch(ctx_, goal.id, .now) catch |err| {
+        try ctx_.stderr.print("\nUnable to update the timestamp for Goal #{s}.\n", .{goal.id});
+        return err;
+    };
     if (from_next) try dirs.next.removeFromOrder(ctx_, &.{goal.id});
 
     // Set active goal in the current project
@@ -391,6 +396,35 @@ test "goal start (Next goal leaves Next order)" {
         \\Upcoming Goals
         \\  1. alpha
         \\  3. gamma
+        \\
+    , env.readStdout());
+}
+
+test "goal start (counts as activity)" {
+    // A goal that was old is not old after start. Rename alone would keep the old mtime.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const id = try new_cmd.run(&env.ctx, .{ .content = "old idea" });
+    defer env.alloc.free(id);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, id, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    try start_cmd.run(&env.ctx, .{ .id = id });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 0);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Active Goals
+        \\  1. old idea
         \\
     , env.readStdout());
 }

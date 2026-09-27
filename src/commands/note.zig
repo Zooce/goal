@@ -15,7 +15,7 @@ const Self = Command.note;
 
 pub const help_text =
     \\
-    \\Append a note to a goal without changing the goal file.
+    \\Append a note to a goal without rewriting the goal.
     \\First line is the title; the rest is the body.
     \\
     \\No goal ID: the active goal. A goal ID attaches to that goal without
@@ -181,6 +181,9 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !ArgsOrHelp(Args) {
 /// or Later) is the target and is not started. If omitted, the active goal
 /// is the target. If `args_.content` is set it is written; otherwise an
 /// editor is opened. Returns the note id (caller frees).
+///
+/// The goal text is not rewritten. The goal file's timestamp is updated so
+/// the note counts as activity.
 pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
     var dirs = try Directories.open(ctx_, .{});
     defer dirs.close();
@@ -195,23 +198,18 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
     });
     defer if (args_.id == null) ctx_.alloc.free(goal_id);
 
-    // Confirm the target goal file exists
-    if (args_.id != null) {
-        const found = found: {
-            if (dirs.active.dir.access(ctx_.io, goal_id, .{})) |_| break :found true else |_| {}
-            if (dirs.next.dir.access(ctx_.io, goal_id, .{})) |_| break :found true else |_| {}
-            if (dirs.later.dir.access(ctx_.io, goal_id, .{})) |_| break :found true else |_| {}
-            break :found false;
-        };
-        if (!found) {
-            try ctx_.stderr.print(
-                \\
-                \\Goal #{s} doesn't exist.
-                \\
-            , .{goal_id});
-            return error.FileNotFound;
-        }
-    } else {
+    // The goal file lives in one of these directories. Touch that file later.
+    const goal_dir: Directories.Dir = if (args_.id != null) found: {
+        if (dirs.active.dir.access(ctx_.io, goal_id, .{})) |_| break :found dirs.active else |_| {}
+        if (dirs.next.dir.access(ctx_.io, goal_id, .{})) |_| break :found dirs.next else |_| {}
+        if (dirs.later.dir.access(ctx_.io, goal_id, .{})) |_| break :found dirs.later else |_| {}
+        try ctx_.stderr.print(
+            \\
+            \\Goal #{s} doesn't exist.
+            \\
+        , .{goal_id});
+        return error.FileNotFound;
+    } else found: {
         dirs.active.dir.access(ctx_.io, goal_id, .{}) catch {
             try ctx_.stderr.print(
                 \\
@@ -220,7 +218,8 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
             , .{goal_id});
             return error.FileNotFound;
         };
-    }
+        break :found dirs.active;
+    };
 
     var notes_dir = try dirs.notes(goal_id, .{ .create = true, .iterate = true });
     defer notes_dir.close(ctx_);
@@ -245,6 +244,12 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
             try note_file.writeStreamingAll(ctx_.io, raw);
             try note_file.sync(ctx_.io);
         }
+
+        // The note is stored. Refresh the goal file's timestamp, not its text.
+        goal_dir.touch(ctx_, goal_id, .now) catch |err| {
+            try ctx_.stderr.print("\nUnable to update the timestamp for Goal #{s}.\n", .{goal_id});
+            return err;
+        };
 
         if (args_.quiet) {
             try ctx_.stdout.print("{s}\n", .{file_name});
@@ -292,6 +297,12 @@ pub fn run(ctx_: *const Context, args_: Args) ![]const u8 {
 
     keep_file = true;
 
+    // The note is stored. Refresh the goal file's timestamp, not its text.
+    goal_dir.touch(ctx_, goal_id, .now) catch |err| {
+        try ctx_.stderr.print("\nUnable to update the timestamp for Goal #{s}.\n", .{goal_id});
+        return err;
+    };
+
     if (args_.quiet) {
         try ctx_.stdout.print("{s}\n", .{file_name});
     } else {
@@ -311,6 +322,7 @@ const init_cmd = @import("init");
 const new_cmd = @import("new");
 const start_cmd = @import("start");
 const next_cmd = @import("next");
+const list_cmd = @import("list");
 const note_cmd = @This();
 
 test "goal note creates note on active goal" {
@@ -723,4 +735,55 @@ test "goal note <missing-id>" {
     const project_id = try env.readFile("proj/.goal/.goal_id", .{});
     defer env.alloc.free(project_id);
     try std.testing.expect(!try env.pathExists(".goal/{s}/notes/999/1", .{project_id}));
+}
+
+test "goal note (counts as activity and keeps Next order)" {
+    // A note clears the goal's age. Next order stays the id list, and the goal text is unchanged.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+
+    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(project_id);
+    const body_before = try env.readFile(".goal/{s}/n/{s}", .{ project_id, first });
+    defer env.alloc.free(body_before);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.next.touch(&env.ctx, first, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    const note_id = try note_cmd.run(&env.ctx, .{ .id = first, .content = "still relevant" });
+    defer env.alloc.free(note_id);
+
+    const body_after = try env.readFile(".goal/{s}/n/{s}", .{ project_id, first });
+    defer env.alloc.free(body_after);
+    try std.testing.expectEqualStrings(body_before, body_after);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, 1 << 1);
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha
+        \\  2. beta
+        \\  3. gamma
+        \\
+    , env.readStdout());
+
+    const order = try env.readFile(".goal/{s}/n/order", .{project_id});
+    defer env.alloc.free(order);
+    try std.testing.expectEqualStrings("1\n2\n3\n", order);
 }
