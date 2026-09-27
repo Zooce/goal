@@ -8,17 +8,20 @@ const Goal = @import("Goal");
 const Command = @import("commands").Command;
 const ArgsOrHelp = @import("args").ArgsOrHelp;
 const ArgIter = @import("args").ArgIter;
+const config_common = @import("config_common");
 const Self = Command.delete;
 
 pub const help_text =
     \\
     \\Deletes a goal.
     \\
-    \\No goal ID: pick from the list on a TTY. Scripts must pass one or more goal IDs.
+    \\No goal ID: pick from the list on a TTY. Scripts must pass one or more goal IDs,
+    \\or --old.
     \\
     \\Usage:
     \\
     \\    goal delete [id...] [--yes]
+    \\    goal delete --old [--yes]
     \\
     \\Arguments:
     \\
@@ -27,6 +30,8 @@ pub const help_text =
     \\Options:
     \\
     \\    --yes    Skip confirm (required when not a TTY).
+    \\    --old    Delete old Next and Later goals. Never the active goal.
+    \\             0d (old-after) deletes nothing.
     \\
 ;
 
@@ -35,6 +40,8 @@ pub const help_text =
 pub const Args = struct {
     ids: std.ArrayList([]const u8) = .empty,
     yes: bool = false,
+    /// When set, `ids` is filled with old Next and Later goals before `run`.
+    delete_old: bool = false,
 };
 
 pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
@@ -45,7 +52,19 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
         .args => |a| a,
         .help => return try ctx_.stdout.writeAll(help_text),
     };
-    defer args.ids.deinit(ctx_.alloc);
+    // Id strings from --old are allocated. Id strings from argv are not.
+    defer {
+        if (args.delete_old) {
+            for (args.ids.items) |id| ctx_.alloc.free(id);
+        }
+        args.ids.deinit(ctx_.alloc);
+    }
+
+    if (args.delete_old) {
+        const collected = try oldGoalIds(ctx_, dirs) orelse return;
+        args.ids.deinit(ctx_.alloc);
+        args.ids = collected;
+    }
 
     try run(ctx_, dirs, args);
 }
@@ -59,15 +78,24 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
     // goal delete -h
     // goal delete --help 3
     // goal delete 3 help
+    // goal delete --old
+    // goal delete --old --yes
 
     var ids: std.ArrayList([]const u8) = .empty;
     errdefer ids.deinit(ctx_.alloc);
     var yes = false;
+    var delete_old = false;
 
     while (iter_.next()) |arg| {
         if (std.mem.eql(u8, arg, "--yes")) {
             if (yes) return Self.duplicateFlag(ctx_, arg);
             yes = true;
+            continue;
+        }
+
+        if (std.mem.eql(u8, arg, "--old")) {
+            if (delete_old) return Self.duplicateFlag(ctx_, arg);
+            delete_old = true;
             continue;
         }
 
@@ -83,8 +111,13 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
         if (trimmed.len > 0) try ids.append(ctx_.alloc, trimmed);
     }
 
+    if (delete_old and ids.items.len != 0) {
+        try ctx_.stderr.writeAll("\ngoal delete --old does not take goal IDs.\n");
+        return error.UnexpectedArgument;
+    }
+
     // TODO: this seems to be the only parseArgs function that also considers choosing goals from a menu - see if this works for others too
-    if (ids.items.len == 0) {
+    if (ids.items.len == 0 and !delete_old) {
         var count = try dirs_.next.list(ctx_, .{});
         count += try dirs_.later.list(ctx_, .{});
         if (count == 0) {
@@ -130,7 +163,47 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
         }
     }
 
-    return .{ .args = .{ .ids = ids, .yes = yes } };
+    return .{ .args = .{ .ids = ids, .yes = yes, .delete_old = delete_old } };
+}
+
+/// Old Next and Later goal ids. Null means nothing to delete: the reason
+/// was already printed (feature off, or no old goals). Caller frees the list
+/// and each id.
+fn oldGoalIds(ctx_: *const Context, dirs_: Directories) !?std.ArrayList([]const u8) {
+    const days = try config_common.oldAfterDays(ctx_) orelse {
+        try ctx_.stdout.writeAll("\nOld goals are off (old-after is 0d).\n");
+        return null;
+    };
+    const now = std.Io.Timestamp.now(ctx_.io, .real);
+    const mark: Goal.OldMark = .{ .now_ns = now.nanoseconds, .after_days = days };
+
+    var ids: std.ArrayList([]const u8) = .empty;
+    errdefer {
+        for (ids.items) |id| ctx_.alloc.free(id);
+        ids.deinit(ctx_.alloc);
+    }
+
+    // Next order, then Later (newest id first). The active goal is never included.
+    for ([_]Directories.Dir{ dirs_.next, dirs_.later }) |dir| {
+        var names = try dir.sortedFileNames(ctx_, null);
+        defer {
+            for (names.items) |name| ctx_.alloc.free(name);
+            names.deinit(ctx_.alloc);
+        }
+        for (names.items) |name| {
+            var goal = try Goal.init(ctx_, dir.dir, name, .{ .old_mark = mark });
+            defer goal.deinit();
+            if (goal.age_days == null) continue;
+            try ids.append(ctx_.alloc, try ctx_.alloc.dupe(u8, name));
+        }
+    }
+
+    if (ids.items.len == 0) {
+        ids.deinit(ctx_.alloc);
+        try ctx_.stdout.writeAll("\nNo old goals to delete.\n");
+        return null;
+    }
+    return ids;
 }
 
 pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
@@ -212,6 +285,7 @@ const init_cmd = @import("init");
 const new_cmd = @import("new");
 const next_cmd = @import("next");
 const list_cmd = @import("list");
+const start_cmd = @import("start");
 const delete_cmd = @This();
 
 test "goal delete (no id, non-TTY)" {
@@ -337,4 +411,185 @@ test "goal delete --yes (Next goal leaves Next order)" {
         \\  3. gamma
         \\
     , env.readStdout());
+}
+
+fn backdate(env: *TestEnv, dir: Directories.Dir, id: []const u8) !void {
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dir.touch(&env.ctx, id, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+}
+
+test "goal delete --old --yes" {
+    // Old Next and Later goals are deleted. A fresh goal and an old active goal stay.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const old_later = try new_cmd.run(&env.ctx, .{ .content = "old later" });
+    defer env.alloc.free(old_later);
+    const fresh_later = try new_cmd.run(&env.ctx, .{ .content = "fresh later" });
+    defer env.alloc.free(fresh_later);
+    const old_next = try new_cmd.run(&env.ctx, .{ .content = "old next" });
+    defer env.alloc.free(old_next);
+    const fresh_next = try new_cmd.run(&env.ctx, .{ .content = "fresh next" });
+    defer env.alloc.free(fresh_next);
+    const old_active = try new_cmd.run(&env.ctx, .{ .content = "old active" });
+    defer env.alloc.free(old_active);
+
+    try next_cmd.run(&env.ctx, &.{ old_next, fresh_next });
+    try start_cmd.run(&env.ctx, .{ .id = old_active });
+
+    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(project_id);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+    try backdate(&env, dirs.later, old_later);
+    try backdate(&env, dirs.next, old_next);
+    try backdate(&env, dirs.active, old_active);
+
+    const argv = [_][*:0]const u8{ "--old", "--yes" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    env.resetStdout();
+    try delete_cmd.main(&env.ctx, &iter);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Here's what I'm going to delete:
+        \\
+        \\  3. old next
+        \\  1. old later
+        \\
+        \\All done! Smell ya later!
+        \\
+    , env.readStdout());
+
+    // Deleted.
+    try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, old_next }));
+    try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, old_later }));
+    try std.testing.expect(!try env.pathExists(".goal/{s}/n/{s}", .{ project_id, old_next }));
+    try std.testing.expect(!try env.pathExists(".goal/{s}/l/{s}", .{ project_id, old_later }));
+
+    // Kept, including the old active goal.
+    try std.testing.expect(try env.pathExists(".goal/{s}/n/{s}", .{ project_id, fresh_next }));
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, fresh_later }));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/{s}", .{ project_id, old_active }));
+
+    const order = try env.readFile(".goal/{s}/n/order", .{project_id});
+    defer env.alloc.free(order);
+    try std.testing.expectEqualStrings("4\n", order);
+}
+
+test "goal delete --old (no old goals)" {
+    // A fresh goal is not deleted, and there is nothing to confirm.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    const fresh = try new_cmd.run(&env.ctx, .{ .content = "fresh idea" });
+    defer env.alloc.free(fresh);
+
+    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(project_id);
+
+    const argv = [_][*:0]const u8{"--old"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    env.resetStdout();
+    try delete_cmd.main(&env.ctx, &iter);
+
+    try std.testing.expectEqualStrings("\nNo old goals to delete.\n", env.readStdout());
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, fresh }));
+}
+
+test "goal delete --old (old-after 0d)" {
+    // The feature is off: say so, even if a goal file is old.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    try env.writeFile("proj/.goal/config", "old-after = 0d\n");
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(project_id);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+    try backdate(&env, dirs.later, stale);
+
+    const argv = [_][*:0]const u8{ "--yes", "--old" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    env.resetStdout();
+    try delete_cmd.main(&env.ctx, &iter);
+
+    try std.testing.expectEqualStrings("\nOld goals are off (old-after is 0d).\n", env.readStdout());
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, stale }));
+}
+
+test "goal delete --old without --yes (non-TTY)" {
+    // Old goals are found, then confirm refuses to run without a terminal.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(project_id);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+    try backdate(&env, dirs.later, stale);
+
+    const argv = [_][*:0]const u8{"--old"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    env.resetStdout();
+    try std.testing.expectError(error.NotATty, delete_cmd.main(&env.ctx, &iter));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Here's what I'm going to delete:
+        \\
+        \\  1. stale idea
+        \\
+    , env.readStdout());
+    try std.testing.expectEqualStrings(
+        \\
+        \\Confirmation requires a terminal. Pass --yes to skip prompts when stdin is not a TTY.
+        \\
+    , env.readStderr());
+    env.resetStderr();
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, stale }));
+    try std.testing.expect(!try env.pathExists(".goal/{s}/d/{s}", .{ project_id, stale }));
+}
+
+test "goal delete --old (does not take goal IDs)" {
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const argv = [_][*:0]const u8{ "--old", "1" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.UnexpectedArgument, delete_cmd.parseArgs(&env.ctx, &iter, dirs));
+    try std.testing.expectEqualStrings("\ngoal delete --old does not take goal IDs.\n", env.readStderr());
+    env.resetStderr();
 }
