@@ -71,7 +71,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
     const id = id_ orelse id: {
         // only next goals can be demoted to later
         // active goals must be stopped explicitly with the --later flag to get into later directly
-        if (try dirs.next.list(ctx_) == 0) {
+        if (try dirs.next.list(ctx_, .{}) == 0) {
             try ctx_.stderr.print(
                 \\
                 \\Sorry, but you can only demote next goals to

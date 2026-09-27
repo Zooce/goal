@@ -197,9 +197,9 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         // TODO: interactive pick only lists active/next/later, but `show <id>` can
         // still display deleted goals. Decide whether the picker should include
         // deleted goals (and how to label them) for consistency.
-        var count = try dirs.active.list(ctx_);
-        count += try dirs.next.list(ctx_);
-        count += try dirs.later.list(ctx_);
+        var count = try dirs.active.list(ctx_, .{});
+        count += try dirs.next.list(ctx_, .{});
+        count += try dirs.later.list(ctx_, .{});
         if (count == 0) {
             try ctx_.stdout.writeAll("\nNo goals to show yet. Run `goal new`!\n");
             return;

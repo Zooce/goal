@@ -96,7 +96,7 @@ pub fn run(ctx_: *const Context, ids_: []const []const u8) !void {
 fn resolveIds(ctx_: *const Context, dirs_: Directories, out_: *std.ArrayList([]const u8)) ![]const []const u8 {
     // only later goals can be promoted to next
     // active goals must be stopped explicitly to get into next
-    if (try dirs_.later.list(ctx_) == 0) {
+    if (try dirs_.later.list(ctx_, .{}) == 0) {
         try ctx_.stderr.print(
             \\
             \\Sorry, but you can only promote later goals to

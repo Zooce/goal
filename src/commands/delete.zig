@@ -85,8 +85,8 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
 
     // TODO: this seems to be the only parseArgs function that also considers choosing goals from a menu - see if this works for others too
     if (ids.items.len == 0) {
-        var count = try dirs_.next.list(ctx_);
-        count += try dirs_.later.list(ctx_);
+        var count = try dirs_.next.list(ctx_, .{});
+        count += try dirs_.later.list(ctx_, .{});
         if (count == 0) {
             try ctx_.stderr.writeAll(
                 \\

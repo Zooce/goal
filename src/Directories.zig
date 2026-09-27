@@ -293,21 +293,26 @@ pub const Dir = struct {
         /// When set, goals older than this day count show their age. Null marks nothing.
         /// Notes do not use this.
         old_mark: ?Goal.OldMark = null,
+        /// Skip goals that are not old. Empty sections still print "(none)".
+        only_old: bool = false,
     };
 
     /// List goals in this directory (titles only, `list_sort`, show "(none)").
     /// A goal older than `old-after` shows its age in days. `0d` marks nothing.
-    pub fn list(self_: Dir, ctx_: *const Context) !u8 {
-        const after_days = try config_common.oldAfterDays(ctx_) orelse {
-            return self_.listItems(ctx_, Goal, .{});
-        };
-        const now = std.Io.Timestamp.now(ctx_.io, .real);
-        return self_.listItems(ctx_, Goal, .{
-            .old_mark = .{
+    /// `opts_.only_old` limits the lines to those goals. Age comes from config,
+    /// not from `opts_.old_mark`.
+    pub fn list(self_: Dir, ctx_: *const Context, opts_: ListOptions) !u8 {
+        var opts = opts_;
+        if (try config_common.oldAfterDays(ctx_)) |days| {
+            const now = std.Io.Timestamp.now(ctx_.io, .real);
+            opts.old_mark = .{
                 .now_ns = now.nanoseconds,
-                .after_days = after_days,
-            },
-        });
+                .after_days = days,
+            };
+        } else {
+            opts.old_mark = null;
+        }
+        return self_.listItems(ctx_, Goal, opts);
     }
 
     /// List files as `Item` values. `Item` must provide:
@@ -326,9 +331,8 @@ pub const Dir = struct {
             return 0;
         }
 
-        try self_.printListHeader(ctx_);
-
         var count: u8 = 0;
+        var started = false;
         for (ids.items) |id| {
             var init_opts: Item.Options = .{ .incl_desc = opts_.incl_desc };
             // Notes share this path and do not take an age cutoff.
@@ -337,12 +341,29 @@ pub const Dir = struct {
             }
             var item = try Item.init(ctx_, self_.dir, id, init_opts);
             defer item.deinit();
+
+            // `only_old` applies to goals. Items without an age stay out.
+            if (opts_.only_old) {
+                const is_old = if (@hasField(@TypeOf(item), "age_days")) item.age_days != null else false;
+                if (!is_old) continue;
+            }
+
+            if (!started) {
+                try self_.printListHeader(ctx_);
+                started = true;
+            }
             if (opts_.incl_desc) {
                 try item.print(ctx_.stdout);
             } else {
                 try item.printListLine(ctx_.stdout);
             }
             count += 1;
+        }
+
+        if (!started) {
+            if (!opts_.show_none) return 0;
+            try self_.printListHeader(ctx_);
+            try ctx_.stdout.writeAll("  (none)\n");
         }
         return count;
     }

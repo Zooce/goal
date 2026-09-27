@@ -145,9 +145,9 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             return error.MissingArgument;
         }
 
-        var count = try dirs.active.list(ctx_);
-        count += try dirs.next.list(ctx_);
-        count += try dirs.later.list(ctx_);
+        var count = try dirs.active.list(ctx_, .{});
+        count += try dirs.next.list(ctx_, .{});
+        count += try dirs.later.list(ctx_, .{});
         if (count == 0) {
             try ctx_.stdout.writeAll("\nWell I guess there's no goals to edit yet. Run `goal new`!\n");
             return;

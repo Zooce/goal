@@ -121,8 +121,8 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
             .id => |_id| _id,
             .new => |_new| try new.run(ctx_, _new),
         } else null orelse id: {
-            var count = try dirs.next.list(ctx_);
-            count += try dirs.later.list(ctx_);
+            var count = try dirs.next.list(ctx_, .{});
+            count += try dirs.later.list(ctx_, .{});
             if (count == 0) {
                 try ctx_.stderr.print(
                     \\

@@ -4,6 +4,7 @@ const Context = @import("Context");
 const Directories = @import("Directories");
 const Command = @import("commands").Command;
 const ArgIter = @import("args").ArgIter;
+const config_common = @import("config_common");
 
 const Self = Command.list;
 
@@ -14,7 +15,7 @@ pub const help_text =
     \\
     \\Usage:
     \\
-    \\    goal list [--active | --next | --later | --all]
+    \\    goal list [--active | --next | --later | --all] [--old]
     \\
     \\Options:
     \\
@@ -22,6 +23,7 @@ pub const help_text =
     \\    --next      List the next goals (default)
     \\    --later     List the later goals
     \\    --all       List all goals
+    \\    --old       Only goals older than old-after
     \\
 ;
 
@@ -35,6 +37,7 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
 const ACTIVE: u8 = 1 << 0;
 const NEXT: u8 = 1 << 1;
 const LATER: u8 = 1 << 2;
+const OLD: u8 = 1 << 3;
 
 const Args = union(enum) {
     help: void,
@@ -50,8 +53,11 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal list --later
     // goal list --all
     // goal list --active --next --later
+    // goal list --old
+    // goal list --later --old
 
     var list_type: u8 = 0;
+    var only_old = false;
 
     while (iter_.next()) |arg| {
         if (Command.fromString(arg)) |cmd| switch (cmd) {
@@ -67,6 +73,8 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
             list_type |= LATER;
         } else if (std.mem.eql(u8, arg, "--all")) {
             list_type = ACTIVE | NEXT | LATER;
+        } else if (std.mem.eql(u8, arg, "--old")) {
+            only_old = true;
         } else {
             return Self.unexpectedArgument(ctx_, arg);
         }
@@ -76,27 +84,37 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     if (list_type == 0) {
         list_type = ACTIVE | NEXT;
     }
+    if (only_old) list_type |= OLD;
 
     return .{ .run = list_type };
 }
 
 /// List all goals showing their ID and title.
 pub fn run(ctx_: *const Context, list_type_: u8) !void {
+    const only_old = (list_type_ & OLD) != 0;
+
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
+
+    // 0d is not an empty list. Say the feature is off and print no sections.
+    if (only_old and try config_common.oldAfterDays(ctx_) == null) {
+        try ctx_.stdout.writeAll("\nOld goals are off (old-after is 0d).\n");
+        return;
+    }
 
     // TODO: mark the active goal in this branch
     // const active_id = try ActiveId.load(alloc, dirs.local.dir);
     // defer if (active_id) |id| alloc.free(id);
 
+    const opts: Directories.Dir.ListOptions = .{ .only_old = only_old };
     if ((list_type_ & ACTIVE) != 0) {
-        _ = try dirs.active.list(ctx_);
+        _ = try dirs.active.list(ctx_, opts);
     }
     if ((list_type_ & NEXT) != 0) {
-        _ = try dirs.next.list(ctx_);
+        _ = try dirs.next.list(ctx_, opts);
     }
     if ((list_type_ & LATER) != 0) {
-        _ = try dirs.later.list(ctx_);
+        _ = try dirs.later.list(ctx_, opts);
     }
     // TODO: show later count by default
 }
@@ -503,4 +521,137 @@ test "goal list (invalid old-after)" {
         \\
     , env.readStderr());
     env.resetStderr();
+}
+
+test "goal list --old (only old goals)" {
+    // A fresh goal is left out. The old one keeps its age.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+    const fresh = try new_cmd.run(&env.ctx, .{ .content = "fresh idea" });
+    defer env.alloc.free(fresh);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER | OLD);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goals for Later
+        \\  1. stale idea (61 days)
+        \\
+    , env.readStdout());
+}
+
+test "goal list --old (no old goals)" {
+    // The section stays, with (none), when every goal is still fresh.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const fresh = try new_cmd.run(&env.ctx, .{ .content = "fresh idea" });
+    defer env.alloc.free(fresh);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER | OLD);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goals for Later
+        \\  (none)
+        \\
+    , env.readStdout());
+}
+
+test "goal list --old (does not add Later)" {
+    // --old keeps the usual sections. A stale Later goal is not pulled in.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, ACTIVE | NEXT | OLD);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Active Goals
+        \\  (none)
+        \\
+        \\Upcoming Goals
+        \\  (none)
+        \\
+    , env.readStdout());
+}
+
+test "goal list --old (old-after 0d)" {
+    // The feature is off: name old-after and print no sections.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    try env.writeFile("proj/.goal/config", "old-after = 0d\n");
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER | OLD);
+
+    try std.testing.expectEqualStrings("\nOld goals are off (old-after is 0d).\n", env.readStdout());
+}
+
+test "goal list --old (parseArgs)" {
+    // --old alone is active and next. A section flag still limits the list.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    {
+        const argv = [_][*:0]const u8{"--old"};
+        var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+        defer iter.deinit();
+
+        const res = try list_cmd.parseArgs(&env.ctx, &iter);
+        try std.testing.expect(res == .run);
+        try std.testing.expectEqual(ACTIVE | NEXT | OLD, res.run);
+    }
+
+    {
+        const argv = [_][*:0]const u8{ "--all", "--old" };
+        var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+        defer iter.deinit();
+
+        const res = try list_cmd.parseArgs(&env.ctx, &iter);
+        try std.testing.expect(res == .run);
+        try std.testing.expectEqual(ACTIVE | NEXT | LATER | OLD, res.run);
+    }
 }
