@@ -99,6 +99,7 @@ test "'run' shows only built-in defaults" {
         \\Built-in default values:
         \\    base-dir = {s}
         \\    editor = {s}
+        \\    old-after = 60d
         \\
     , .{ expected_base, default_editor });
     try std.testing.expectEqualStrings(expected, env.readStdout());

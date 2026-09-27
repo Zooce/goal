@@ -10,6 +10,7 @@ const Self = Command.list;
 pub const help_text =
     \\
     \\Lists your goals. Active and Next by default. Flags can be combined.
+    \\Goals older than old-after (default 60d) show their age in days. 0d turns that off.
     \\
     \\Usage:
     \\
@@ -344,4 +345,162 @@ test "goal list --next (order file is not a goal)" {
         \\  (none)
         \\
     , env.readStdout());
+}
+
+test "goal list (old goal is marked)" {
+    // A goal file older than old-after (default 60d) is marked. A new one is not.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+    const fresh = try new_cmd.run(&env.ctx, .{ .content = "fresh idea" });
+    defer env.alloc.free(fresh);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER);
+
+    // Later lists highest id first. Age does not change that order.
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goals for Later
+        \\  2. fresh idea
+        \\  1. stale idea (61 days)
+        \\
+    , env.readStdout());
+}
+
+test "goal list (age of one day)" {
+    // Just past one day, the marker is "1 day".
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    try env.writeFile("proj/.goal/config", "old-after = 1d\n");
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "barely old" });
+    defer env.alloc.free(stale);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - std.time.ns_per_day - std.time.ns_per_s } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goals for Later
+        \\  1. barely old (1 day)
+        \\
+    , env.readStdout());
+}
+
+test "goal list --next (old mark does not change order)" {
+    // Backdating the first Next goal must not move it. Order is the id list, not mtime.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const first = try new_cmd.run(&env.ctx, .{ .content = "alpha" });
+    defer env.alloc.free(first);
+    const second = try new_cmd.run(&env.ctx, .{ .content = "beta" });
+    defer env.alloc.free(second);
+    const third = try new_cmd.run(&env.ctx, .{ .content = "gamma" });
+    defer env.alloc.free(third);
+
+    try next_cmd.run(&env.ctx, &.{ first, second, third });
+
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    // alpha is first. Make that file old so an mtime sort would sink it.
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.next.touch(&env.ctx, first, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, NEXT);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Upcoming Goals
+        \\  1. alpha (61 days)
+        \\  2. beta
+        \\  3. gamma
+        \\
+    , env.readStdout());
+
+    const order = try env.readFile(".goal/{s}/n/order", .{goal_id});
+    defer env.alloc.free(order);
+    try std.testing.expectEqualStrings("1\n2\n3\n", order);
+}
+
+test "goal list (old-after 0d marks nothing)" {
+    // 0d turns the marker off, even for a file far in the past.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    try env.writeFile("proj/.goal/config", "old-after = 0d\n");
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, LATER);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goals for Later
+        \\  1. stale idea
+        \\
+    , env.readStdout());
+}
+
+test "goal list (invalid old-after)" {
+    // A value that is not Nd fails before any goals are printed.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+    try env.writeFile("proj/.goal/config", "old-after = 60\n");
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    env.resetStdout();
+    try std.testing.expectError(error.InvalidOldAfter, list_cmd.run(&env.ctx, LATER));
+    try std.testing.expectEqualStrings("", env.readStdout());
+    try std.testing.expectEqualStrings(
+        \\
+        \\Invalid old-after value "60".
+        \\Expected a day count with a d suffix, like 60d. 0d turns this off.
+        \\
+    , env.readStderr());
+    env.resetStderr();
 }

@@ -8,6 +8,7 @@ const utils = @import("utils");
 
 const Config = @import("Config");
 const Goal = @import("Goal");
+const config_common = @import("config_common");
 
 pub const Options = struct {
     /// Create the project directory if it doesn't exist.
@@ -289,11 +290,24 @@ pub const Dir = struct {
         sort: ?Sort = null,
         /// When empty: print header + "(none)". When false, print nothing.
         show_none: bool = true,
+        /// When set, goals older than this day count show their age. Null marks nothing.
+        /// Notes do not use this.
+        old_mark: ?Goal.OldMark = null,
     };
 
     /// List goals in this directory (titles only, `list_sort`, show "(none)").
+    /// A goal older than `old-after` shows its age in days. `0d` marks nothing.
     pub fn list(self_: Dir, ctx_: *const Context) !u8 {
-        return self_.listItems(ctx_, Goal, .{});
+        const after_days = try config_common.oldAfterDays(ctx_) orelse {
+            return self_.listItems(ctx_, Goal, .{});
+        };
+        const now = std.Io.Timestamp.now(ctx_.io, .real);
+        return self_.listItems(ctx_, Goal, .{
+            .old_mark = .{
+                .now_ns = now.nanoseconds,
+                .after_days = after_days,
+            },
+        });
     }
 
     /// List files as `Item` values. `Item` must provide:
@@ -316,7 +330,12 @@ pub const Dir = struct {
 
         var count: u8 = 0;
         for (ids.items) |id| {
-            var item = try Item.init(ctx_, self_.dir, id, .{ .incl_desc = opts_.incl_desc });
+            var init_opts: Item.Options = .{ .incl_desc = opts_.incl_desc };
+            // Notes share this path and do not take an age cutoff.
+            if (@hasField(Item.Options, "old_mark")) {
+                init_opts.old_mark = opts_.old_mark;
+            }
+            var item = try Item.init(ctx_, self_.dir, id, init_opts);
             defer item.deinit();
             if (opts_.incl_desc) {
                 try item.print(ctx_.stdout);

@@ -42,11 +42,11 @@ pub fn build(b: *std.Build) void {
     const Note = namedModule(b, target, optimize, "Note", "src/Note.zig", &.{context.import});
     const ActiveId = namedModule(b, target, optimize, "ActiveId", "src/ActiveId.zig", &.{context.import});
     const utils = namedModule(b, target, optimize, "utils", "src/utils.zig", &.{context.import});
-    const Directories = namedModule(b, target, optimize, "Directories", "src/Directories.zig", &.{
-        context.import, uuid.import, utils.import, Config.import, Goal.import,
-    });
     const config_common = namedModule(b, target, optimize, "config_common", "src/commands/config/common.zig", &.{
         context.import, utils.import,
+    });
+    const Directories = namedModule(b, target, optimize, "Directories", "src/Directories.zig", &.{
+        context.import, uuid.import, utils.import, Config.import, Goal.import, config_common.import,
     });
     const agent_files = namedModule(b, target, optimize, "agent_files", "skills/goal/embed.zig", &.{});
     const commands = namedModule(b, target, optimize, "commands", "src/commands.zig", &.{context.import});
@@ -76,9 +76,10 @@ pub fn build(b: *std.Build) void {
     // help/main can cross-import; cycles are fine. Each test binary only runs
     // tests from its own root module.
     const cmd_names = [_][]const u8{
-        "help", "setup", "init", "deinit", "install_skill",
-        "list", "status", "show", "search", "stop", "complete", "new", "note",
-        "edit", "delete", "start", "next", "later", "config",
+        "help",     "setup",  "init",  "deinit", "install_skill",
+        "list",     "status", "show",  "search", "stop",
+        "complete", "new",    "note",  "edit",   "delete",
+        "start",    "next",   "later", "config",
     };
 
     var cmd_mods: [cmd_names.len]*std.Build.Module = undefined;

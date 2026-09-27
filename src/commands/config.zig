@@ -39,6 +39,7 @@ pub const help_text =
     \\
     \\    base-dir    Directory for goal storage
     \\    editor      Default editor
+    \\    old-after   Day count before a goal is old (default 60d, 0d off)
     \\
     \\Options:
     \\
@@ -48,6 +49,7 @@ pub const help_text =
     \\
     \\    GOAL_BASE_DIR    Override base-dir
     \\    GOAL_EDITOR      Override editor
+    \\    GOAL_OLD_AFTER   Override old-after
     \\
 ;
 

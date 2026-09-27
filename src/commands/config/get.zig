@@ -21,7 +21,7 @@ pub const help_text =
     \\
     \\Arguments:
     \\
-    \\    <key>    One of: base-dir, editor
+    \\    <key>    One of: base-dir, editor, old-after
     \\
     \\Options:
     \\

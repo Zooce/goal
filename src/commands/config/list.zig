@@ -181,6 +181,9 @@ test "'run' respects config layering (env > project > global > defaults)" {
 
     try init_cmd.run(&env.ctx);
 
+    // Host env must not override the default asserted below.
+    env.unsetEnv("GOAL_OLD_AFTER");
+
     // Distinct values at each layer for editor.
     try env.writeFile("xdg/goal/config", "editor=vim\n");
     try env.writeFile("proj/.goal/config", "editor=emacs\n");
@@ -197,6 +200,7 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = nvim
+            \\    old-after = 60d
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());
@@ -212,6 +216,7 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = emacs
+            \\    old-after = 60d
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());
@@ -231,6 +236,7 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = vim
+            \\    old-after = 60d
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());
@@ -252,6 +258,7 @@ test "'run' respects config layering (env > project > global > defaults)" {
             \\Effective configuration (env vars > project config > global config > defaults):
             \\    base-dir = {s}
             \\    editor = nano
+            \\    old-after = 60d
             \\
         , .{env.base_path});
         try std.testing.expectEqualStrings(expected, env.readStdout());

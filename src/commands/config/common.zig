@@ -7,11 +7,13 @@ const utils = @import("utils");
 pub const Key = enum {
     base_dir,
     editor,
+    old_after,
 
     pub fn name(self_: Key) []const u8 {
         return switch (self_) {
             .base_dir => "base-dir",
             .editor => "editor",
+            .old_after => "old-after",
         };
     }
 
@@ -19,12 +21,14 @@ pub const Key = enum {
         return switch (self_) {
             .base_dir => "GOAL_BASE_DIR",
             .editor => "GOAL_EDITOR",
+            .old_after => "GOAL_OLD_AFTER",
         };
     }
 
     pub fn fromString(key_: []const u8) ?Key {
         if (std.mem.eql(u8, key_, "base-dir")) return .base_dir;
         if (std.mem.eql(u8, key_, "editor")) return .editor;
+        if (std.mem.eql(u8, key_, "old-after")) return .old_after;
         return null;
     }
 };
@@ -137,6 +141,38 @@ pub fn getDefaultValue(ctx_: *const Context, key_: Key) ![]const u8 {
     return switch (key_) {
         .base_dir => defaultBaseDir(ctx_),
         .editor => defaultEditor(ctx_),
+        .old_after => try ctx_.alloc.dupe(u8, "60d"),
+    };
+}
+
+/// `Nd` day count. `0d` is off (`null`). Anything else is `error.InvalidOldAfter`.
+pub fn parseOldAfter(value_: []const u8) error{InvalidOldAfter}!?u32 {
+    const value = std.mem.trim(u8, value_, " \t\r\n");
+    if (value.len < 2 or value[value.len - 1] != 'd') return error.InvalidOldAfter;
+
+    const digits = value[0 .. value.len - 1];
+    for (digits) |c| {
+        if (c < '0' or c > '9') return error.InvalidOldAfter;
+    }
+
+    const days = std.fmt.parseInt(u32, digits, 10) catch return error.InvalidOldAfter;
+    if (days == 0) return null;
+    return days;
+}
+
+/// Effective `old-after` in days. Null when the feature is off (`0d`).
+pub fn oldAfterDays(ctx_: *const Context) !?u32 {
+    const raw = try getEffectiveValue(ctx_, .old_after);
+    defer ctx_.alloc.free(raw);
+
+    return parseOldAfter(raw) catch {
+        try ctx_.stderr.print(
+            \\
+            \\Invalid old-after value "{s}".
+            \\Expected a day count with a d suffix, like 60d. 0d turns this off.
+            \\
+        , .{raw});
+        return error.InvalidOldAfter;
     };
 }
 

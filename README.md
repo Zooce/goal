@@ -108,4 +108,4 @@ goal help start
 ```
 
 Per-command flags live there. Configuration: `goal help config`
-(`base-dir`, `editor`; env `GOAL_BASE_DIR`, `GOAL_EDITOR`).
+(`base-dir`, `editor`, `old-after`; env `GOAL_BASE_DIR`, `GOAL_EDITOR`, `GOAL_OLD_AFTER`).

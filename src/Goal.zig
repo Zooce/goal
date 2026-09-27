@@ -9,6 +9,15 @@ pub const Options = struct {
 
     // Don't print FileNotFound (caller has a domain message). Other I/O still prints here.
     quiet: bool = false,
+
+    /// When set, a goal strictly older than `after_days` records its age in full days.
+    old_mark: ?OldMark = null,
+};
+
+/// Wall time and the `old-after` day count used to mark a goal's age.
+pub const OldMark = struct {
+    now_ns: i96,
+    after_days: u32,
 };
 
 /// The goal ID.
@@ -19,6 +28,9 @@ title: []const u8,
 
 /// The goal description.
 description: ?[]const u8,
+
+/// Full days since the file mtime, when the goal is old. Null otherwise.
+age_days: ?u32 = null,
 
 /// The directory where this goal was loaded from.
 dir: std.Io.Dir,
@@ -52,6 +64,22 @@ pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Opti
     };
     defer goal_file.close(ctx_.io);
 
+    // Age is the file mtime, not the body. Skip the stat when nothing is marking age.
+    const age_days = age: {
+        const mark = opts_.old_mark orelse break :age null;
+        const st = goal_file.stat(ctx_.io) catch |err| {
+            try ctx_.stderr.print("\nUnable to stat goal file: {s}\n", .{id_});
+            return err;
+        };
+        // Strictly older than old-after. Exactly that many days is not old.
+        const age_ns = std.math.sub(i96, mark.now_ns, st.mtime.nanoseconds) catch break :age null;
+        const span = std.math.mul(i96, @as(i96, mark.after_days), std.time.ns_per_day) catch break :age null;
+        if (age_ns <= span) break :age null;
+        const whole = @divFloor(age_ns, std.time.ns_per_day);
+        if (whole > std.math.maxInt(u32)) break :age std.math.maxInt(u32);
+        break :age @as(u32, @intCast(whole));
+    };
+
     var read_buffer: [1024]u8 = undefined;
     var file_reader = goal_file.reader(ctx_.io, &read_buffer);
 
@@ -84,6 +112,7 @@ pub fn init(ctx_: *const Context, dir_: std.Io.Dir, id_: []const u8, opts_: Opti
         .id = try ctx_.alloc.dupe(u8, id_),
         .title = title,
         .description = description,
+        .age_days = age_days,
         .dir = dir_,
         ._ctx = ctx_,
     };
@@ -98,9 +127,14 @@ pub fn deinit(self_: *Goal) void {
     }
 }
 
-/// Print a list line: `  <id>. <title>`.
+/// Print a list line: `  <id>. <title>`, plus ` (N days)` when this goal is old.
 pub fn printListLine(self_: Goal, stdout_: *std.Io.Writer) !void {
-    try stdout_.print("  {s}. {s}\n", .{ self_.id, self_.title });
+    if (self_.age_days) |days| {
+        const unit: []const u8 = if (days == 1) "day" else "days";
+        try stdout_.print("  {s}. {s} ({d} {s})\n", .{ self_.id, self_.title, days, unit });
+    } else {
+        try stdout_.print("  {s}. {s}\n", .{ self_.id, self_.title });
+    }
 }
 
 /// Print the goal tag to stdout.
