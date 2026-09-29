@@ -48,7 +48,6 @@ pub fn build(b: *std.Build) void {
     const Directories = namedModule(b, target, optimize, "Directories", "src/Directories.zig", &.{
         context.import, uuid.import, utils.import, Config.import, Goal.import, config_common.import,
     });
-    const agent_files = namedModule(b, target, optimize, "agent_files", "skills/goal/embed.zig", &.{});
     const commands = namedModule(b, target, optimize, "commands", "src/commands.zig", &.{context.import});
     const args = namedModule(b, target, optimize, "args", "src/args.zig", &.{commands.import});
     const TestEnv = namedModule(b, target, optimize, "TestEnv", "src/TestEnv.zig", &.{context.import});
@@ -69,14 +68,13 @@ pub fn build(b: *std.Build) void {
         commands.import,
         args.import,
         TestEnv.import,
-        agent_files.import,
     };
 
     // One module per command (src/commands/<name>.zig). Peer mesh so tests and
     // help/main can cross-import; cycles are fine. Each test binary only runs
     // tests from its own root module.
     const cmd_names = [_][]const u8{
-        "help",     "setup",  "init",  "deinit", "install_skill",
+        "help",     "setup",  "init",  "deinit",
         "list",     "status", "show",  "search", "stop",
         "complete", "new",    "note",  "edit",   "delete",
         "start",    "next",   "later", "config",

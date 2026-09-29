@@ -31,8 +31,6 @@ pub const Command = enum {
     next,
     later,
 
-    @"install-skill",
-
     batman, // just for development
     config,
 
@@ -109,10 +107,11 @@ test "Command.fromString maps known command names" {
     try std.testing.expectEqual(Command.init, Command.fromString("init").?);
     try std.testing.expectEqual(Command.config, Command.fromString("config").?);
     try std.testing.expectEqual(Command.start, Command.fromString("start").?);
-    try std.testing.expectEqual(Command.@"install-skill", Command.fromString("install-skill").?);
 }
 
 test "Command.fromString returns null for unknown strings" {
+    // install-skill was removed. The Skills CLI installs the skill.
+    try std.testing.expect(Command.fromString("install-skill") == null);
     try std.testing.expect(Command.fromString("not-a-command") == null);
     try std.testing.expect(Command.fromString("") == null);
     try std.testing.expect(Command.fromString("-help") == null);

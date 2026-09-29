@@ -6,7 +6,6 @@ const ArgIter = @import("args").ArgIter;
 const setup = @import("setup");
 const init = @import("init");
 const deinit = @import("deinit");
-const install_skill = @import("install_skill");
 const list = @import("list");
 const status = @import("status");
 const complete = @import("complete");
@@ -55,7 +54,6 @@ pub const help_text =
     \\    edit               Edit a goal.
     \\    delete             Delete a goal.
     \\    config             Configure `goal`.
-    \\    install-skill      Install or update the goal skill for coding agents.
     \\
     \\Environment Variables:
     \\
@@ -90,7 +88,6 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         .setup => setup.help_text,
         .init => init.help_text,
         .deinit => deinit.help_text,
-        .@"install-skill" => install_skill.help_text,
         .list => list.help_text,
         .status => status.help_text,
         .show => show.help_text,

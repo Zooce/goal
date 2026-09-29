@@ -71,13 +71,13 @@ Non-TTY runs need `--yes` on confirm commands (`complete`, `delete`,
 
 ## Agents
 
+Install the goal skill with the Skills CLI:
+
 ```bash
-goal install-skill
+npx skills add Zooce/goal
+npx skills add Zooce/goal@goal
 goal status --full         # active goal body and notes
 ```
-
-`install-skill` writes the goal skill for coding agents. Run it again
-after upgrading `goal`.
 
 ## Build
 

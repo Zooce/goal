@@ -21,7 +21,6 @@ const delete_cmd = @import("delete");
 const start_cmd = @import("start");
 const next_cmd = @import("next");
 const later_cmd = @import("later");
-const install_skill_cmd = @import("install_skill");
 const config_cmd = @import("config");
 
 pub fn main(init_: std.process.Init) !u8 {
@@ -112,7 +111,6 @@ fn processCommand(ctx_: *const Context, cmd_: Command, iter_: *args.ArgIter) !vo
         .start => try start_cmd.main(ctx_, iter_),
         .next => try next_cmd.main(ctx_, iter_),
         .later => try later_cmd.main(ctx_, iter_),
-        .@"install-skill" => try install_skill_cmd.main(ctx_, iter_),
 
         .config => try config_cmd.main(ctx_, iter_),
 
