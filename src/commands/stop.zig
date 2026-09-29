@@ -86,6 +86,7 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
         }
     } else {
         try ctx_.stdout.writeAll("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n");
+        return error.NoActiveGoal;
     }
 }
 
@@ -100,6 +101,22 @@ const next_cmd = @import("next");
 const start_cmd = @import("start");
 const list_cmd = @import("list");
 const stop_cmd = @This();
+
+test "goal stop (no active goal)" {
+    // Nothing to stop is an error. The message says so.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    env.resetStdout();
+
+    try std.testing.expectError(error.NoActiveGoal, stop_cmd.run(&env.ctx, false));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Oops... there doesn't seem to be an active goal to stop working on. Bye bye!
+        \\
+    , env.readStdout());
+}
 
 test "goal stop moves active goal to next" {
     var env = try TestEnv.init(.{});

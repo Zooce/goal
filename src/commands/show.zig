@@ -202,7 +202,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         count += try dirs.later.list(ctx_, .{});
         if (count == 0) {
             try ctx_.stdout.writeAll("\nNo goals to show yet. Run `goal new`!\n");
-            return;
+            return error.NoGoalsToShow;
         }
         if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)", .{})) |choice| {
             break :id choice;
@@ -371,6 +371,32 @@ test "show finds goals in active, next, later, and deleted" {
 // How the goal ID is chosen when omitted on the command line:
 //   1. the active goal                            (goal show)
 //   2. TTY picker, or error when not a TTY
+
+test "goal show (no goals, TTY)" {
+    // An empty project has nothing to pick, so show fails after saying so.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    env.ctx.stdin_is_tty = true;
+    env.resetStdout();
+
+    try std.testing.expectError(error.NoGoalsToShow, show_cmd.run(&env.ctx, .{}));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Active Goals
+        \\  (none)
+        \\
+        \\Upcoming Goals
+        \\  (none)
+        \\
+        \\Goals for Later
+        \\  (none)
+        \\
+        \\No goals to show yet. Run `goal new`!
+        \\
+    , env.readStdout());
+}
 
 test "goal show (no active goal, non-TTY)" {
     var env = try TestEnv.init(.{});

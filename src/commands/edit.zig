@@ -150,7 +150,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         count += try dirs.later.list(ctx_, .{});
         if (count == 0) {
             try ctx_.stdout.writeAll("\nWell I guess there's no goals to edit yet. Run `goal new`!\n");
-            return;
+            return error.NoGoalsToEdit;
         }
         if (try cli.getAnswer(ctx_, "\nChoose a goal (type the number)", .{})) |choice| {
             break :id choice;
@@ -313,6 +313,32 @@ test "goal edit (missing goal names the id)" {
         \\Goal #999 doesn't exist! Run `goal edit` to pick from the list of goals.
         \\
     , env.readStderr());
+}
+
+test "goal edit (no goals, TTY)" {
+    // An empty project has nothing to pick, so edit fails after saying so.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    env.ctx.stdin_is_tty = true;
+    env.resetStdout();
+
+    try std.testing.expectError(error.NoGoalsToEdit, edit_cmd.run(&env.ctx, .{}));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Active Goals
+        \\  (none)
+        \\
+        \\Upcoming Goals
+        \\  (none)
+        \\
+        \\Goals for Later
+        \\  (none)
+        \\
+        \\Well I guess there's no goals to edit yet. Run `goal new`!
+        \\
+    , env.readStdout());
 }
 
 test "goal edit (no active goal, non-TTY)" {

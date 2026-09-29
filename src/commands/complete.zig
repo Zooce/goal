@@ -141,7 +141,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             try cli.confirm(ctx_, "\nReady to complete this goal?", .{}, false);
         if (!ready) {
             try ctx_.stdout.writeAll("\nWell let's keep working on it then!\n");
-            return;
+            return error.NotConfirmed;
         }
     }
 
@@ -190,6 +190,28 @@ test "completing a goal" {
 
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
+}
+
+test "goal complete (confirm declined)" {
+    // Saying no leaves the active goal in place, and it is an error.
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
+        .{ .buffer = "no\n" },
+    } });
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(goal_id);
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "still working" } });
+
+    env.ctx.stdin_is_tty = true;
+    env.resetStdout();
+    try std.testing.expectError(error.NotConfirmed, complete_cmd.run(&env.ctx, .{}));
+
+    try std.testing.expectEqualStrings("\nWell let's keep working on it then!\n", env.readStdout());
+    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));
 }
 
 test "goal complete --yes (non-TTY)" {

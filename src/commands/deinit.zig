@@ -105,7 +105,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
         try cli.requireTty(ctx_);
         if (!try cli.confirm(ctx_, "This will remove .goal/ from this project. Continue?", .{}, false)) {
             try ctx_.stdout.writeAll("deinit cancelled.\n");
-            return;
+            return error.NotConfirmed;
         }
     }
 
@@ -138,7 +138,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
             \\Are you sure you want to do this?
         , .{global_goal_path}, false)) {
             try ctx_.stdout.writeAll("deinit cancelled.\n");
-            return;
+            return error.NotConfirmed;
         }
     }
 
@@ -245,10 +245,10 @@ test "deinit cancelled at local confirmation" {
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit_cmd.run(&env.ctx, .{});
+    try std.testing.expectError(error.NotConfirmed, deinit_cmd.run(&env.ctx, .{}));
 
     // Deinit should cancel and leave everything in place.
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
+    try std.testing.expectEqualStrings("deinit cancelled.\n", env.readStdout());
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}", .{goal_id}));
 }
@@ -272,10 +272,10 @@ test "deinit cancelled at global confirmation" {
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
-    try deinit_cmd.run(&env.ctx, .{});
+    try std.testing.expectError(error.NotConfirmed, deinit_cmd.run(&env.ctx, .{}));
 
     // Deinit should cancel before any deletion work starts.
-    try std.testing.expect(std.mem.indexOf(u8, env.readStdout(), "deinit cancelled") != null);
+    try std.testing.expectEqualStrings("deinit cancelled.\n", env.readStdout());
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}", .{goal_id}));
 }

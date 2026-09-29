@@ -22,7 +22,7 @@ pub const help_text =
     \\    --active    List the active goals
     \\    --next      List the next goals
     \\    --later     List the later goals
-    \\    --old       Only goals older than old-after
+    \\    --old       Only goals older than old-after. Fails when old-after is 0d.
     \\
 ;
 
@@ -101,10 +101,10 @@ pub fn run(ctx_: *const Context, list_type_: u8) !void {
     var dirs = try Directories.open(ctx_, .{ .iterate = true });
     defer dirs.close();
 
-    // 0d is not an empty list. Say the feature is off and print no sections.
+    // 0d is not an empty list. The feature is off, so this is an error.
     if (only_old and try config_common.oldAfterDays(ctx_) == null) {
         try ctx_.stdout.writeAll("\nOld goals are off (old-after is 0d).\n");
-        return;
+        return error.OldGoalsDisabled;
     }
 
     // TODO: mark the active goal in this branch
@@ -701,7 +701,7 @@ test "goal list --next --old (does not add Later)" {
 }
 
 test "goal list --old (old-after 0d)" {
-    // The feature is off: name old-after and print no sections.
+    // The feature is off: name old-after, print no sections, and return an error.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -719,7 +719,7 @@ test "goal list --old (old-after 0d)" {
     try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
 
     env.resetStdout();
-    try list_cmd.run(&env.ctx, LATER | OLD);
+    try std.testing.expectError(error.OldGoalsDisabled, list_cmd.run(&env.ctx, LATER | OLD));
 
     try std.testing.expectEqualStrings("\nOld goals are off (old-after is 0d).\n", env.readStdout());
 }

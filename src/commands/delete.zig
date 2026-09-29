@@ -31,7 +31,7 @@ pub const help_text =
     \\
     \\    --yes    Skip confirm (required when not a TTY).
     \\    --old    Delete old Next and Later goals. Never the active goal.
-    \\             0d (old-after) deletes nothing.
+    \\             Fails when old-after is 0d, or when no goal is old.
     \\
 ;
 
@@ -61,7 +61,7 @@ pub fn main(ctx_: *const Context, iter_: *ArgIter) !void {
     }
 
     if (args.delete_old) {
-        const collected = try oldGoalIds(ctx_, dirs) orelse return;
+        const collected = try oldGoalIds(ctx_, dirs);
         args.ids.deinit(ctx_.alloc);
         args.ids = collected;
     }
@@ -166,13 +166,13 @@ fn parseArgs(ctx_: *const Context, iter_: *ArgIter, dirs_: Directories) !ArgsOrH
     return .{ .args = .{ .ids = ids, .yes = yes, .delete_old = delete_old } };
 }
 
-/// Old Next and Later goal ids. Null means nothing to delete: the reason
-/// was already printed (feature off, or no old goals). Caller frees the list
-/// and each id.
-fn oldGoalIds(ctx_: *const Context, dirs_: Directories) !?std.ArrayList([]const u8) {
+/// Old Next and Later goal ids. Caller frees the list and each id.
+/// `error.OldGoalsDisabled` when old-after is 0d. `error.NoOldGoalsToDelete`
+/// when nothing is old enough. The message is already printed.
+fn oldGoalIds(ctx_: *const Context, dirs_: Directories) !std.ArrayList([]const u8) {
     const days = try config_common.oldAfterDays(ctx_) orelse {
         try ctx_.stdout.writeAll("\nOld goals are off (old-after is 0d).\n");
-        return null;
+        return error.OldGoalsDisabled;
     };
     const now = std.Io.Timestamp.now(ctx_.io, .real);
     const mark: Goal.OldMark = .{ .now_ns = now.nanoseconds, .after_days = days };
@@ -199,9 +199,8 @@ fn oldGoalIds(ctx_: *const Context, dirs_: Directories) !?std.ArrayList([]const 
     }
 
     if (ids.items.len == 0) {
-        ids.deinit(ctx_.alloc);
         try ctx_.stdout.writeAll("\nNo old goals to delete.\n");
-        return null;
+        return error.NoOldGoalsToDelete;
     }
     return ids;
 }
@@ -254,7 +253,7 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
         try cli.requireTty(ctx_);
         if (!try cli.confirm(ctx_, "\nShould I proceed?", .{}, false)) {
             try ctx_.stdout.writeAll("\nMaybe next time then, friend!\n");
-            return;
+            return error.NotConfirmed;
         }
     }
 
@@ -354,6 +353,44 @@ test "goal delete without --yes (non-TTY)" {
     try ids.append(env.alloc, filename);
 
     try std.testing.expectError(error.NotATty, delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = false }));
+}
+
+test "goal delete (confirm declined)" {
+    // Saying no does not delete the goal, and it is an error.
+    var env = try TestEnv.init(.{ .stdin_calls = &.{
+        .{ .buffer = "no\n" },
+    } });
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "keep me" });
+    defer env.alloc.free(filename);
+
+    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    defer env.alloc.free(project_id);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    var ids: std.ArrayList([]const u8) = .empty;
+    defer ids.deinit(env.alloc);
+    try ids.append(env.alloc, filename);
+
+    env.ctx.stdin_is_tty = true;
+    env.resetStdout();
+    try std.testing.expectError(error.NotConfirmed, delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = false }));
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Here's what I'm going to delete:
+        \\
+        \\  1. keep me
+        \\
+        \\Maybe next time then, friend!
+        \\
+    , env.readStdout());
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, filename }));
 }
 
 test "parseArgs accepts --yes with goal IDs" {
@@ -484,7 +521,7 @@ test "goal delete --old --yes" {
 }
 
 test "goal delete --old (no old goals)" {
-    // A fresh goal is not deleted, and there is nothing to confirm.
+    // A fresh goal is not deleted. Nothing to delete is an error, and the message says so.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -501,14 +538,14 @@ test "goal delete --old (no old goals)" {
     defer iter.deinit();
 
     env.resetStdout();
-    try delete_cmd.main(&env.ctx, &iter);
+    try std.testing.expectError(error.NoOldGoalsToDelete, delete_cmd.main(&env.ctx, &iter));
 
     try std.testing.expectEqualStrings("\nNo old goals to delete.\n", env.readStdout());
     try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, fresh }));
 }
 
 test "goal delete --old (old-after 0d)" {
-    // The feature is off: say so, even if a goal file is old.
+    // The feature is off: say so and return an error, even if a goal file is old.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -531,7 +568,7 @@ test "goal delete --old (old-after 0d)" {
     defer iter.deinit();
 
     env.resetStdout();
-    try delete_cmd.main(&env.ctx, &iter);
+    try std.testing.expectError(error.OldGoalsDisabled, delete_cmd.main(&env.ctx, &iter));
 
     try std.testing.expectEqualStrings("\nOld goals are off (old-after is 0d).\n", env.readStdout());
     try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, stale }));
