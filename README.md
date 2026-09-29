@@ -34,8 +34,7 @@ is the title; the rest is the body.
 ## Everyday use
 
 ```bash
-goal list                  # active + next
-goal list --all            # include later
+goal list                  # active, next, and later
 goal show 3                # full goal file and notes
 goal start 3               # make 3 the active goal
 goal stop                  # active -> next

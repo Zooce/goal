@@ -160,7 +160,7 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8) !void {
                     \\
                     \\Goal #{s} isn't in the "later" or "next" category.
                     \\
-                    \\Run `goal list --all` to see your goals.
+                    \\Run `goal list` to see your goals.
                     \\
                 , .{id_});
             }
@@ -221,8 +221,16 @@ test "next with invalid goal ID shows error" {
     try init_cmd.run(&env.ctx);
 
     // Run: next with a non-existent goal ID
-    // Verify: errors because no goal file exists in later/
+    // Verify: errors because no goal file exists in later or next.
+    // The message points at `goal list`.
     try std.testing.expectError(error.FileNotFound, next_cmd.run(&env.ctx, &.{"999"}));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #999 isn't in the "later" or "next" category.
+        \\
+        \\Run `goal list` to see your goals.
+        \\
+    , env.readStderr());
 }
 
 test "goal next (no id, non-TTY)" {

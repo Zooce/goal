@@ -34,7 +34,7 @@ one, stop following this skill. Help normally. Do not create or start goals.
 ## Hard rules
 
 1. **Do not invent a second tracker.** Prefer existing goals (`goal start <id>`,
-   `goal list --all`) over parallel todo lists.
+   `goal list`) over parallel todo lists.
 2. **Non-interactive only.** Always pass explicit goal IDs. Use title args,
    `--file`, `-q`/`--quiet`, and `--yes` where needed. Never rely on TTY pickers
    or opening an editor.
@@ -136,9 +136,8 @@ branch against its base branch (or against origin if the current branch is
 
 ```bash
 goal status --full          # active goal summary + full body and note bodies
-goal list                   # active + next (default)
-goal list --all             # active, next, later
-goal list --later
+goal list                   # active, next, and later
+goal list --later           # later only (--active and --next narrow the same way)
 goal show <id>              # full goal file + notes for that id
 goal show --title           # active goal title only (or pass <id>)
 goal show <id> --id --title # line-oriented fields for scripts

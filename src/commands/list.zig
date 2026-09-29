@@ -10,19 +10,18 @@ const Self = Command.list;
 
 pub const help_text =
     \\
-    \\Lists your goals. Active and Next by default. Flags can be combined.
+    \\Lists your goals. Active, Next, and Later by default. Flags can be combined.
     \\Goals older than old-after (default 60d) show their age in days. 0d turns that off.
     \\
     \\Usage:
     \\
-    \\    goal list [--active | --next | --later | --all] [--old]
+    \\    goal list [--active | --next | --later] [--old]
     \\
     \\Options:
     \\
-    \\    --active    List the active goals (default)
-    \\    --next      List the next goals (default)
+    \\    --active    List the active goals
+    \\    --next      List the next goals
     \\    --later     List the later goals
-    \\    --all       List all goals
     \\    --old       Only goals older than old-after
     \\
 ;
@@ -51,10 +50,11 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     // goal list --active
     // goal list --next
     // goal list --later
-    // goal list --all
+    // goal list --active --next
     // goal list --active --next --later
     // goal list --old
     // goal list --later --old
+    // goal list --all
 
     var list_type: u8 = 0;
     var only_old = false;
@@ -72,7 +72,12 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
         } else if (std.mem.eql(u8, arg, "--later")) {
             list_type |= LATER;
         } else if (std.mem.eql(u8, arg, "--all")) {
-            list_type = ACTIVE | NEXT | LATER;
+            try ctx_.stderr.writeAll(
+                \\
+                \\`goal list` does not take `--all`. Run `goal list`.
+                \\
+            );
+            return error.UnexpectedArgument;
         } else if (std.mem.eql(u8, arg, "--old")) {
             only_old = true;
         } else {
@@ -80,9 +85,9 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
         }
     }
 
-    // default to active + next
+    // No section flags: every section. Flags narrow that set.
     if (list_type == 0) {
-        list_type = ACTIVE | NEXT;
+        list_type = ACTIVE | NEXT | LATER;
     }
     if (only_old) list_type |= OLD;
 
@@ -128,7 +133,50 @@ const init_cmd = @import("init");
 const new_cmd = @import("new");
 const next_cmd = @import("next");
 const later_cmd = @import("later");
+const start_cmd = @import("start");
 const list_cmd = @This();
+
+test "goal list (no flags shows active, next, and later)" {
+    // A bare list includes Later. Section order stays active, then next, then later.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const parked = try new_cmd.run(&env.ctx, .{ .content = "parked idea" });
+    defer env.alloc.free(parked);
+    const ready = try new_cmd.run(&env.ctx, .{ .content = "ready idea" });
+    defer env.alloc.free(ready);
+    const current = try new_cmd.run(&env.ctx, .{ .content = "current idea" });
+    defer env.alloc.free(current);
+
+    try next_cmd.run(&env.ctx, &.{ready});
+    try start_cmd.run(&env.ctx, .{ .id = current });
+
+    // No flags: parseArgs selects every section, and the list prints all three.
+    const argv = [_][*:0]const u8{};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+    const res = try list_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .run);
+    try std.testing.expectEqual(ACTIVE | NEXT | LATER, res.run);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, res.run);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Active Goals
+        \\  3. current idea
+        \\
+        \\Upcoming Goals
+        \\  2. ready idea
+        \\
+        \\Goals for Later
+        \\  1. parked idea
+        \\
+    , env.readStdout());
+}
 
 test "goal list --later (most recently created first)" {
     // Later goals list newest id first (ids are assigned in create order).
@@ -575,8 +623,10 @@ test "goal list --old (no old goals)" {
     , env.readStdout());
 }
 
-test "goal list --old (does not add Later)" {
-    // --old keeps the usual sections. A stale Later goal is not pulled in.
+test "goal list --old (no section flags include Later)" {
+    // --old filters by age inside the sections being listed.
+    // With no section flags, that is active, next, and later.
+    // An empty section still prints (none).
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -592,13 +642,57 @@ test "goal list --old (does not add Later)" {
     const now = std.Io.Timestamp.now(env.ctx.io, .real);
     try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
 
+    const argv = [_][*:0]const u8{"--old"};
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+    const res = try list_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .run);
+
     env.resetStdout();
-    try list_cmd.run(&env.ctx, ACTIVE | NEXT | OLD);
+    try list_cmd.run(&env.ctx, res.run);
 
     try std.testing.expectEqualStrings(
         \\
         \\Active Goals
         \\  (none)
+        \\
+        \\Upcoming Goals
+        \\  (none)
+        \\
+        \\Goals for Later
+        \\  1. stale idea (61 days)
+        \\
+    , env.readStdout());
+}
+
+test "goal list --next --old (does not add Later)" {
+    // A section flag still limits the list. --next --old prints only Next.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    env.unsetEnv("GOAL_OLD_AFTER");
+    try init_cmd.run(&env.ctx);
+
+    const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
+    defer env.alloc.free(stale);
+
+    var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
+    defer dirs.close();
+
+    const now = std.Io.Timestamp.now(env.ctx.io, .real);
+    try dirs.later.touch(&env.ctx, stale, .{ .new = .{ .nanoseconds = now.nanoseconds - 61 * std.time.ns_per_day } });
+
+    const argv = [_][*:0]const u8{ "--next", "--old" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+    const res = try list_cmd.parseArgs(&env.ctx, &iter);
+    try std.testing.expect(res == .run);
+    try std.testing.expectEqual(NEXT | OLD, res.run);
+
+    env.resetStdout();
+    try list_cmd.run(&env.ctx, res.run);
+
+    try std.testing.expectEqualStrings(
         \\
         \\Upcoming Goals
         \\  (none)
@@ -631,7 +725,7 @@ test "goal list --old (old-after 0d)" {
 }
 
 test "goal list --old (parseArgs)" {
-    // --old alone is active and next. A section flag still limits the list.
+    // No section flags means all three. Combining flags narrows to that set.
     var env = try TestEnv.init(.{});
     defer env.deinit();
 
@@ -642,16 +736,34 @@ test "goal list --old (parseArgs)" {
 
         const res = try list_cmd.parseArgs(&env.ctx, &iter);
         try std.testing.expect(res == .run);
-        try std.testing.expectEqual(ACTIVE | NEXT | OLD, res.run);
+        try std.testing.expectEqual(ACTIVE | NEXT | LATER | OLD, res.run);
     }
 
     {
-        const argv = [_][*:0]const u8{ "--all", "--old" };
+        const argv = [_][*:0]const u8{ "--active", "--next" };
         var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
         defer iter.deinit();
 
         const res = try list_cmd.parseArgs(&env.ctx, &iter);
         try std.testing.expect(res == .run);
-        try std.testing.expectEqual(ACTIVE | NEXT | LATER | OLD, res.run);
+        try std.testing.expectEqual(ACTIVE | NEXT, res.run);
     }
+}
+
+test "goal list --all (rejected)" {
+    // --all is gone. The error names `goal list`.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    const argv = [_][*:0]const u8{ "--all", "--old" };
+    var iter = try ArgIter.init(.{ .vector = &argv }, std.testing.allocator);
+    defer iter.deinit();
+
+    try std.testing.expectError(error.UnexpectedArgument, list_cmd.parseArgs(&env.ctx, &iter));
+    try std.testing.expectEqualStrings(
+        \\
+        \\`goal list` does not take `--all`. Run `goal list`.
+        \\
+    , env.readStderr());
+    env.resetStderr();
 }
