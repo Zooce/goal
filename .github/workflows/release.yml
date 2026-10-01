@@ -7,8 +7,9 @@ on:
 
 jobs:
   release:
-    # ubuntu-24.04 is x86_64. We run the binary to check --version, so the
-    # runner must match the artifact. ubuntu-latest could become ARM.
+    # ubuntu-24.04 is x86_64. We run the Linux x86_64 binary to check
+    # --version, so the runner must match that one artifact. ubuntu-latest
+    # could become ARM. The macOS and Linux aarch64 binaries are not run here.
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -22,53 +23,84 @@ jobs:
       - name: Check tag matches build.zig.zon
         run: |
           tag="$GITHUB_REF_NAME"
+          version="${tag#v}"
+          major="${version%%.*}"
+          minor="${version#*.}"
           case "$tag" in
-            v[0-9]*) ;;
+            v*.*) ;;
             *)
-              echo "tag must look like v<version>: $tag" >&2
+              echo "tag must look like v1.0: $tag" >&2
               exit 1
               ;;
           esac
-          version="${tag#v}"
+          case "$major$minor" in
+            *[!0-9]*) bad=1 ;;
+            *) bad= ;;
+          esac
+          if [ -n "$bad" ] || [ -z "$major" ] || [ -z "$minor" ] || [ "$minor" != "${minor%%.*}" ]; then
+            echo "tag must look like v1.0: $tag" >&2
+            exit 1
+          fi
           zon_version=$(sed -n 's/^[[:space:]]*\.version[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' build.zig.zon | head -n1)
           if [ -z "$zon_version" ]; then
             echo "could not read .version from build.zig.zon" >&2
             exit 1
           fi
-          if [ "$version" != "$zon_version" ]; then
-            echo "tag $tag does not match build.zig.zon version $zon_version" >&2
+          # Package version keeps a 0 patch. The tag leaves it off: zon 1.0.0 is tag v1.0.
+          if [ "$zon_version" != "${version}.0" ]; then
+            echo "tag $tag needs build.zig.zon version ${version}.0, found $zon_version" >&2
             exit 1
           fi
 
-      - name: Build Linux x86_64
-        run: zig build -Doptimize=ReleaseSafe -Dtarget=x86_64-linux
+      - name: Build release binaries
+        run: |
+          # Linux builds are musl so one file runs on glibc and musl systems.
+          # macOS has no musl target.
+          mkdir -p dist
+          pack() {
+            target="$1"
+            asset="$2"
+            stage="$RUNNER_TEMP/stage-$asset"
+            rm -rf "$stage"
+            zig build -Doptimize=ReleaseSafe -Dtarget="$target" --prefix "$stage"
+            cp "$stage/bin/goal" "dist/$asset"
+            chmod 755 "dist/$asset"
+          }
+          pack x86_64-linux-musl goal-linux-x86_64
+          pack aarch64-linux-musl goal-linux-aarch64
+          pack x86_64-macos goal-macos-x86_64
+          pack aarch64-macos goal-macos-aarch64
 
-      - name: Check binary version
+      - name: Check Linux x86_64 version
         run: |
           version="${GITHUB_REF_NAME#v}"
-          got=$(./zig-out/bin/goal --version)
+          got=$(./dist/goal-linux-x86_64 --version)
           want="goal $version"
           if [ "$got" != "$want" ]; then
             echo "goal --version was '$got', expected '$want'" >&2
             exit 1
           fi
 
-      - name: Stage assets
+      - name: Stage checksums
         run: |
-          version="${GITHUB_REF_NAME#v}"
-          mkdir -p dist
-          asset="goal-${version}-x86_64-linux"
-          cp zig-out/bin/goal "dist/$asset"
-          (cd dist && sha256sum "$asset" > SHA256SUMS)
+          cd dist
+          sha256sum \
+            goal-linux-x86_64 \
+            goal-linux-aarch64 \
+            goal-macos-x86_64 \
+            goal-macos-aarch64 \
+            > SHA256SUMS
 
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           version="${GITHUB_REF_NAME#v}"
-          asset="goal-${version}-x86_64-linux"
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes "goal ${version}" \
-            "dist/$asset" \
+            dist/goal-linux-x86_64 \
+            dist/goal-linux-aarch64 \
+            dist/goal-macos-x86_64 \
+            dist/goal-macos-aarch64 \
             dist/SHA256SUMS

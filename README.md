@@ -16,6 +16,65 @@ Two problems:
 You work on one active goal. Everything else is Next (ready to start) or
 Later (not yet).
 
+## Install
+
+Linux and macOS, x86_64 and aarch64, from a [GitHub Release](https://github.com/Zooce/goal/releases).
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Zooce/goal/master/install.sh | sh
+```
+
+The script downloads the binary, checks it against `SHA256SUMS`, and
+copies it to `~/.local/bin`. A different directory:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Zooce/goal/master/install.sh | GOAL_BIN="$HOME/bin" sh
+```
+
+A specific release:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Zooce/goal/master/install.sh | GOAL_VERSION=v1.0 sh
+```
+
+If `~/.local/bin` is not on `PATH`:
+
+```sh
+export PATH="$HOME/.local/bin:$PATH"
+```
+
+Then:
+
+```sh
+npx skills add Zooce/goal -g
+```
+
+### Download
+
+Each release has `SHA256SUMS` and one file per machine:
+
+- `goal-linux-x86_64`
+- `goal-linux-aarch64`
+- `goal-macos-x86_64`
+- `goal-macos-aarch64`
+
+Tag `v1.0`, Linux x86_64 file `goal-linux-x86_64`. Pick the file for your machine.
+
+```sh
+set -eu
+version=1.0
+asset=goal-linux-x86_64
+mkdir -p ~/.local/bin
+curl -fsSL -o SHA256SUMS \
+  "https://github.com/Zooce/goal/releases/download/v${version}/SHA256SUMS"
+curl -fsSL -o "$asset" \
+  "https://github.com/Zooce/goal/releases/download/v${version}/${asset}"
+grep " ${asset}$" SHA256SUMS | sha256sum -c -
+cp "$asset" ~/.local/bin/goal
+chmod 755 ~/.local/bin/goal
+~/.local/bin/goal --version
+```
+
 ## Quick start
 
 ```bash
@@ -87,15 +146,16 @@ Requires [Zig 0.16](https://ziglang.org/download/).
 zig build
 ```
 
-The binary is `zig-out/bin/goal`. `goal --version` prints the version from
-`build.zig.zon`.
+The binary is `zig-out/bin/goal`. `goal --version` prints `major.minor`
+(zon `1.0.0` prints `goal 1.0`).
 
 ## Releases
 
-Pushing a git tag `v<version>` (for example zon `0.1.0` is tag `v0.1.0`)
-publishes a GitHub Release with a Linux x86_64 binary and SHA256
-checksums. You can download the binary from
-https://github.com/Zooce/goal/releases without compiling.
+Pushing a git tag `v<major>.<minor>` (zon `1.0.0` is tag `v1.0`)
+publishes a GitHub Release with Linux and macOS binaries (x86_64 and
+aarch64) and SHA256 checksums. The Linux binaries are musl builds, so
+one file runs on most Linux systems. See [Install](#install) to download
+it.
 
 How to cut a release is in [CONTRIBUTING.md](CONTRIBUTING.md).
 

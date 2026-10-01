@@ -4,6 +4,13 @@ const args = @import("args");
 const Context = @import("Context");
 const version = @import("build.zig.zon").version;
 
+/// Zig stores major.minor.patch. The release version is major.minor (`v1.0`).
+fn releaseVersion(zon_version_: []const u8) []const u8 {
+    const parsed = std.SemanticVersion.parse(zon_version_) catch return zon_version_;
+    if (parsed.patch != 0 or parsed.pre != null or parsed.build != null) return zon_version_;
+    return zon_version_[0 .. zon_version_.len - 2];
+}
+
 const help_cmd = @import("help");
 const setup_cmd = @import("setup");
 const init_cmd = @import("init");
@@ -67,7 +74,7 @@ pub fn main(init_: std.process.Init) !u8 {
     if (iter.next()) |_arg| {
         // Top-level --version (not a command; same layer as --help).
         if (std.mem.eql(u8, _arg, "--version")) {
-            try stdout.print("goal {s}\n", .{version});
+            try stdout.print("goal {s}\n", .{releaseVersion(version)});
             return 0;
         }
 

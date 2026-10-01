@@ -135,10 +135,15 @@ pub fn build(b: *std.Build) void {
         test_step.dependOn(&b.addRunArtifact(b.addTest(.{ .root_module = m })).step);
     }
 
-    // goal --version stdout is the zon version compiled into the binary.
+    // goal --version prints major.minor. A .0 patch in build.zig.zon is left off.
+    const zon_version = @import("build.zig.zon").version;
+    const release_version = if (std.mem.endsWith(u8, zon_version, ".0"))
+        zon_version[0 .. zon_version.len - 2]
+    else
+        zon_version;
     const version_run = b.addRunArtifact(exe);
     version_run.addArg("--version");
-    version_run.expectStdOutEqual(b.fmt("goal {s}\n", .{@import("build.zig.zon").version}));
+    version_run.expectStdOutEqual(b.fmt("goal {s}\n", .{release_version}));
     version_run.expectStdErrEqual("");
     test_step.dependOn(&version_run.step);
 }
