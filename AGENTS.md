@@ -2,7 +2,7 @@
 
 ## Session start
 
-At the start of every new session, run `goal status --full` to get context on the current state of work.
+At the start of every new session, run `goal list`. If a goal is active, run `goal status --full` for its body and notes.
 
 ## Git Rules
 
