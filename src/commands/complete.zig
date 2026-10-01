@@ -181,7 +181,7 @@ test "completing a goal" {
     env.ctx.stdin_is_tty = true;
 
     try init_cmd.run(&env.ctx);
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
@@ -201,7 +201,7 @@ test "goal complete (confirm declined)" {
     defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "still working" } });
 
@@ -220,7 +220,7 @@ test "goal complete --yes (non-TTY)" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
@@ -238,7 +238,7 @@ test "goal complete leaves project files alone" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "fix the bug" } });
@@ -269,7 +269,7 @@ test "goal complete <id> --yes (Next goal, another is active)" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     const next_id = try new_cmd.run(&env.ctx, .{ .content = "finished on the side" });
@@ -301,7 +301,7 @@ test "goal complete <id> --yes (Later goal, never started)" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     const later_id = try new_cmd.run(&env.ctx, .{ .content = "never started, but done" });
@@ -331,7 +331,7 @@ test "goal complete <id> --yes (active goal)" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     const active_id = try new_cmd.run(&env.ctx, .{ .content = "wrap it up" });
@@ -356,7 +356,7 @@ test "goal complete <id> --yes (already active)" {
     defer env.resetStderr();
 
     try init_cmd.run(&env.ctx);
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     const active_id = try new_cmd.run(&env.ctx, .{ .content = "current work" });
@@ -413,7 +413,7 @@ test "goal complete <id> (TTY names the goal)" {
 
     const later_id = try new_cmd.run(&env.ctx, .{ .content = "leftover work" });
     defer env.alloc.free(later_id);
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     env.resetStdout();

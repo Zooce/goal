@@ -18,19 +18,19 @@ pub const Options = struct {
     iterate: bool = false,
 };
 
-/// <base-dir>/.goal/<goal_id>/
+/// <base-dir>/.goal/<project_id>/
 base: Dir,
 
-/// <base-dir>/.goal/<goal_id>/a/
+/// <base-dir>/.goal/<project_id>/a/
 active: Dir,
 
-/// <base-dir>/.goal/<goal_id>/n/
+/// <base-dir>/.goal/<project_id>/n/
 next: Dir,
 
-/// <base-dir>/.goal/<goal_id>/l/
+/// <base-dir>/.goal/<project_id>/l/
 later: Dir,
 
-/// <base-dir>/.goal/<goal_id>/d/
+/// <base-dir>/.goal/<project_id>/d/
 deleted: Dir,
 
 /// <project>/.goal/
@@ -39,7 +39,7 @@ local: Dir,
 /// Context reference for cleanup.
 _ctx: *const Context,
 
-/// Opens the project directories <base-dir>/.goal/<goal_id>/ and <project>/.goal/.
+/// Opens the project directories <base-dir>/.goal/<project_id>/ and <project>/.goal/.
 ///
 /// Example:
 ///
@@ -58,65 +58,52 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     };
     errdefer local.close(ctx_);
 
-    // TODO: this needs to move somewhere else so I can get the goal id when I need it
-    // get the goal id
-    var goal_id: [uuid.SLICE_LEN]u8 = undefined;
-    uuid_blk: {
-        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ local.path, ".goal_id" });
-        defer ctx_.alloc.free(goal_id_path);
+    // Project id from <project>/.goal/project_id. An old .goal_id is renamed on read.
+    var project_id: [uuid.SLICE_LEN]u8 = undefined;
+    utils.project.readProjectId(ctx_, local.path, &project_id) catch |err| switch (err) {
+        error.FileNotFound => if (opts_.create) {
+            const id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ local.path, "project_id" });
+            defer ctx_.alloc.free(id_path);
 
-        // open the goal id file
-        const goal_id_file = std.Io.Dir.openFileAbsolute(ctx_.io, goal_id_path, .{}) catch |err| switch (err) {
-            // if the file doesn't exist and we're allowed to create it, then do so
-            error.FileNotFound => if (opts_.create) {
-                const goal_id_file = std.Io.Dir.createFileAbsolute(ctx_.io, goal_id_path, .{ .exclusive = true }) catch |create_err| {
-                    try ctx_.stderr.print("\nUnable to create {s}\n", .{goal_id_path});
-                    return create_err;
-                };
-                defer goal_id_file.close(ctx_.io);
+            const id_file = std.Io.Dir.createFileAbsolute(ctx_.io, id_path, .{ .exclusive = true }) catch |create_err| {
+                try ctx_.stderr.print("\nUnable to create {s}\n", .{id_path});
+                return create_err;
+            };
+            defer id_file.close(ctx_.io);
 
-                try uuid.v4(&goal_id, ctx_.io);
+            try uuid.v4(&project_id, ctx_.io);
 
-                var writer_buf: [uuid.SLICE_LEN]u8 = undefined;
-                var writer = goal_id_file.writer(ctx_.io, &writer_buf);
-                try writer.interface.writeAll(&goal_id);
-                try writer.interface.flush();
+            var writer_buf: [uuid.SLICE_LEN]u8 = undefined;
+            var writer = id_file.writer(ctx_.io, &writer_buf);
+            try writer.interface.writeAll(&project_id);
+            try writer.interface.flush();
+        } else {
+            try ctx_.stderr.writeAll("\nThere's no project_id file. Run `goal init`.\n");
+            return err;
+        },
+        else => {
+            try ctx_.stderr.print("\nUnable to open project_id file in {s}\n", .{local.path});
+            return err;
+        },
+    };
 
-                break :uuid_blk;
-            } else {
-                try ctx_.stderr.writeAll("\nThere's no .goal_id file. Run `goal init`.\n");
-                return err;
-            },
-            else => {
-                try ctx_.stderr.print("\nUnable to open .goal_id file: {s}\n", .{goal_id_path});
-                return err;
-            },
-        };
-        defer goal_id_file.close(ctx_.io);
-
-        // read the goal id from the file
-        var reader_buf: [uuid.SLICE_LEN]u8 = undefined;
-        var reader = goal_id_file.reader(ctx_.io, &reader_buf);
-        _ = try reader.interface.readSliceAll(&goal_id);
-    }
-
-    // <base-dir>/.goal/<goal_id>/
+    // <base-dir>/.goal/<project_id>/
     var base = base: {
         var config = try Config.load(ctx_);
         defer config.deinit();
-        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ config.base_dir, &goal_id });
+        const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ config.base_dir, &project_id });
         break :base try Dir.open(ctx_, path, null, opts_);
     };
     errdefer base.close(ctx_);
 
-    // <base-dir>/.goal/<goal_id>/a/
+    // <base-dir>/.goal/<project_id>/a/
     var active = active: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "a" });
         break :active try Dir.open(ctx_, path, "Active Goals", opts_);
     };
     errdefer active.close(ctx_);
 
-    // <base-dir>/.goal/<goal_id>/n/
+    // <base-dir>/.goal/<project_id>/n/
     // Next list order: explicit id list in `order` (not mtime).
     var next = next: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "n" });
@@ -126,7 +113,7 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     };
     errdefer next.close(ctx_);
 
-    // <base-dir>/.goal/<goal_id>/l/
+    // <base-dir>/.goal/<project_id>/l/
     // Later list order: most recently created first (numeric id descending).
     var later = later: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "l" });
@@ -136,7 +123,7 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     };
     errdefer later.close(ctx_);
 
-    // <base-dir>/.goal/<goal_id>/d/
+    // <base-dir>/.goal/<project_id>/d/
     const deleted = deleted: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "d" });
         break :deleted try Dir.open(ctx_, path, "Deleted Goals", opts_);

@@ -242,7 +242,7 @@ test "new command creates goal with title" {
     }
 
     // 2. New goals are created in the "later" directory
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     try std.testing.expect(try env.pathExists(".goal/{s}/l/1", .{goal_id}));
 
@@ -268,7 +268,7 @@ test "new with multi-line content writes full body" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = body });
     defer env.alloc.free(filename);
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     const content = try env.readFile(".goal/{s}/l/{s}", .{ goal_id, filename });
@@ -341,7 +341,7 @@ test "goal new (missing editor names the editor and file)" {
 
     try std.testing.expectError(error.FileNotFound, new_cmd.run(&env.ctx, .{ .content = null }));
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     const file_path = try std.Io.Dir.path.join(env.alloc, &.{ env.base_path, goal_id, "l", "1" });
     defer env.alloc.free(file_path);
@@ -407,7 +407,7 @@ test "run rejects empty content and blank first-line title" {
     try std.testing.expectError(error.EmptyGoalTitle, new_cmd.run(&env.ctx, .{ .content = "\nbody" }));
     try std.testing.expectError(error.EmptyGoalTitle, new_cmd.run(&env.ctx, .{ .content = "   \nbody" }));
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     // No goal file left behind

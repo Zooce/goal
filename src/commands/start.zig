@@ -208,7 +208,7 @@ test "start command activates a goal" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = "fix the bug" });
     defer env.alloc.free(filename);
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     // no active id yet
@@ -300,7 +300,7 @@ test "start + new creates a new goal and starts it" {
 
     try init_cmd.run(&env.ctx);
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     // start (new)
@@ -339,7 +339,7 @@ test "goal start new --file (non-TTY)" {
 
     try start_cmd.run(&env.ctx, args);
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));

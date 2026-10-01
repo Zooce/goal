@@ -123,7 +123,7 @@ test "goal stop moves active goal to next" {
     defer env.deinit();
 
     try init_cmd.run(&env.ctx);
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "take a break" } });

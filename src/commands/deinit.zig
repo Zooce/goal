@@ -14,7 +14,7 @@ const Self = Command.deinit;
 pub const help_text =
     \\
     \\Reverses `goal init`: removes the local `.goal/` directory and the global
-    \\`~/.goal/<goal_id>/` directory.
+    \\`~/.goal/<project_id>/` directory.
     \\
     \\Usage:
     \\
@@ -76,29 +76,17 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     const local_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ proj_root, ".goal" });
     defer ctx_.alloc.free(local_goal_path);
 
-    // need this to get the project's base path
-    const goal_id = goal_id: {
-        const goal_id_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ local_goal_path, ".goal_id" });
-        defer ctx_.alloc.free(goal_id_path);
-
-        const goal_id_file = std.Io.Dir.openFileAbsolute(ctx_.io, goal_id_path, .{}) catch |err| switch (err) {
-            error.FileNotFound => {
-                try ctx_.stderr.writeAll("\ngoal is not initialized in this project. Run `goal init` to get started!\n");
-                return error.GoalNotInitialized;
-            },
-            else => {
-                try ctx_.stderr.print("\nUnable to open {s}\n", .{goal_id_path});
-                return err;
-            },
-        };
-        defer goal_id_file.close(ctx_.io);
-
-        var goal_id_buf: [uuid.SLICE_LEN]u8 = undefined;
-        var reader_buf: [uuid.SLICE_LEN]u8 = undefined;
-        var reader = goal_id_file.reader(ctx_.io, &reader_buf);
-        _ = try reader.interface.readSliceAll(&goal_id_buf);
-
-        break :goal_id goal_id_buf;
+    // Project id. An old .goal_id file is renamed to project_id on read.
+    var project_id: [uuid.SLICE_LEN]u8 = undefined;
+    utils.project.readProjectId(ctx_, local_goal_path, &project_id) catch |err| switch (err) {
+        error.FileNotFound => {
+            try ctx_.stderr.writeAll("\ngoal is not initialized in this project. Run `goal init` to get started!\n");
+            return error.GoalNotInitialized;
+        },
+        else => {
+            try ctx_.stderr.print("\nUnable to open {s}/project_id\n", .{local_goal_path});
+            return err;
+        },
     };
 
     if (!opts_.yes) {
@@ -113,7 +101,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
     var config = try Config.load(ctx_);
     defer config.deinit();
 
-    const global_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ config.base_dir, &goal_id });
+    const global_goal_path = try std.Io.Dir.path.join(ctx_.alloc, &.{ config.base_dir, &project_id });
     defer ctx_.alloc.free(global_goal_path);
 
     const has_global_data = has_global_data: {
@@ -163,7 +151,7 @@ pub fn run(ctx_: *const Context, opts_: RunOptions) !void {
 
     // NOTE:
     // We need a `std.Io.Dir` to call `deleteTree` and because we're deleting
-    // the `~/.goal/<goal_id>` directory we can't have it open while we're
+    // the `~/.goal/<project_id>` directory we can't have it open while we're
     // deleting it. It turns out since the `sub_dir` parameter is an absolute
     // path, we can delete it from any directory (including `cwd`).
     std.Io.Dir.cwd().deleteTree(ctx_.io, global_goal_path) catch |err| {
@@ -197,7 +185,7 @@ test "deinit command" {
     try init_cmd.run(&env.ctx);
 
     // Capture goal id before deinit removes it
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     // Reset stdout so init output doesn't pollute our assertions
@@ -241,7 +229,7 @@ test "deinit cancelled at local confirmation" {
     try init_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -268,7 +256,7 @@ test "deinit cancelled at global confirmation" {
     try init_cmd.run(&env.ctx);
 
     // Capture goal id so we can verify global data still exists.
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     env.resetStdout();
@@ -289,7 +277,7 @@ test "goal deinit --yes (non-TTY)" {
 
     try init_cmd.run(&env.ctx);
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     try std.testing.expect(!env.ctx.stdin_is_tty);

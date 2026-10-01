@@ -285,7 +285,7 @@ test "goal list --next (existing queue keeps mtime order)" {
 
     try next_cmd.run(&env.ctx, &.{ first, second, third });
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
@@ -367,7 +367,7 @@ test "goal list --next (missing id in order is skipped)" {
 
     try next_cmd.run(&env.ctx, &.{ first, second, third });
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     const order_path = try std.fmt.allocPrint(env.alloc, ".goal/{s}/n/order", .{goal_id});
     defer env.alloc.free(order_path);
@@ -491,7 +491,7 @@ test "goal list --next (old mark does not change order)" {
 
     try next_cmd.run(&env.ctx, &.{ first, second, third });
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });

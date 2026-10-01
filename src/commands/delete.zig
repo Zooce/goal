@@ -317,7 +317,7 @@ test "goal delete --yes (non-TTY)" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = "throwaway idea" });
     defer env.alloc.free(filename);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
     try std.testing.expect(try env.pathExists(".goal/{s}/l/{s}", .{ project_id, filename }));
 
@@ -367,7 +367,7 @@ test "goal delete (confirm declined)" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = "keep me" });
     defer env.alloc.free(filename);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
@@ -477,7 +477,7 @@ test "goal delete --old --yes" {
     try next_cmd.run(&env.ctx, &.{ old_next, fresh_next });
     try start_cmd.run(&env.ctx, .{ .id = old_active });
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
@@ -530,7 +530,7 @@ test "goal delete --old (no old goals)" {
     const fresh = try new_cmd.run(&env.ctx, .{ .content = "fresh idea" });
     defer env.alloc.free(fresh);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     const argv = [_][*:0]const u8{"--old"};
@@ -556,7 +556,7 @@ test "goal delete --old (old-after 0d)" {
     const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
     defer env.alloc.free(stale);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
@@ -584,7 +584,7 @@ test "goal delete --old without --yes (non-TTY)" {
     const stale = try new_cmd.run(&env.ctx, .{ .content = "stale idea" });
     defer env.alloc.free(stale);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });

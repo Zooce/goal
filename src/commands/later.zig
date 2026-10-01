@@ -153,7 +153,7 @@ test "later command demotes goal from next to later" {
     try later_cmd.run(&env.ctx, filename);
 
     // Verify: goal moved to later/
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     try std.testing.expect(try env.pathExists(".goal/{s}/l/1", .{goal_id}));
 }

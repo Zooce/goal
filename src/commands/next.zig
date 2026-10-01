@@ -194,7 +194,7 @@ test "next command promotes goal from later to next" {
     try next_cmd.run(&env.ctx, &.{filename});
 
     // Verify: goal moved to .goal/<uuid>/n/
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     try std.testing.expect(try env.pathExists(".goal/{s}/n/1", .{goal_id}));
 }
@@ -263,7 +263,7 @@ test "goal next (already next moves to top)" {
     try next_cmd.run(&env.ctx, &.{second});
 
     // Goal still in next/; re-next bumps order instead of failing.
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     try std.testing.expect(try env.pathExists(".goal/{s}/n/{s}", .{ goal_id, first }));
 
@@ -379,7 +379,7 @@ test "goal next (write drops missing ids from order)" {
 
     try next_cmd.run(&env.ctx, &.{ first, second, third });
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     const order_path = try std.fmt.allocPrint(env.alloc, ".goal/{s}/n/order", .{goal_id});
     defer env.alloc.free(order_path);

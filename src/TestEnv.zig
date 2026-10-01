@@ -168,7 +168,7 @@ pub fn deinit(self_: *TestEnv) void {
     self_.alloc.free(self_.tmp_path);
 }
 
-// TODO: readFile is mostly being used to read "proj/.goal/.goal_id" .. env.readGoalId()...
+// TODO: readFile is mostly being used to read "proj/.goal/project_id" .. env.readGoalId()...
 
 /// Read a file from the temporary directory tree.
 ///

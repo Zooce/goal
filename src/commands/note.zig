@@ -342,7 +342,7 @@ test "goal note creates note on active goal" {
         try std.testing.expectEqualStrings("1", note_id);
     }
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     // 2. Note file lives under notes/<goal_id>/<note_id>
@@ -383,7 +383,7 @@ test "goal note multi-line and sequential ids" {
     defer env.alloc.free(n2);
     try std.testing.expectEqualStrings("2", n2);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     const c1 = try env.readFile(".goal/{s}/notes/{s}/1", .{ project_id, goal_id });
@@ -506,7 +506,7 @@ test "run rejects empty content" {
     try std.testing.expectError(error.EmptyNoteTitle, note_cmd.run(&env.ctx, .{ .content = "" }));
     try std.testing.expectError(error.EmptyNoteTitle, note_cmd.run(&env.ctx, .{ .content = "\nbody" }));
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
     try std.testing.expect(!try env.pathExists(".goal/{s}/notes/{s}/1", .{ project_id, goal_id }));
 }
@@ -601,7 +601,7 @@ test "goal note <id> (Next or Later, active unchanged)" {
     defer env.alloc.free(active_id);
     try start_cmd.run(&env.ctx, .{ .id = active_id });
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
 
     env.resetStdout();
@@ -686,7 +686,7 @@ test "goal note <id> --file (Later goal)" {
     defer env.alloc.free(note_id);
     try std.testing.expectEqualStrings("1", note_id);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
     const content = try env.readFile(".goal/{s}/notes/{s}/1", .{ project_id, later_id });
     defer env.alloc.free(content);
@@ -708,7 +708,7 @@ test "goal note <id> (no active goal)" {
     defer env.alloc.free(note_id);
     try std.testing.expectEqualStrings("1", note_id);
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
     const content = try env.readFile(".goal/{s}/notes/{s}/1", .{ project_id, later_id });
     defer env.alloc.free(content);
@@ -732,7 +732,7 @@ test "goal note <missing-id>" {
     );
     try std.testing.expectEqualStrings("\nGoal #999 doesn't exist.\n", env.readStderr());
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
     try std.testing.expect(!try env.pathExists(".goal/{s}/notes/999/1", .{project_id}));
 }
@@ -754,7 +754,7 @@ test "goal note (counts as activity and keeps Next order)" {
 
     try next_cmd.run(&env.ctx, &.{ first, second, third });
 
-    const project_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(project_id);
     const body_before = try env.readFile(".goal/{s}/n/{s}", .{ project_id, first });
     defer env.alloc.free(body_before);

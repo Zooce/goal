@@ -50,7 +50,7 @@ pub fn parseArgs(ctx_: *const Context, iter_: *ArgIter) !Args {
     return Args.run;
 }
 
-/// Initializes a `goal` project by creating local `.goal/` directory and global `~/.goal/<goal_id>/` directory.
+/// Initializes a `goal` project by creating local `.goal/` directory and global `~/.goal/<project_id>/` directory.
 ///
 /// Returns error.GoalAlreadyInitialized if `goal` is already initialized for project.
 pub fn run(ctx_: *const Context) !void {
@@ -96,21 +96,22 @@ test "init command" {
     // 1. Local .goal/ directory was created
     try std.testing.expect(try env.pathExists("proj/.goal/", .{}));
 
-    // 2. .goal_id file exists and contains the goal id
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
-    defer env.alloc.free(goal_id);
-    try std.testing.expectEqual(@as(usize, uuid.SLICE_LEN), goal_id.len);
+    // 2. project_id file exists and is the store directory name. The old name is not written.
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
+    defer env.alloc.free(project_id);
+    try std.testing.expectEqual(@as(usize, uuid.SLICE_LEN), project_id.len);
+    try std.testing.expect(!try env.pathExists("proj/.goal/.goal_id", .{}));
 
     // 3. Base directory structure exists (a/, n/, l/, d/)
-    try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{goal_id}));
-    try std.testing.expect(try env.pathExists(".goal/{s}/n/", .{goal_id}));
-    try std.testing.expect(try env.pathExists(".goal/{s}/l/", .{goal_id}));
-    try std.testing.expect(try env.pathExists(".goal/{s}/d/", .{goal_id}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{project_id}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/n/", .{project_id}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/l/", .{project_id}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/d/", .{project_id}));
 
     // 4. Meta file exists with correct content
     {
         var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
-        const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+        const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{project_id}), .{});
         defer base_dir.close(env.io);
         var meta = try Meta.load(&env.ctx, base_dir);
         defer meta.deinit();
@@ -143,15 +144,40 @@ test "init with custom project name" {
     try init_cmd.run(&env.ctx);
 
     // verify meta uses custom project name, not default "proj"
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
-    defer env.alloc.free(goal_id);
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
+    defer env.alloc.free(project_id);
 
     var path_buf: [uuid.SLICE_LEN + 9]u8 = undefined;
-    const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{goal_id}), .{});
+    const base_dir = try env.tmp_dir.openDir(env.io, try std.fmt.bufPrint(&path_buf, ".goal/{s}", .{project_id}), .{});
     defer base_dir.close(env.io);
 
     var meta = try Meta.load(&env.ctx, base_dir);
     defer meta.deinit();
 
     try std.testing.expectEqualStrings("my-project", meta.project_name);
+}
+
+test "old .goal_id is renamed to project_id" {
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
+    defer env.alloc.free(project_id);
+
+    // Simulate a project created before the rename.
+    var goal_dir = try env.tmp_dir.openDir(env.io, "proj/.goal", .{});
+    defer goal_dir.close(env.io);
+    try std.Io.Dir.rename(goal_dir, "project_id", goal_dir, ".goal_id", env.io);
+
+    // Any open of the project renames the file and keeps the same id.
+    env.resetStdout();
+    try init_cmd.run(&env.ctx);
+
+    const migrated = try env.readFile("proj/.goal/project_id", .{});
+    defer env.alloc.free(migrated);
+    try std.testing.expectEqualStrings(project_id, migrated);
+    try std.testing.expect(!try env.pathExists("proj/.goal/.goal_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/a/", .{project_id}));
 }

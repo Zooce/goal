@@ -299,7 +299,7 @@ test "show prints full raw goal file contents" {
     const filename = try new_cmd.run(&env.ctx, .{ .content = "ship the feature" });
     defer env.alloc.free(filename);
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
 
     const file_contents =

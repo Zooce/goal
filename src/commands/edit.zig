@@ -265,7 +265,7 @@ test "edit with content replaces goal file" {
     env.resetStdout();
     try edit_cmd.run(&env.ctx, .{ .id = filename, .content = body });
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     const written = try env.readFile(".goal/{s}/l/{s}", .{ goal_id, filename });
     defer env.alloc.free(written);
@@ -288,7 +288,7 @@ test "run rejects empty content and blank first-line title" {
     try std.testing.expectError(error.EmptyGoalTitle, edit_cmd.run(&env.ctx, .{ .id = filename, .content = "\nbody" }));
     try std.testing.expectError(error.EmptyGoalTitle, edit_cmd.run(&env.ctx, .{ .id = filename, .content = "   \nbody" }));
 
-    const goal_id = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_id);
     const written = try env.readFile(".goal/{s}/l/{s}", .{ goal_id, filename });
     defer env.alloc.free(written);
@@ -370,7 +370,7 @@ test "goal edit --file (active goal)" {
     env.resetStdout();
     try edit_cmd.run(&env.ctx, .{ .id = null, .content = body });
 
-    const goal_uuid = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_uuid = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_uuid);
     const written = try env.readFile(".goal/{s}/a/{s}", .{ goal_uuid, active_id });
     defer env.alloc.free(written);
@@ -399,7 +399,7 @@ test "goal edit 1 --file x (active goal is 2)" {
     env.resetStdout();
     try edit_cmd.run(&env.ctx, .{ .id = later_id, .content = body });
 
-    const goal_uuid = try env.readFile("proj/.goal/.goal_id", .{});
+    const goal_uuid = try env.readFile("proj/.goal/project_id", .{});
     defer env.alloc.free(goal_uuid);
     const written = try env.readFile(".goal/{s}/l/{s}", .{ goal_uuid, later_id });
     defer env.alloc.free(written);
