@@ -140,7 +140,7 @@ goal status --full         # active goal body and notes
 
 ## Build
 
-Requires [Zig 0.16](https://ziglang.org/download/).
+Requires [Zig 0.17](https://ziglang.org/download/).
 
 ```bash
 zig build

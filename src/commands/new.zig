@@ -330,6 +330,28 @@ test "parseArgs --file (missing file names the path)" {
     try std.testing.expectEqualStrings("\nUnable to open missing.md\n", env.readStderr());
 }
 
+test "goal new (corrupt m file)" {
+    // Meta.load prints zon parse diagnostics when m is not valid ZON.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+
+    const project_id = try env.readFile("proj/.goal/project_id", .{});
+    defer env.alloc.free(project_id);
+
+    var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
+    const m_rel = try std.fmt.bufPrint(&path_buf, ".goal/{s}/m", .{project_id});
+    try env.writeFile(m_rel, "not zon\n");
+
+    try std.testing.expectError(error.ParseZon, new_cmd.run(&env.ctx, .{ .content = "title" }));
+    try std.testing.expectEqualStrings(
+        "\nUnable to parse m file!\nm:1:5: error: expected 'EOF', found 'an identifier'\n",
+        env.readStderr(),
+    );
+}
+
 test "goal new (missing editor names the editor and file)" {
     // Spawn failure names the editor and the goal file it would have opened.
     var env = try TestEnv.init(.{});

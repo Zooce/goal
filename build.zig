@@ -9,7 +9,7 @@ const NamedModule = struct {
 fn namedModule(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     name: []const u8,
     root_path: []const u8,
     imports: []const std.Build.Module.Import,
@@ -74,10 +74,11 @@ pub fn build(b: *std.Build) void {
     // help/main can cross-import; cycles are fine. Each test binary only runs
     // tests from its own root module.
     const cmd_names = [_][]const u8{
-        "help",     "setup",  "init",  "deinit",
-        "list",     "status", "show",  "search", "stop",
-        "complete", "new",    "note",  "edit",   "delete",
-        "start",    "next",   "later", "config",
+        "help",  "setup",    "init",  "deinit",
+        "list",  "status",   "show",  "search",
+        "stop",  "complete", "new",   "note",
+        "edit",  "delete",   "start", "next",
+        "later", "config",
     };
 
     var cmd_mods: [cmd_names.len]*std.Build.Module = undefined;
@@ -121,9 +122,7 @@ pub fn build(b: *std.Build) void {
     const run_cmd = b.addRunArtifact(exe);
     run_step.dependOn(&run_cmd.step);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |cli_args| {
-        run_cmd.addArgs(cli_args);
-    }
+    run_cmd.addPassthruArgs();
 
     // One test binary per module; zig build runs them in parallel.
     const test_step = b.step("test", "Run unit tests (core + each command, in parallel)");

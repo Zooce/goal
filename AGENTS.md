@@ -10,12 +10,12 @@ You may NOT run any Git commands that change anything in the repo at all, unless
 
 ## Platform
 
-Zig v0.16.0: https://ziglang.org/download/0.16.0/release-notes.html
+Zig v0.17.0: https://ziglang.org/download/0.17.0/release-notes.html
 Arch Linux (via Omarchy)
 
 ## Research
 
-Learn Zig: Visit https://ziglang.org/documentation/0.16.0/ or run `zig std` (which will print its URL to stdout)
+Learn Zig: Visit https://ziglang.org/documentation/0.17.0/ or run `zig std` (which will print its URL to stdout)
 
 ## Conventions
 

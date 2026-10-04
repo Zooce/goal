@@ -52,7 +52,7 @@ pub fn defaultBaseDir(ctx_: *const Context) ![]const u8 {
         }
     }
 
-    const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
+    const home_var = if (builtin.target.os.tag == .windows) "USERPROFILE" else "HOME";
     const home = ctx_.environ_map.get(home_var) orelse {
         try ctx_.stderr.print("\n{s} environment variable not set.\n", .{home_var});
         return error.EnvironmentVariableMissing;
@@ -202,7 +202,7 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
 
 fn isEditorAvailable(ctx_: *const Context, editor_: []const u8) bool {
     const result = std.process.run(ctx_.alloc, ctx_.io, .{
-        .argv = &.{ if (builtin.os.tag == .windows) "where" else "which", editor_ },
+        .argv = &.{ if (builtin.target.os.tag == .windows) "where" else "which", editor_ },
     }) catch return false;
     defer {
         ctx_.alloc.free(result.stderr);

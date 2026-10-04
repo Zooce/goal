@@ -193,7 +193,7 @@ fn defaultBaseDir(ctx_: *const Context) ![]const u8 {
     }
 
     // Priority 2: Default to HOME/.goal or USERPROFILE/.goal
-    const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
+    const home_var = if (builtin.target.os.tag == .windows) "USERPROFILE" else "HOME";
     const home_path = try optionalEnvVarOwned(ctx_, home_var) orelse {
         try ctx_.stderr.print("\n{s} environment variable not set.\n", .{home_var});
         return error.EnvironmentVariableMissing;
@@ -238,7 +238,7 @@ fn defaultEditor(ctx_: *const Context) ![]const u8 {
 
 fn isEditorAvailable(ctx_: *const Context, editor_: []const u8) bool {
     const result = std.process.run(ctx_.alloc, ctx_.io, .{
-        .argv = &.{ if (builtin.os.tag == .windows) "where" else "which", editor_ },
+        .argv = &.{ if (builtin.target.os.tag == .windows) "where" else "which", editor_ },
     }) catch return false;
     defer {
         ctx_.alloc.free(result.stderr);
@@ -258,7 +258,7 @@ fn optionalEnvVarOwned(ctx_: *const Context, key_: []const u8) !?[]const u8 {
 
 fn getConfigPath(ctx_: *const Context) ![]const u8 {
     // Priority 1: XDG_CONFIG_HOME/goal/config (Linux/macOS)
-    if (builtin.os.tag != .windows) {
+    if (builtin.target.os.tag != .windows) {
         // FIXME: no need to dupe env var (same for all uses of `optionalEnvVarOwned` I think)
         // if (ctx_.environ_map.get("XDG_CONFIG_HOME")) |xdg_config| { // < this is fine because we alloc again anyway
         if (try optionalEnvVarOwned(ctx_, "XDG_CONFIG_HOME")) |xdg_config| {
@@ -270,7 +270,7 @@ fn getConfigPath(ctx_: *const Context) ![]const u8 {
     }
 
     // Priority 2: APPDATA/goal/config (Windows)
-    if (builtin.os.tag == .windows) {
+    if (builtin.target.os.tag == .windows) {
         if (try optionalEnvVarOwned(ctx_, "APPDATA")) |appdata| {
             defer ctx_.alloc.free(appdata);
             if (appdata.len > 0) {
@@ -280,7 +280,7 @@ fn getConfigPath(ctx_: *const Context) ![]const u8 {
     }
 
     // Fallback: ~/.config/goal/config
-    const home_var = if (builtin.os.tag == .windows) "USERPROFILE" else "HOME";
+    const home_var = if (builtin.target.os.tag == .windows) "USERPROFILE" else "HOME";
     const home = try optionalEnvVarOwned(ctx_, home_var) orelse {
         try ctx_.stderr.print(
             \\

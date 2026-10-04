@@ -260,8 +260,6 @@ pub const Dir = struct {
     /// Set access/modify times so the file sorts under `mtime_desc` as intended.
     /// Pass `.now` to put a file first; pass staggered `.new` timestamps when
     /// several files need distinct order in one pass.
-    /// Uses `setTimestamps` (not `setTimestampsNow`) because Zig 0.16.0's Dir
-    /// `setTimestampsNow` calls the wrong vtable entry.
     pub fn touch(self_: Dir, ctx_: *const Context, name_: []const u8, ts_: std.Io.File.SetTimestamp) !void {
         try self_.dir.setTimestamps(ctx_.io, name_, .{
             .access_timestamp = ts_,

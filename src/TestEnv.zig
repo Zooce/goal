@@ -277,7 +277,7 @@ fn ensureDir(io_: std.Io, path_: []const u8) !void {
 fn createSystemTmpPath(alloc_: std.mem.Allocator, io_: std.Io) ![]u8 {
     // Process environ from the test harness (no libc link required).
     const parent = parent: {
-        if (builtin.os.tag == .windows) {
+        if (builtin.target.os.tag == .windows) {
             // WTF-16 path vars are awkward here; fixed default is enough for tests.
             break :parent "C:\\Windows\\Temp";
         }

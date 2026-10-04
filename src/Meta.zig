@@ -39,11 +39,21 @@ pub fn load(ctx_: *const Context, base_dir_: std.Io.Dir) !Meta {
     };
     defer ctx_.alloc.free(meta_file);
 
-    const m = std.zon.parse.fromSliceAlloc(M, ctx_.alloc, meta_file, null, .{}) catch |err| {
+    var arena_instance: std.heap.ArenaAllocator = .init(ctx_.alloc);
+    defer arena_instance.deinit();
+    var diagnostics: std.zon.parse.Diagnostics = undefined;
+    const m = std.zon.parse.fromSlice(M, .{
+        .gpa = ctx_.alloc,
+        .arena = arena_instance.allocator(),
+        .source = meta_file,
+        .diagnostics = &diagnostics,
+    }) catch |err| {
         try ctx_.stderr.writeAll("\nUnable to parse m file!\n");
+        if (err == error.ParseZon) {
+            try ctx_.stderr.print("{f}", .{diagnostics.fmt("m")});
+        }
         return err;
     };
-    defer std.zon.parse.free(ctx_.alloc, m);
 
     return .{
         .next_id = m.next_id,
