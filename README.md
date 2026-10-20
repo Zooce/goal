@@ -1,7 +1,11 @@
 # goal
 
-A small CLI that keeps you on one goal at a time, and makes it easy to
-write down the rest without leaving the terminal.
+A CLI for tracking local goals, tasks, and ideas. It is not Jira, and it
+is not shared with a team. Use it to break the work you need to do into
+smaller changes that are easy to track.
+
+You work on one active goal. Everything else is Next (ready to start) or
+Later (not yet).
 
 ## Why
 
@@ -12,9 +16,6 @@ Two problems:
 - Ideas, bugs, and other work show up while you are in the middle of
   something. `goal new` writes them down (they start in Later) so you can
   stay on the active goal.
-
-You work on one active goal. Everything else is Next (ready to start) or
-Later (not yet).
 
 ## Install
 
@@ -129,13 +130,19 @@ Non-TTY runs need `--yes` on confirm commands (`complete`, `delete`,
 
 ## Agents
 
-Install the goal skill with the Skills CLI:
+`goal` works well with agents. Tell your agent you want a goal for
+something. Later, ask "what's next?" The agent loads the goal skill and
+checks what is next: it continues the active goal, or asks which Upcoming
+goal to start.
+
+Install the skill with the Skills CLI:
 
 ```bash
 npx skills add Zooce/goal
 npx skills add Zooce/goal@goal
-goal status --full         # active goal body and notes
 ```
+
+`goal status --full` prints the active goal body and notes.
 
 ## Releases
 
