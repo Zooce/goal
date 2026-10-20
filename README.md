@@ -18,14 +18,28 @@ Later (not yet).
 
 ## Install
 
-Linux and macOS, x86_64 and aarch64, from a [GitHub Release](https://github.com/Zooce/goal/releases).
+Linux and macOS, x86_64 and aarch64. No Windows builds.
+
+### mise
+
+```sh
+mise use -g github:Zooce/goal
+```
+
+A specific release. Drop the leading `v` from the tag (`1.0`):
+
+```sh
+mise use -g github:Zooce/goal@1.0
+```
+
+### install.sh
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Zooce/goal/master/install.sh | sh
 ```
 
-The script downloads the binary, checks it against `SHA256SUMS`, and
-copies it to `~/.local/bin`. A different directory:
+The script downloads the archive, checks it against `SHA256SUMS`, and
+copies `bin/goal` to `~/.local/bin`. A different directory:
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Zooce/goal/master/install.sh | GOAL_BIN="$HOME/bin" sh
@@ -49,31 +63,16 @@ Then:
 npx skills add Zooce/goal -g
 ```
 
-### Download
+### From source
 
-Each release has `SHA256SUMS` and one file per machine:
+Requires [Zig 0.17](https://ziglang.org/download/).
 
-- `goal-linux-x86_64`
-- `goal-linux-aarch64`
-- `goal-macos-x86_64`
-- `goal-macos-aarch64`
-
-Tag `v1.0`, Linux x86_64 file `goal-linux-x86_64`. Pick the file for your machine.
-
-```sh
-set -eu
-version=1.0
-asset=goal-linux-x86_64
-mkdir -p ~/.local/bin
-curl -fsSL -o SHA256SUMS \
-  "https://github.com/Zooce/goal/releases/download/v${version}/SHA256SUMS"
-curl -fsSL -o "$asset" \
-  "https://github.com/Zooce/goal/releases/download/v${version}/${asset}"
-grep " ${asset}$" SHA256SUMS | sha256sum -c -
-cp "$asset" ~/.local/bin/goal
-chmod 755 ~/.local/bin/goal
-~/.local/bin/goal --version
+```bash
+zig build
 ```
+
+The binary is `zig-out/bin/goal`. `goal --version` prints `major.minor`
+(zon `1.0.0` prints `goal 1.0`).
 
 ## Quick start
 
@@ -138,24 +137,17 @@ npx skills add Zooce/goal@goal
 goal status --full         # active goal body and notes
 ```
 
-## Build
-
-Requires [Zig 0.17](https://ziglang.org/download/).
-
-```bash
-zig build
-```
-
-The binary is `zig-out/bin/goal`. `goal --version` prints `major.minor`
-(zon `1.0.0` prints `goal 1.0`).
-
 ## Releases
 
 Pushing a git tag `v<major>.<minor>` (zon `1.0.0` is tag `v1.0`)
-publishes a GitHub Release with Linux and macOS binaries (x86_64 and
+publishes a GitHub Release with Linux and macOS tarballs (x86_64 and
 aarch64) and SHA256 checksums. The Linux binaries are musl builds, so
-one file runs on most Linux systems. See [Install](#install) to download
-it.
+one file runs on most Linux systems.
+
+`mise use github:Zooce/goal` installs those tarballs:
+`goal-linux-x86_64.tar.gz`, `goal-linux-aarch64.tar.gz`,
+`goal-macos-x86_64.tar.gz`, and `goal-macos-aarch64.tar.gz`. Each
+archive contains `bin/goal`.
 
 How to cut a release is in [CONTRIBUTING.md](CONTRIBUTING.md).
 

@@ -52,7 +52,7 @@ jobs:
             exit 1
           fi
 
-      - name: Build release binaries
+      - name: Build and pack
         run: |
           # Linux builds are musl so one file runs on glibc and musl systems.
           # macOS has no musl target.
@@ -60,36 +60,41 @@ jobs:
           pack() {
             target="$1"
             asset="$2"
-            stage="$RUNNER_TEMP/stage-$asset"
-            rm -rf "$stage"
+            stage="$RUNNER_TEMP/stage-$target"
+            packdir="$RUNNER_TEMP/pack-$asset"
+            rm -rf "$stage" "$packdir"
             zig build -Doptimize=ReleaseSafe -Dtarget="$target" --prefix "$stage"
-            cp "$stage/bin/goal" "dist/$asset"
-            chmod 755 "dist/$asset"
+            mkdir -p "$packdir/bin"
+            cp "$stage/bin/goal" "$packdir/bin/goal"
+            tar -C "$packdir" -czf "dist/$asset" bin
           }
-          pack x86_64-linux-musl goal-linux-x86_64
-          pack aarch64-linux-musl goal-linux-aarch64
-          pack x86_64-macos goal-macos-x86_64
-          pack aarch64-macos goal-macos-aarch64
+          # mise use github:Zooce/goal matches goal-<linux|macos>-<x86_64|aarch64>.tar.gz.
+          # install.sh uses the same names. Each archive is bin/goal.
+          pack x86_64-linux-musl goal-linux-x86_64.tar.gz
+          pack aarch64-linux-musl goal-linux-aarch64.tar.gz
+          pack x86_64-macos goal-macos-x86_64.tar.gz
+          pack aarch64-macos goal-macos-aarch64.tar.gz
+          cd dist
+          sha256sum \
+            goal-linux-x86_64.tar.gz \
+            goal-linux-aarch64.tar.gz \
+            goal-macos-x86_64.tar.gz \
+            goal-macos-aarch64.tar.gz \
+            > SHA256SUMS
 
       - name: Check Linux x86_64 version
         run: |
           version="${GITHUB_REF_NAME#v}"
-          got=$(./dist/goal-linux-x86_64 --version)
+          unpack="$RUNNER_TEMP/unpack-linux-x86_64"
+          rm -rf "$unpack"
+          mkdir -p "$unpack"
+          tar -C "$unpack" -xzf dist/goal-linux-x86_64.tar.gz
+          got=$("$unpack/bin/goal" --version)
           want="goal $version"
           if [ "$got" != "$want" ]; then
             echo "goal --version was '$got', expected '$want'" >&2
             exit 1
           fi
-
-      - name: Stage checksums
-        run: |
-          cd dist
-          sha256sum \
-            goal-linux-x86_64 \
-            goal-linux-aarch64 \
-            goal-macos-x86_64 \
-            goal-macos-aarch64 \
-            > SHA256SUMS
 
       - name: Create GitHub Release
         env:
@@ -99,8 +104,8 @@ jobs:
           gh release create "$GITHUB_REF_NAME" \
             --title "$GITHUB_REF_NAME" \
             --notes "goal ${version}" \
-            dist/goal-linux-x86_64 \
-            dist/goal-linux-aarch64 \
-            dist/goal-macos-x86_64 \
-            dist/goal-macos-aarch64 \
+            dist/goal-linux-x86_64.tar.gz \
+            dist/goal-linux-aarch64.tar.gz \
+            dist/goal-macos-x86_64.tar.gz \
+            dist/goal-macos-aarch64.tar.gz \
             dist/SHA256SUMS

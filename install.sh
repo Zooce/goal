@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-# Map uname to a GitHub Release binary name.
+# Map uname to a GitHub Release tarball name.
 os=$(uname -s)
 arch=$(uname -m)
 case "$os" in
@@ -20,7 +20,8 @@ aarch64 | arm64) arch=aarch64 ;;
     exit 1
     ;;
 esac
-asset="goal-${os}-${arch}"
+# Same names as the release workflow. mise matches goal-<linux|macos>-<x86_64|aarch64>.tar.gz.
+asset="goal-${os}-${arch}.tar.gz"
 
 bindir="${GOAL_BIN:-$HOME/.local/bin}"
 
@@ -63,14 +64,14 @@ download() {
     fi
 }
 
-# Fetch SHA256SUMS and the matching binary.
+# Fetch SHA256SUMS and the matching archive.
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
 printf '%s\n' "goal: downloading $asset"
 download "$base/SHA256SUMS" "$tmpdir/SHA256SUMS"
 download "$base/$asset" "$tmpdir/$asset"
 
-# Check the binary against the SHA256SUMS line for this asset.
+# Check the archive against the SHA256SUMS line for this asset.
 (
     cd "$tmpdir"
     line=$(grep " ${asset}$" SHA256SUMS) || {
@@ -87,8 +88,10 @@ download "$base/$asset" "$tmpdir/$asset"
     fi
 )
 
+# Unpack and copy bin/goal.
 mkdir -p "$bindir"
-cp "$tmpdir/$asset" "$bindir/goal"
+tar -x -C "$tmpdir" -f "$tmpdir/$asset"
+cp "$tmpdir/bin/goal" "$bindir/goal"
 chmod 755 "$bindir/goal"
 
 printf '%s\n' "goal: installed $bindir/goal"
