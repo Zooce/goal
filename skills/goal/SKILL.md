@@ -1,196 +1,139 @@
 ---
 name: goal
 description: >
-  Use the goal CLI for work context: session start, design / build / review
-  phases, status, start/stop, create goals, break down a problem, review findings, list/show,
-  complete. Use when the project uses goal, at session start/resume, when the
-  user mentions goals/todos/what am I working on, or when designing, decomposing,
-  building, reviewing, starting, or completing work. Prefer goal over inventing
-  a parallel task list.
+  How to run the goal CLI. Maps phrases such as "create a goal for ..."
+  and "what's next?" to commands, and suggests `goal init` when this
+  project is not initialized. Use when the user mentions goal, asks
+  what's next, or asks to list, show, search, create, edit, start,
+  stop, queue, note, complete, or delete a goal.
 ---
 
-# Goal skill
+# Goal
 
-`goal` tracks one piece of work at a time. Use it instead of a second todo list.
+`goal` stores goals on disk: one active goal, an Upcoming queue (Next), and Later. `goal help` and `goal help <command>` print the full flag list.
 
-Prerequisites: `goal` is installed and the project is initialized. If
-`goal list` fails because the project is not initialized, say so and
-ask before running `goal init`.
+This skill is installed, so the goal CLI is installed and the user wants to use it.
 
-## Session start
+## Not initialized
 
-When `goal` is available and the project is initialized:
+This project is not initialized when `.goal/project_id` is missing. Goal commands then fail with `There's no project_id file. Run goal init.` Suggest `goal init` and wait for a yes. `goal init` creates the project store. Then run the command they asked for.
+
+## Phrases
+
+Run the command that matches what they asked. The sections below own flags and command behavior. The title is the rest of their request. When they also give a body, use `--file`.
+
+| They say | Command |
+| --- | --- |
+| create a goal for ..., new goal ..., add a goal ... | `goal new "<title>"` |
+| start a goal for ..., create and start a goal for ... | `goal start new "<title>"` |
+| start goal `<id>`, work on goal `<id>` | `goal start <id>` |
+| what's next? | What's next, below |
+| show goal `<id>` | `goal show <id>` |
+| search goals for ... | `goal search <pattern>` |
+| stop the goal, pause the goal | `goal stop` |
+| stop the goal and backlog it | `goal stop --later` |
+| next goal `<id>`, queue goal `<id>` | `goal next <id>` |
+| later goal `<id>`, backlog goal `<id>` | `goal later <id>` |
+| note on the goal ..., add a goal note ... | `goal note "..."` |
+| edit the goal, change the goal | `goal edit <id> --file <path>` |
+| complete the goal, mark the goal done | `goal complete --yes` |
+| delete goal `<id>` | `goal delete <id> --yes` |
+
+## What's next
+
+When the user asks what's next:
 
 1. Run `goal list`.
-2. If a goal is active, run `goal status --full`. Treat that body as the
-   acceptance criteria.
+2. If a goal is active, run `goal status --full` and continue that goal. The body and notes are the work.
+3. If no goal is active, ask which Upcoming goal to start. Later is the backlog.
 
-## Hard rules
+When they choose an id, run `goal start <id>`, then `goal status --full`, and continue that goal.
 
-1. **Do not invent a second tracker.** Prefer existing goals (`goal start <id>`,
-   `goal list`) over parallel todo lists.
-2. **Non-interactive only.** Always pass explicit goal IDs. Use title args,
-   `--file`, `-q`/`--quiet`, and `--yes` where needed. Do not pipe ids or
-   bodies on stdin. Never rely on TTY pickers or opening an editor.
-   `start`, `next`, `later`, and `delete` do not default to the active goal.
-3. **Do not complete, stop, delete, or start a different goal unless the user
-   asks.** Finishing implementation is not the same as completing the goal.
-   Completing a goal does not start the next one. To switch in the same
-   session, the user must request it (for example "start 118" or "start the
-   next goal").
-4. **Do not run git commands that change the repo unless the user asks.**
-   That includes commit, add, push, reset, and checkout that discards work.
-5. **Only write notes in a review session.**
+## Non-interactive
 
-"proceed" continues the remaining work on the current goal. "approved" accepts
-the change in front of you. Neither completes the current goal nor starts a
-different one.
+Pass ids and content as arguments (`id=$(goal new "title" -q)`, then `goal start "$id"`). An agent is not a TTY.
 
-## Session phase
+- `start`, `next`, `later`, and `delete` require a goal ID. `delete --old` is the form with no id.
+- `show`, `edit`, `note`, and `complete` use the active goal when the id is omitted.
+- `complete` and `delete` need `--yes`.
+- `new` and `note` need a title argument or `--file`. `edit` needs `--file`. Without those, the command opens an editor on a TTY and errors otherwise.
 
-Do not ask whether the work is design, build, or review.
-
-### What's next
-
-When they ask what's next, use the session-start context:
-
-- If a goal is active, continue that goal.
-- If no goal is active, ask which Upcoming goal to start. Later is the backlog.
-
-When they ask where we are, or for status, answer from that context.
-
-### Design, build, or review
-
-When they name a goal, or an active goal is continued:
-
-- They are unsure of its purpose, or they want it reshaped, broken down, or
-  planned: design.
-- They asked to review the work against the goal: review.
-- Otherwise build. The goal body is the work.
-
-Design and review do not implement unless they also asked.
-
-No active goal, and they described new work they have not tied to an existing
-goal: ask whether they want it tracked before creating anything. If they say
-yes, that is design. If they do not, do not create a goal.
-
-### Design
-
-The output of this phase is one or more **buildable** goals. A goal is
-buildable when it has a clearly defined problem, clearly defined input and
-output, clearly defined constraints, and at least a rough idea of the solution.
-The pieces are the goals. Never create a wrapper whose only purpose is to hold
-them.
-
-Do exactly one of:
-
-1. Refine the current goal (`goal edit <id> --file`) when it is already one
-   buildable piece.
-2. Create independent buildable goals (`goal new` / `goal start new`) when
-   the work is more than one piece. Tell the user the new ids. If an existing
-   goal was split, ask what to do with the original (complete, delete, or keep).
-
-### Build
-
-Implement the active goal.
-
-- Do not edit the goal body.
-- If the work will not fit, stop and return to design: break the problem
-  into buildable goals.
-- Fix open review notes. Leave the notes in place.
-
-### Review
-
-Check the work against the goal. The work is usually the git history of the
-current branch against its base branch (or against origin if the current
-branch is `master`).
-
-- If the work does not meet the goal, `goal note` the findings (text or `--file`).
-
-## Command map
-
-### Status and inspection
+## Read
 
 ```bash
-goal status --full          # active goal body and notes
-goal list                   # active, next, and later
-goal show <id>              # full goal file and notes for that id
+goal list                         # Active, Upcoming, Later
+goal list --next                  # Upcoming only; --active, --later, and --old combine
+goal status                       # active goal tag and note titles
+goal status --full                # active goal file and note bodies
+goal show <id>                    # goal file and notes; also finds deleted goals
+goal show --title                 # one field; also --id, --tag, --path, --category
+goal search <pattern>             # regex over Active, Upcoming, and Later; needs rg
+goal search <pattern> --all       # include deleted goals
 ```
 
-### Search
+`goal list` prints sections named `Active Goals`, `Upcoming Goals`, and `Goals for Later`. A goal line is `  <id>. <title>`, plus ` (<N> days)` when the goal is older than old-after (default 60d). An empty section is `  (none)`.
+
+`goal list` rejects `--all`. `goal search --all` is the flag that includes deleted goals. Search with no matches exits 0. `goal status` with no active goal exits 0.
+
+`goal list --old` prints only goals past old-after. It fails when old-after is 0d.
+
+## Create and edit
 
 ```bash
-goal search <pattern>
-goal search <pattern> --all               # include deleted goals
+goal new "title"                  # prints "Goal #<id> - <title>"
+goal new "title" -q               # prints only the id
+goal new --file path.md           # first line is the title; the rest is the body
+goal start new "title"            # create and make it the active goal
+goal start new --file path.md
+goal edit <id> --file path.md     # replace that goal file
 ```
 
-Needs `rg` on PATH.
+A title cannot be a command name (`goal new "new"` is invalid). A title argument and `--file` cannot be combined.
 
-### Start / stop
+`goal new` writes Later and leaves the active goal unchanged.
+
+## Active goal
 
 ```bash
-goal start <id>                    # activate an existing goal (id required)
-goal start new "short title"       # create and start in one step
-goal start new --file path.md      # create from file and start
-goal stop                          # active -> Next
-goal stop --later                  # active -> Later
+goal start <id>
+goal stop                         # active goal becomes first in Upcoming
+goal stop --later                 # active goal moves to Later
 ```
 
-`goal start` fails while another goal is active on this branch, so stop that
-goal before starting the id they named. Then run `goal status --full`.
+`goal start`, including `goal start new`, errors when a goal is already active on this branch: `Goal #<id> is already active on this branch.`
 
-### Create goals
+## Queue
 
 ```bash
-goal new "title of the goal"              # create only (goes to Later)
-goal new "title" -q                       # print only the new id
-goal new --file path.md                   # body from file (first line = title)
-id=$(goal new "title" -q)                 # compose ids via argv / command substitution
-goal start "$id"
+goal next <id>                    # Later -> Upcoming, or move an Upcoming goal to the front
+goal next <id> <id>               # first id ends up first
+goal later <id>                   # Upcoming -> Later
 ```
 
-Do not pass a title that is only a reserved word like `new`. Prefer a clear
-title line; put the acceptance criteria in the body via `--file` if needed.
+`goal next` and `goal later` move Upcoming and Later goals. Move the active goal with `goal stop` or `goal stop --later`.
 
-### Edit the goal (design)
+## Notes
 
-```bash
-goal edit <id> --file path.md             # replace goal file from path
-```
-
-Do not run bare `goal edit` / `goal edit <id>` without `--file` (opens editor).
-
-### Notes
-
-With no goal ID, the note attaches to the active goal (an error if there
-is none). `goal note <id> ...` attaches to that goal (Active, Next, or
-Later) without starting it. A single positional without `--file` is still
-note text on the active goal (`goal note 5` is a note titled "5").
+The first line of a note is the title. The rest is the body. With no id, the note is attached to the active goal, which errors when none is active. An id attaches the note to that goal and leaves the active goal unchanged.
 
 ```bash
-goal note "Missing: X does not meet the goal because Y"
+goal note "Title line"
 goal note <id> --file findings.md
+goal note "Title" -q              # prints only the new note id
 ```
 
-### Complete / delete
+`goal note 5` writes a note titled "5" on the active goal. Pass the id and the text, or the id and `--file`, to attach a note to goal 5.
+
+## Complete and delete
 
 ```bash
-goal complete --yes                       # complete active goal (required non-TTY)
-goal complete <id> --yes                  # complete that goal without starting it
-goal delete <id> --yes                    # delete by id (required non-TTY)
+goal complete --yes               # active goal -> deleted
+goal complete <id> --yes          # that goal -> deleted; active goal unchanged
+goal delete <id> --yes
+goal delete <id> <id> --yes
+goal delete --old --yes           # old Upcoming and Later goals
 ```
 
-`complete` moves the goal to deleted.
+`goal complete` and `goal delete` move the goal file to deleted. Neither activates another goal. `goal complete` with no id errors when no goal is active. `goal delete` refuses the active goal on this branch and any goal that is active on another branch.
 
-Before completing a goal, if this is a git repo, run `git status --porcelain`.
-Treat any path outside `.goal/` as uncommitted project work. If there is any,
-stop and ask whether to commit it first. Do not complete until they answer.
-If they say yes, commit, then complete. If they say no, complete without
-committing those files.
-
-### Queue: next / later
-
-```bash
-goal next <id>                            # Later -> Next, or move a Next goal to the front
-goal later <id>                           # Next -> Later
-```
+`goal delete --old` skips the active goal. It fails when old-after is 0d, or when no Upcoming or Later goal is old enough.
