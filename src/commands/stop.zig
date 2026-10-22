@@ -157,7 +157,7 @@ test "goal stop (first in Next)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  3. gamma
         \\  1. alpha
         \\  2. beta

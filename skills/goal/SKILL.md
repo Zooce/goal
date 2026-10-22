@@ -10,7 +10,7 @@ description: >
 
 # Goal
 
-`goal` stores goals on disk: one active goal, an Upcoming queue (Next), and Later. `goal help` and `goal help <command>` print the full flag list.
+`goal` stores goals on disk: one active goal, a Next queue, and Later. `goal help` and `goal help <command>` print the full flag list.
 
 This skill is installed, so the goal CLI is installed and the user wants to use it.
 
@@ -45,7 +45,7 @@ When the user asks what's next:
 
 1. Run `goal list`.
 2. If a goal is active, run `goal status --full` and continue that goal. The body and notes are the work.
-3. If no goal is active, ask which Upcoming goal to start. Later is the backlog.
+3. If no goal is active, ask which Next goal to start. Later is the backlog.
 
 When they choose an id, run `goal start <id>`, then `goal status --full`, and continue that goal.
 
@@ -61,17 +61,17 @@ Pass ids and content as arguments (`id=$(goal new "title" -q)`, then `goal start
 ## Read
 
 ```bash
-goal list                         # Active, Upcoming, Later
-goal list --next                  # Upcoming only; --active, --later, and --old combine
+goal list                         # Active, Next, Later
+goal list --next                  # Next only; --active, --later, and --old combine
 goal status                       # active goal tag and note titles
 goal status --full                # active goal file and note bodies
 goal show <id>                    # goal file and notes; also finds deleted goals
 goal show --title                 # one field; also --id, --tag, --path, --category
-goal search <pattern>             # regex over Active, Upcoming, and Later; needs rg
+goal search <pattern>             # regex over Active, Next, and Later; needs rg
 goal search <pattern> --all       # include deleted goals
 ```
 
-`goal list` prints sections named `Active Goals`, `Upcoming Goals`, and `Goals for Later`. A goal line is `  <id>. <title>`, plus ` (<N> days)` when the goal is older than old-after (default 60d). An empty section is `  (none)`.
+`goal list` prints sections named `Active Goals`, `Next Goals`, and `Goals for Later`. A goal line is `  <id>. <title>`, plus ` (<N> days)` when the goal is older than old-after (default 60d). An empty section is `  (none)`.
 
 `goal list` rejects `--all`. `goal search --all` is the flag that includes deleted goals. Search with no matches exits 0. `goal status` with no active goal exits 0.
 
@@ -96,7 +96,7 @@ A title cannot be a command name (`goal new "new"` is invalid). A title argument
 
 ```bash
 goal start <id>
-goal stop                         # active goal becomes first in Upcoming
+goal stop                         # active goal becomes first in Next
 goal stop --later                 # active goal moves to Later
 ```
 
@@ -105,12 +105,12 @@ goal stop --later                 # active goal moves to Later
 ## Queue
 
 ```bash
-goal next <id>                    # Later -> Upcoming, or move an Upcoming goal to the front
+goal next <id>                    # Later -> Next, or move a Next goal to the front
 goal next <id> <id>               # first id ends up first
-goal later <id>                   # Upcoming -> Later
+goal later <id>                   # Next -> Later
 ```
 
-`goal next` and `goal later` move Upcoming and Later goals. Move the active goal with `goal stop` or `goal stop --later`.
+`goal next` and `goal later` move Next and Later goals. Move the active goal with `goal stop` or `goal stop --later`.
 
 ## Notes
 
@@ -131,9 +131,9 @@ goal complete --yes               # active goal -> deleted
 goal complete <id> --yes          # that goal -> deleted; active goal unchanged
 goal delete <id> --yes
 goal delete <id> <id> --yes
-goal delete --old --yes           # old Upcoming and Later goals
+goal delete --old --yes           # old Next and Later goals
 ```
 
 `goal complete` and `goal delete` move the goal file to deleted. Neither activates another goal. `goal complete` with no id errors when no goal is active. `goal delete` refuses the active goal on this branch and any goal that is active on another branch.
 
-`goal delete --old` skips the active goal. It fails when old-after is 0d, or when no Upcoming or Later goal is old enough.
+`goal delete --old` skips the active goal. It fails when old-after is 0d, or when no Next or Later goal is old enough.

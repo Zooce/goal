@@ -776,7 +776,7 @@ test "goal note (counts as activity and keeps Next order)" {
     try list_cmd.run(&env.ctx, 1 << 1);
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  2. beta
         \\  3. gamma

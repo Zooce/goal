@@ -387,7 +387,7 @@ test "goal show (no goals, TTY)" {
         \\Active Goals
         \\  (none)
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  (none)
         \\
         \\Goals for Later

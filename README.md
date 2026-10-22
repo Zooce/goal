@@ -132,7 +132,7 @@ Non-TTY runs need `--yes` on confirm commands (`complete`, `delete`,
 
 The goal skill documents the CLI and maps phrases such as "create a goal
 for ..." to commands. When you ask "what's next?", the agent continues
-the active goal, or asks which Upcoming goal to start. If this project
+the active goal, or asks which Next goal to start. If this project
 is not initialized, the agent suggests `goal init`.
 
 Install it with the Skills CLI:

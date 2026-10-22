@@ -393,7 +393,7 @@ test "goal start (Next goal leaves Next order)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  3. gamma
         \\

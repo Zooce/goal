@@ -305,7 +305,7 @@ test "goal next (multiple ids set Next order)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  3. gamma
         \\  2. beta
@@ -338,7 +338,7 @@ test "goal next (multiple ids reorder already Next)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  2. beta
         \\  3. gamma
         \\  1. alpha

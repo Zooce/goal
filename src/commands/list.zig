@@ -169,7 +169,7 @@ test "goal list (no flags shows active, next, and later)" {
         \\Active Goals
         \\  3. current idea
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  2. ready idea
         \\
         \\Goals for Later
@@ -228,7 +228,7 @@ test "goal list --next (most recently put into next first)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  3. gamma
         \\  2. beta
         \\  1. alpha
@@ -261,7 +261,7 @@ test "goal list --next (re-next moves goal to top)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  3. gamma
         \\  2. beta
@@ -303,7 +303,7 @@ test "goal list --next (existing queue keeps mtime order)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  2. beta
         \\  1. alpha
         \\  3. gamma
@@ -342,7 +342,7 @@ test "goal list --next (goal file not in order is last)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  2. beta
         \\  3. gamma
@@ -378,7 +378,7 @@ test "goal list --next (missing id in order is skipped)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  2. beta
         \\  3. gamma
@@ -407,7 +407,7 @@ test "goal list --next (order file is not a goal)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  (none)
         \\
     , env.readStdout());
@@ -506,7 +506,7 @@ test "goal list --next (old mark does not change order)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha (61 days)
         \\  2. beta
         \\  3. gamma
@@ -656,7 +656,7 @@ test "goal list --old (no section flags include Later)" {
         \\Active Goals
         \\  (none)
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  (none)
         \\
         \\Goals for Later
@@ -694,7 +694,7 @@ test "goal list --next --old (does not add Later)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  (none)
         \\
     , env.readStdout());

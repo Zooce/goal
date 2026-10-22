@@ -330,7 +330,7 @@ test "goal edit (no goals, TTY)" {
         \\Active Goals
         \\  (none)
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  (none)
         \\
         \\Goals for Later
@@ -563,7 +563,7 @@ test "goal edit --file (Next order unchanged)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  3. gamma edited
         \\  2. beta

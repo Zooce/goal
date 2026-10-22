@@ -221,7 +221,7 @@ test "goal later (drops id from Next order)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Upcoming Goals
+        \\Next Goals
         \\  1. alpha
         \\  3. gamma
         \\

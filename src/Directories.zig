@@ -107,7 +107,7 @@ pub fn open(ctx_: *const Context, opts_: Options) !Directories {
     // Next list order: explicit id list in `order` (not mtime).
     var next = next: {
         const path = try std.Io.Dir.path.join(ctx_.alloc, &.{ base.path, "n" });
-        var d = try Dir.open(ctx_, path, "Upcoming Goals", opts_);
+        var d = try Dir.open(ctx_, path, "Next Goals", opts_);
         d.list_sort = .order;
         break :next d;
     };
