@@ -113,11 +113,11 @@ pub fn run(ctx_: *const Context, full_: bool) !void {
             }
         }
     } else {
-        try ctx_.stdout.writeAll("\nYou're not working on a goal right now");
+        try ctx_.stdout.writeAll("\nNo active goal. ");
         if (!try dirs.next.isEmpty(ctx_)) {
-            try ctx_.stdout.writeAll(", so why not pick from the Next list?\n");
+            try ctx_.stdout.writeAll("Run `goal list --next`.\n");
         } else {
-            try ctx_.stdout.writeAll(". Run `goal list --later` for inspiration!\n");
+            try ctx_.stdout.writeAll("Run `goal list --later`.\n");
         }
     }
 }
@@ -145,7 +145,7 @@ test "status with no active goal" {
     try status_cmd.run(&env.ctx, false);
     try std.testing.expectEqualStrings(
         \\
-        \\You're not working on a goal right now. Run `goal list --later` for inspiration!
+        \\No active goal. Run `goal list --later`.
         \\
     , env.readStdout());
 
@@ -160,7 +160,7 @@ test "status with no active goal" {
     try status_cmd.run(&env.ctx, false);
     try std.testing.expectEqualStrings(
         \\
-        \\You're not working on a goal right now, so why not pick from the Next list?
+        \\No active goal. Run `goal list --next`.
         \\
     , env.readStdout());
 }

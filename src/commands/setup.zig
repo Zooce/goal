@@ -60,7 +60,7 @@ pub fn run(ctx_: *const Context) !void {
     };
 
     if (!needs_setup) {
-        try ctx_.stdout.writeAll("\nYou're already setup to use `goal`. Enjoy!\n");
+        try ctx_.stdout.writeAll("\n`goal` is already set up.\n");
         return;
     }
 
@@ -80,7 +80,7 @@ pub fn run(ctx_: *const Context) !void {
         }
     }
 
-    try ctx_.stdout.writeAll("\nYou're all set up to use `goal`!\n");
+    try ctx_.stdout.writeAll("\n`goal` is set up.\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -96,7 +96,7 @@ test "goal setup (already setup)" {
 
     // TestEnv already created ~/.goal under the temp root.
     try setup_cmd.run(&env.ctx);
-    try std.testing.expectEqualStrings("\nYou're already setup to use `goal`. Enjoy!\n", env.readStdout());
+    try std.testing.expectEqualStrings("\n`goal` is already set up.\n", env.readStdout());
 }
 
 test "goal setup (creates base dir)" {
@@ -110,7 +110,7 @@ test "goal setup (creates base dir)" {
     try std.testing.expect(try env.pathExists(".goal/", .{}));
     try std.testing.expect(!try env.pathExists(".goal/.git/", .{}));
     try std.testing.expect(!try env.pathExists("xdg/goal/config", .{}));
-    try std.testing.expectEqualStrings("\nYou're all set up to use `goal`!\n", env.readStdout());
+    try std.testing.expectEqualStrings("\n`goal` is set up.\n", env.readStdout());
 }
 
 test "goal setup (existing .git left alone)" {
@@ -121,7 +121,7 @@ test "goal setup (existing .git left alone)" {
     try env.writeFile(".goal/.git/HEAD", "");
     try setup_cmd.run(&env.ctx);
     try std.testing.expect(try env.pathExists(".goal/.git/", .{}));
-    try std.testing.expectEqualStrings("\nYou're already setup to use `goal`. Enjoy!\n", env.readStdout());
+    try std.testing.expectEqualStrings("\n`goal` is already set up.\n", env.readStdout());
 }
 
 test "goal setup (TTY: writes editor)" {
@@ -136,7 +136,7 @@ test "goal setup (TTY: writes editor)" {
     try std.Io.Dir.cwd().deleteTree(env.io, env.base_path);
     try setup_cmd.run(&env.ctx);
 
-    try std.testing.expectEqualStrings("\nYou're all set up to use `goal`!\n", env.readStdout());
+    try std.testing.expectEqualStrings("\n`goal` is set up.\n", env.readStdout());
 
     const global_config = try env.readFile("xdg/goal/config", .{});
     defer env.alloc.free(global_config);

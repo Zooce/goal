@@ -71,11 +71,11 @@ pub fn run(ctx_: *const Context) !void {
     defer ctx_.alloc.free(project_name);
 
     Meta.create(ctx_, dirs.base.dir, project_name) catch |err| switch (err) {
-        error.PathAlreadyExists => return try ctx_.stdout.writeAll("\n`goal` is already initialized in this project. Happy coding!\n"),
+        error.PathAlreadyExists => return try ctx_.stdout.writeAll("\n`goal` is already initialized in this project.\n"),
         else => return err,
     };
 
-    try ctx_.stdout.writeAll("\n`goal` is good to go! Run `goal new` to create your first goal! Happy coding!\n");
+    try ctx_.stdout.writeAll("\n`goal` is initialized. Run `goal new` to create your first goal.\n");
 }
 
 // ---------------------------------------------------------------------------

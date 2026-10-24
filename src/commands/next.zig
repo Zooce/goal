@@ -151,7 +151,7 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8) !void {
             return err;
         };
 
-        try ctx_.stdout.print("\nGoal #{s} - '{s}' is queued up!\n", .{ goal.id, goal.title });
+        try ctx_.stdout.print("\nGoal #{s} is now in Next.\n", .{goal.id});
     } else |later_err| {
         if (later_err != error.FileNotFound) return later_err;
         var next_goal = Goal.init(ctx_, dirs_.next.dir, id_, .{ .quiet = true }) catch |next_err| {
@@ -167,7 +167,7 @@ fn next(ctx_: *const Context, dirs_: Directories, id_: []const u8) !void {
             return next_err;
         };
         defer next_goal.deinit();
-        try ctx_.stdout.print("\nGoal #{s} - '{s}' is now first in Next.\n", .{ next_goal.id, next_goal.title });
+        try ctx_.stdout.print("\nGoal #{s} is now first in Next.\n", .{next_goal.id});
     }
 }
 
@@ -272,7 +272,7 @@ test "goal next (already next moves to top)" {
 
     try std.testing.expectEqualStrings(
         \\
-        \\Goal #1 - 'alpha' is now first in Next.
+        \\Goal #1 is now first in Next.
         \\
     , env.readStdout());
 

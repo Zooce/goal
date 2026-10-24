@@ -231,7 +231,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
             \\
         , .{id});
     } else {
-        try ctx_.stdout.writeAll("\nThat was an awesome edit, dude! Peace out!\n");
+        try ctx_.stdout.print("\nUpdated Goal #{s} - {s}\n", .{ id, after.title });
     }
 }
 

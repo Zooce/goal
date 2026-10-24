@@ -184,7 +184,7 @@ pub fn run(ctx_: *const Context, args_: ?Args) !void {
     try ActiveId.store(ctx_, dirs.local.dir, goal.id);
     // TODO: errdefer ActiveId.clear(dirs.local.dir) catch {}
 
-    try ctx_.stdout.print("\nLet's get to work on #{s} - {s}\n", .{ goal.id, goal.title });
+    try ctx_.stdout.print("\nStarted Goal #{s} - {s}\n", .{ goal.id, goal.title });
 }
 
 // ---------------------------------------------------------------------------

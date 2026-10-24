@@ -123,7 +123,7 @@ pub fn run(ctx_: *const Context, id_: ?[]const u8) !void {
     };
     try dirs.next.removeFromOrder(ctx_, &.{id});
 
-    try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
+    try ctx_.stdout.print("\nGoal #{s} is now in Later.\n", .{goal.id});
 }
 
 // ---------------------------------------------------------------------------

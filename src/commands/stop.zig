@@ -80,9 +80,9 @@ pub fn run(ctx_: *const Context, later_: bool) !void {
         if (!later_) try dirs.next.prependToOrder(ctx_, &.{id});
 
         if (later_) {
-            try ctx_.stdout.print("\nWe'll work on Goal #{s} - '{s}' later.\n", .{ goal.id, goal.title });
+            try ctx_.stdout.print("\nGoal #{s} is now in Later.\n", .{goal.id});
         } else {
-            try ctx_.stdout.print("\nLet's take a break from Goal #{s} - '{s}'.\n", .{ goal.id, goal.title });
+            try ctx_.stdout.print("\nGoal #{s} is now first in Next.\n", .{goal.id});
         }
     } else {
         try ctx_.stdout.writeAll("\nOops... there doesn't seem to be an active goal to stop working on. Bye bye!\n");

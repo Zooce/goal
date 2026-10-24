@@ -257,9 +257,9 @@ pub fn run(ctx_: *const Context, dirs_: Directories, args_: Args) !void {
     if (from_next.items.len > 0) try dirs_.next.removeFromOrder(ctx_, from_next.items);
 
     if (one) {
-        try ctx_.stdout.print("\nGoal #{s} is now closed! I'm so proud of you. You did it!\n", .{places.items[0].id});
+        try ctx_.stdout.print("\nGoal #{s} is now closed.\n", .{places.items[0].id});
     } else {
-        try ctx_.stdout.writeAll("\nAll done! Smell ya later!\n");
+        try ctx_.stdout.writeAll("\nClosed.\n");
     }
 }
 
@@ -438,7 +438,7 @@ test "goal close <id> --yes (Next goal, another is active)" {
 
     // Closed Next goal is deleted; the active goal is unchanged.
     try std.testing.expectEqualStrings(
-        "\nGoal #1 is now closed! I'm so proud of you. You did it!\n",
+        "\nGoal #1 is now closed.\n",
         env.readStdout(),
     );
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, next_id }));
@@ -470,7 +470,7 @@ test "goal close <id> --yes (Later goal, never started)" {
     try close_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     try std.testing.expectEqualStrings(
-        "\nGoal #1 is now closed! I'm so proud of you. You did it!\n",
+        "\nGoal #1 is now closed.\n",
         env.readStdout(),
     );
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, later_id }));
@@ -499,7 +499,7 @@ test "goal close <id> --yes (active goal)" {
     try close_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     try std.testing.expectEqualStrings(
-        "\nGoal #1 is now closed! I'm so proud of you. You did it!\n",
+        "\nGoal #1 is now closed.\n",
         env.readStdout(),
     );
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
@@ -539,7 +539,7 @@ test "goal close <id> <id> --yes (active goal and a Later goal)" {
         \\  2. wrap it up
         \\  1. side work
         \\
-        \\All done! Smell ya later!
+        \\Closed.
         \\
     , env.readStdout());
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
@@ -685,7 +685,7 @@ test "goal close <id> (TTY names the goal)" {
         env.readStderr(),
     );
     try std.testing.expectEqualStrings(
-        "\nGoal #1 is now closed! I'm so proud of you. You did it!\n",
+        "\nGoal #1 is now closed.\n",
         env.readStdout(),
     );
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, later_id }));
@@ -855,7 +855,7 @@ test "goal close --old --yes" {
         \\  3. old next
         \\  1. old later
         \\
-        \\All done! Smell ya later!
+        \\Closed.
         \\
     , env.readStdout());
 
