@@ -8,10 +8,9 @@ const init = @import("init");
 const deinit = @import("deinit");
 const list = @import("list");
 const status = @import("status");
-const complete = @import("complete");
+const close = @import("close");
 const new = @import("new");
 const edit = @import("edit");
-const delete = @import("delete");
 const start = @import("start");
 const stop = @import("stop");
 const config = @import("config");
@@ -47,12 +46,11 @@ pub const help_text =
     \\    show               Print a goal's full file contents.
     \\    search             Search goal contents with a regex (ripgrep).
     \\    stop               Stop working on the active goal.
-    \\    complete           Complete a goal.
+    \\    close              Close a goal.
     \\    next               Promote a goal from Later to Next.
     \\    later              Demote a goal from Next to Later.
     \\    list               List goals.
     \\    edit               Edit a goal.
-    \\    delete             Delete a goal.
     \\    config             Configure `goal`.
     \\
     \\Environment Variables:
@@ -91,11 +89,10 @@ pub fn run(stdout_: *std.Io.Writer, command_: ?Command) !void {
         .list => list.help_text,
         .status => status.help_text,
         .show => show.help_text,
-        .complete => complete.help_text,
+        .close => close.help_text,
         .new => new.help_text,
         .note => note.help_text,
         .edit, .open => edit.help_text,
-        .delete => delete.help_text,
         .start => start.help_text,
         .stop => stop.help_text,
         .config => config.help_text,

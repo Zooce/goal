@@ -5,7 +5,7 @@ description: >
   and "what's next?" to commands, and suggests `goal init` when this
   project is not initialized. Use when the user mentions goal, asks
   what's next, or asks to list, show, search, create, edit, start,
-  stop, queue, note, complete, or delete a goal.
+  stop, queue, note, complete, close, or delete a goal.
 ---
 
 # Goal
@@ -36,8 +36,8 @@ Run the command that matches what they asked. The sections below own flags and c
 | later goal `<id>`, backlog goal `<id>` | `goal later <id>` |
 | note on the goal ..., add a goal note ... | `goal note "..."` |
 | edit the goal, change the goal | `goal edit <id> --file <path>` |
-| complete the goal, mark the goal done | `goal complete --yes` |
-| delete goal `<id>` | `goal delete <id> --yes` |
+| complete the goal, close the goal, delete the goal, mark the goal done | `goal close --yes` |
+| close goal `<id>`, delete goal `<id>` | `goal close <id> --yes` |
 
 ## What's next
 
@@ -49,13 +49,17 @@ When the user asks what's next:
 
 When they choose an id, run `goal start <id>`, then `goal status --full`, and continue that goal.
 
+## When the work is finished
+
+When the work in a goal is finished, tell the user that goal is done. Include the goal ID. Say so in the same turn the work finishes, so they do not have to ask. Close the goal only when they ask.
+
 ## Non-interactive
 
 Pass ids and content as arguments (`id=$(goal new "title" -q)`, then `goal start "$id"`). An agent is not a TTY.
 
-- `start`, `next`, `later`, and `delete` require a goal ID. `delete --old` is the form with no id.
-- `show`, `edit`, `note`, and `complete` use the active goal when the id is omitted.
-- `complete` and `delete` need `--yes`.
+- `start`, `next`, and `later` require a goal ID.
+- `show`, `edit`, `note`, and `close` use the active goal when the id is omitted.
+- `close` needs `--yes`. `close --old` takes no goal ID.
 - `new` and `note` need a title argument or `--file`. `edit` needs `--file`. Without those, the command opens an editor on a TTY and errors otherwise.
 
 ## Read
@@ -124,16 +128,15 @@ goal note "Title" -q              # prints only the new note id
 
 `goal note 5` writes a note titled "5" on the active goal. Pass the id and the text, or the id and `--file`, to attach a note to goal 5.
 
-## Complete and delete
+## Close
 
 ```bash
-goal complete --yes               # active goal -> deleted
-goal complete <id> --yes          # that goal -> deleted; active goal unchanged
-goal delete <id> --yes
-goal delete <id> <id> --yes
-goal delete --old --yes           # old Next and Later goals
+goal close --yes                  # active goal -> deleted
+goal close <id> --yes             # that goal -> deleted; active goal unchanged
+goal close <id> <id> --yes        # each of those goals
+goal close --old --yes            # old Next and Later goals
 ```
 
-`goal complete` and `goal delete` move the goal file to deleted. Neither activates another goal. `goal complete` with no id errors when no goal is active. `goal delete` refuses the active goal on this branch and any goal that is active on another branch.
+`goal close` moves the goal file to deleted. It does not activate another goal. With no id, it closes the active goal and errors when none is active. An id closes that goal, including the active goal on this branch. A goal that is active on another branch cannot be closed.
 
-`goal delete --old` skips the active goal. It fails when old-after is 0d, or when no Next or Later goal is old enough.
+`goal close --old` skips the active goal. It fails when old-after is 0d, or when no Next or Later goal is old enough.

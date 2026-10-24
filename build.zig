@@ -74,11 +74,11 @@ pub fn build(b: *std.Build) void {
     // help/main can cross-import; cycles are fine. Each test binary only runs
     // tests from its own root module.
     const cmd_names = [_][]const u8{
-        "help",  "setup",    "init",  "deinit",
-        "list",  "status",   "show",  "search",
-        "stop",  "complete", "new",   "note",
-        "edit",  "delete",   "start", "next",
-        "later", "config",
+        "help",   "setup",  "init", "deinit",
+        "list",   "status", "show", "search",
+        "stop",   "close",  "new",  "note",
+        "edit",   "start",  "next", "later",
+        "config",
     };
 
     var cmd_mods: [cmd_names.len]*std.Build.Module = undefined;

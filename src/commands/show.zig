@@ -285,7 +285,7 @@ const init_cmd = @import("init");
 const new_cmd = @import("new");
 const next_cmd = @import("next");
 const start_cmd = @import("start");
-const delete_cmd = @import("delete");
+const close_cmd = @import("close");
 const note_cmd = @import("note");
 const show_cmd = @This();
 
@@ -321,7 +321,7 @@ test "show prints full raw goal file contents" {
 }
 
 test "show finds goals in active, next, later, and deleted" {
-    // stdin: init project-name default, then delete confirm
+    // stdin: init project-name default
     var env = try TestEnv.init(.{ .stdin_calls = &.{
         .{ .buffer = "\n" },
         .{ .buffer = "y\n" },
@@ -353,13 +353,13 @@ test "show finds goals in active, next, later, and deleted" {
     try show_cmd.run(&env.ctx, .{ .id = active_id });
     try std.testing.expectEqualStrings("active goal", env.readStdout());
 
-    // deleted (cannot delete the active goal — delete the later one)
+    // deleted (close the Later goal; show still finds it)
     var dirs = try Directories.open(&env.ctx, .{ .iterate = true });
     defer dirs.close();
     var ids: std.ArrayList([]const u8) = .empty;
     defer ids.deinit(env.alloc);
     try ids.append(env.alloc, later_id);
-    try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
+    try close_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     env.resetStdout();
     try show_cmd.run(&env.ctx, .{ .id = later_id });
@@ -593,7 +593,7 @@ test "goal show --category (active next later deleted)" {
     var ids: std.ArrayList([]const u8) = .empty;
     defer ids.deinit(env.alloc);
     try ids.append(env.alloc, later_id);
-    try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
+    try close_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     env.resetStdout();
     try show_cmd.run(&env.ctx, .{

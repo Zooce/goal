@@ -192,8 +192,8 @@ fn rgBodyMatches(ctx_: *const Context, pattern_: []const u8, dir_path_: []const 
 
     const code: u32 = switch (res.term) {
         .exited => |c| c,
-        .signal => |s| @intFromEnum(s),
-        .stopped => |s| @intFromEnum(s),
+        .signal => |s| @backingInt(s),
+        .stopped => |s| @backingInt(s),
         .unknown => std.math.maxInt(u32),
     };
 
@@ -270,7 +270,7 @@ const TestEnv = @import("TestEnv");
 const init_cmd = @import("init");
 const new_cmd = @import("new");
 const next_cmd = @import("next");
-const delete_cmd = @import("delete");
+const close_cmd = @import("close");
 const search_cmd = @This();
 
 test "goal search (title then indented body matches)" {
@@ -418,7 +418,7 @@ test "goal search (deleted excluded unless --all)" {
     var ids: std.ArrayList([]const u8) = .empty;
     defer ids.deinit(env.alloc);
     try ids.append(env.alloc, gone);
-    try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
+    try close_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
     // Default: only the remaining Later goal.
     env.resetStdout();

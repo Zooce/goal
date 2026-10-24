@@ -84,7 +84,7 @@ goal new "fix the picker"
 goal start 1
 goal status
 goal note "repro: empty list"
-goal complete --yes
+goal close --yes
 ```
 
 On a terminal, `goal new` with no title opens your editor. The first line
@@ -102,13 +102,13 @@ goal later 3               # next -> later
 goal next 3                # later -> next (or move next to the front)
 goal edit 3                # open the goal in your editor
 goal search fix            # search goal text (needs ripgrep)
-goal complete --yes        # active goal
-goal complete 3 --yes      # a Next or Later goal
-goal delete 3 --yes
+goal close --yes           # active goal
+goal close 3 --yes         # that goal
+goal close --old --yes     # old Next and Later goals
 ```
 
 There is no parent/child tree. If a goal is too big, create new goals for
-the pieces and complete or delete the original.
+the pieces and close the original.
 
 ## Scripts
 
@@ -121,12 +121,12 @@ goal start "$id"
 title="$(goal show --title)"
 goal new --file notes.md
 goal edit 3 --file notes.md
-goal complete --yes
-goal complete "$id" --yes
+goal close --yes
+goal close "$id" --yes
 ```
 
-Non-TTY runs need `--yes` on confirm commands (`complete`, `delete`,
-`deinit`). Commands that pick a goal need an explicit ID (no picker).
+Non-TTY runs need `--yes` on confirm commands (`close`, `deinit`).
+Commands that pick a goal need an explicit ID (no picker).
 
 ## Agents
 

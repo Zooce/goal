@@ -57,14 +57,14 @@ Use plain ASCII in source, help text, comments, and tests. No special Unicode ch
 When a command accepts an optional goal ID, explicit sources beat defaults:
 
 1. Command-line id
-2. Active goal (when that command’s default is the active goal: `show`, `edit`)
+2. Active goal (when that command's default is the active goal: `show`, `edit`, `close`)
 3. TTY picker, or error when not a TTY
 
 No stdin-as-id. No stdin-as-body for `new` / `edit` — content is a title arg (`new`) or `--file`. Compose IDs with argv / `$()`, not pipes.
 
 TTY checks only apply when the goal ID is still unresolved. Never open a picker when `stdin_is_tty` is false (no hangs).
 
-Do not default `start` / `next` / `later` / `delete` to the active goal.
+Do not default `start` / `next` / `later` to the active goal.
 
 ## Testing
 
@@ -75,12 +75,12 @@ When creating a test, use `TestEnv` and the normal flow a user would to set thin
 In a command module’s tests, always call that command’s `run` / `parseArgs` via a `_cmd` alias — never bare `run(...)` / `parseArgs(...)`:
 
 ```zig
-const delete_cmd = @This();
+const close_cmd = @This();
 const init_cmd = @import("init.zig");
 const new_cmd = @import("new.zig");
 
 // local command under test
-try delete_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
+try close_cmd.run(&env.ctx, dirs, .{ .ids = ids, .yes = true });
 
 // other commands used for setup
 try init_cmd.run(&env.ctx);

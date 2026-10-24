@@ -223,7 +223,7 @@ pub fn run(ctx_: *const Context, args_: Args) !void {
         try ctx_.stdout.print(
             \\
             \\Alright, look... you emptied the file. That's kind of against the rules but I'll
-            \\let it slide and just suggest that you run `goal delete`.
+            \\let it slide and just suggest that you run `goal close`.
             \\
             \\If you did this by accident then hopefully you're tracking the `.goals/`
             \\directory with Git and you can undo it. If not, then run `goal edit {s}` again

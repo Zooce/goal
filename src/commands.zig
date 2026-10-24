@@ -18,14 +18,13 @@ pub const Command = enum {
     status,
     show,
     search,
-    complete,
+    close,
     new,
     note,
 
     edit,
     open,
 
-    delete,
     start,
     stop,
     next,
@@ -107,11 +106,14 @@ test "Command.fromString maps known command names" {
     try std.testing.expectEqual(Command.init, Command.fromString("init").?);
     try std.testing.expectEqual(Command.config, Command.fromString("config").?);
     try std.testing.expectEqual(Command.start, Command.fromString("start").?);
+    try std.testing.expectEqual(Command.close, Command.fromString("close").?);
 }
 
 test "Command.fromString returns null for unknown strings" {
     // install-skill was removed. The Skills CLI installs the skill.
     try std.testing.expect(Command.fromString("install-skill") == null);
+    try std.testing.expect(Command.fromString("complete") == null);
+    try std.testing.expect(Command.fromString("delete") == null);
     try std.testing.expect(Command.fromString("not-a-command") == null);
     try std.testing.expect(Command.fromString("") == null);
     try std.testing.expect(Command.fromString("-help") == null);
