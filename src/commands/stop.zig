@@ -129,6 +129,35 @@ test "goal stop moves active goal to next" {
     try start_cmd.run(&env.ctx, .{ .new = .{ .content = "take a break" } });
     try stop_cmd.run(&env.ctx, false);
 
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
+    try std.testing.expect(try env.pathExists(".goal/{s}/n/1", .{goal_id}));
+    try std.testing.expect(!try env.pathExists(".goal/{s}/a/1", .{goal_id}));
+}
+
+test "goal stop (old .active_id)" {
+    // Stopping still works when the active goal id is in the old .active_id file.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+
+    try init_cmd.run(&env.ctx);
+    const goal_id = try env.readFile("proj/.goal/project_id", .{});
+    defer env.alloc.free(goal_id);
+
+    try start_cmd.run(&env.ctx, .{ .new = .{ .content = "take a break" } });
+
+    var goal_dir = try env.tmp_dir.openDir(env.io, "proj/.goal", .{});
+    defer goal_dir.close(env.io);
+    try std.Io.Dir.rename(goal_dir, "active_id", goal_dir, ".active_id", env.io);
+
+    env.resetStdout();
+    try stop_cmd.run(&env.ctx, false);
+
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 is now first in Next.
+        \\
+    , env.readStdout());
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/n/1", .{goal_id}));
     try std.testing.expect(!try env.pathExists(".goal/{s}/a/1", .{goal_id}));

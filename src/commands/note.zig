@@ -647,7 +647,7 @@ test "goal note <id> (Next or Later, active unchanged)" {
     }
 
     // 4. Active goal and queue placement are unchanged
-    const stored_active = try env.readFile("proj/.goal/.active_id", .{});
+    const stored_active = try env.readFile("proj/.goal/active_id", .{});
     defer env.alloc.free(stored_active);
     try std.testing.expectEqualStrings(active_id, stored_active);
     try std.testing.expect(try env.pathExists(".goal/{s}/a/{s}", .{ project_id, active_id }));
@@ -692,7 +692,7 @@ test "goal note <id> --file (Later goal)" {
     defer env.alloc.free(content);
     try std.testing.expectEqualStrings(body, content);
     try std.testing.expectEqualStrings("\nNote #1 on Goal #1 - from file\n", env.readStdout());
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
 }
 
 test "goal note <id> (no active goal)" {
@@ -714,7 +714,7 @@ test "goal note <id> (no active goal)" {
     defer env.alloc.free(content);
     try std.testing.expectEqualStrings("on later", content);
     try std.testing.expectEqualStrings("\nNote #1 on Goal #1 - on later\n", env.readStdout());
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
 }
 
 test "goal note <missing-id>" {

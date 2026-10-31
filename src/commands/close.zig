@@ -300,7 +300,7 @@ test "goal close (confirm, active goal)" {
     defer dirs.close();
     try close_cmd.run(&env.ctx, dirs, .{});
 
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
 }
 
@@ -325,7 +325,7 @@ test "goal close (confirm declined)" {
     try std.testing.expectError(error.NotConfirmed, close_cmd.run(&env.ctx, dirs, .{}));
 
     try std.testing.expectEqualStrings("\nWell let's keep working on it then!\n", env.readStdout());
-    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));
 }
 
@@ -346,7 +346,7 @@ test "goal close --yes (non-TTY)" {
     try std.testing.expect(!env.ctx.stdin_is_tty);
     try close_cmd.run(&env.ctx, dirs, .{ .yes = true });
 
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
 }
 
@@ -366,7 +366,7 @@ test "goal close leaves project files alone" {
     defer dirs.close();
     try close_cmd.run(&env.ctx, dirs, .{ .yes = true });
 
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/1", .{goal_id}));
     try std.testing.expect(try env.pathExists("proj/file.txt", .{}));
 }
@@ -443,7 +443,7 @@ test "goal close <id> --yes (Next goal, another is active)" {
     );
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, next_id }));
     try std.testing.expect(!try env.pathExists(".goal/{s}/n/{s}", .{ project_id, next_id }));
-    const stored_active = try env.readFile("proj/.goal/.active_id", .{});
+    const stored_active = try env.readFile("proj/.goal/active_id", .{});
     defer env.alloc.free(stored_active);
     try std.testing.expectEqualStrings(active_id, stored_active);
     try std.testing.expect(try env.pathExists(".goal/{s}/a/{s}", .{ project_id, active_id }));
@@ -502,7 +502,7 @@ test "goal close <id> --yes (active goal)" {
         "\nGoal #1 is now closed.\n",
         env.readStdout(),
     );
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, active_id }));
     try std.testing.expect(!try env.pathExists(".goal/{s}/a/{s}", .{ project_id, active_id }));
 }
@@ -542,7 +542,7 @@ test "goal close <id> <id> --yes (active goal and a Later goal)" {
         \\Closed.
         \\
     , env.readStdout());
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, active_id }));
     try std.testing.expect(try env.pathExists(".goal/{s}/d/{s}", .{ project_id, later_id }));
     try std.testing.expect(!try env.pathExists(".goal/{s}/a/{s}", .{ project_id, active_id }));
@@ -606,7 +606,7 @@ test "goal close <id> --yes (already active)" {
     defer env.alloc.free(active_id);
     try start_cmd.run(&env.ctx, .{ .id = active_id });
 
-    // A goal file in Active that is not this project's .active_id.
+    // A goal file in Active that is not this project's active_id.
     var path_buf: [std.Io.Dir.max_path_bytes]u8 = undefined;
     const other_path = try std.fmt.bufPrint(&path_buf, ".goal/{s}/a/99", .{project_id});
     try env.writeFile(other_path, "already active goal\n");
@@ -629,7 +629,7 @@ test "goal close <id> --yes (already active)" {
 
     try std.testing.expect(try env.pathExists(".goal/{s}/a/99", .{project_id}));
     try std.testing.expect(!try env.pathExists(".goal/{s}/d/99", .{project_id}));
-    const stored_active = try env.readFile("proj/.goal/.active_id", .{});
+    const stored_active = try env.readFile("proj/.goal/active_id", .{});
     defer env.alloc.free(stored_active);
     try std.testing.expectEqualStrings(active_id, stored_active);
 }

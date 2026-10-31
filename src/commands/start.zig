@@ -212,19 +212,54 @@ test "start command activates a goal" {
     defer env.alloc.free(goal_id);
 
     // no active id yet
-    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
     try std.testing.expect(!try env.pathExists(".goal/{s}/a/{s}", .{ goal_id, filename }));
 
     // Run: start with goal ID
     const args: Args = .{ .id = filename };
     try start_cmd.run(&env.ctx, args);
 
-    // Verify: goal moved to active/, .active_id file contains goal ID
+    // Verify: goal moved to active/, and the id is in active_id (not the old .active_id).
     try std.testing.expect(try env.pathExists(".goal/{s}/a/{s}", .{ goal_id, filename }));
-    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
-    const active_id = try env.readFile("proj/.goal/.active_id", .{});
+    try std.testing.expect(try env.pathExists("proj/.goal/active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/.active_id", .{}));
+    const active_id = try env.readFile("proj/.goal/active_id", .{});
     defer env.alloc.free(active_id);
     try std.testing.expectEqualStrings(filename, active_id);
+}
+
+test "goal start (old .active_id)" {
+    // An existing .active_id still marks that goal active. Starting another goal fails.
+    var env = try TestEnv.init(.{});
+    defer env.deinit();
+    defer env.resetStderr();
+
+    try init_cmd.run(&env.ctx);
+
+    const filename = try new_cmd.run(&env.ctx, .{ .content = "already going" });
+    defer env.alloc.free(filename);
+    try start_cmd.run(&env.ctx, .{ .id = filename });
+
+    // Simulate a project that still uses the dotted name.
+    var goal_dir = try env.tmp_dir.openDir(env.io, "proj/.goal", .{});
+    defer goal_dir.close(env.io);
+    try std.Io.Dir.rename(goal_dir, "active_id", goal_dir, ".active_id", env.io);
+
+    const other = try new_cmd.run(&env.ctx, .{ .content = "something else" });
+    defer env.alloc.free(other);
+
+    try std.testing.expectError(error.GoalAlreadyActive, start_cmd.run(&env.ctx, .{ .id = other }));
+    try std.testing.expectEqualStrings(
+        \\
+        \\Goal #1 is already active on this branch.
+        \\
+        \\You have to stop that goal first with `goal stop`.
+        \\
+    , env.readStderr());
+
+    // Reading the old file does not rewrite it.
+    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(!try env.pathExists("proj/.goal/active_id", .{}));
 }
 
 test "cannot start goal if one is already started" {
@@ -309,8 +344,8 @@ test "start + new creates a new goal and starts it" {
 
     // verify active goal
     try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));
-    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
-    const active_id = try env.readFile("proj/.goal/.active_id", .{});
+    try std.testing.expect(try env.pathExists("proj/.goal/active_id", .{}));
+    const active_id = try env.readFile("proj/.goal/active_id", .{});
     defer env.alloc.free(active_id);
     try std.testing.expectEqualStrings("1", active_id);
 }
@@ -343,7 +378,7 @@ test "goal start new --file (non-TTY)" {
     defer env.alloc.free(goal_id);
 
     try std.testing.expect(try env.pathExists(".goal/{s}/a/1", .{goal_id}));
-    try std.testing.expect(try env.pathExists("proj/.goal/.active_id", .{}));
+    try std.testing.expect(try env.pathExists("proj/.goal/active_id", .{}));
 
     const body = try env.readFile(".goal/{s}/a/1", .{goal_id});
     defer env.alloc.free(body);
