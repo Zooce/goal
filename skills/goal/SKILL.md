@@ -18,6 +18,8 @@ This skill is installed, so the goal CLI is installed and the user wants to use 
 
 This project is not initialized when `.goal/project_id` is missing. Goal commands then fail with `There's no project_id file. Run goal init.` Suggest `goal init` and wait for a yes. `goal init` creates the project store. Then run the command they asked for.
 
+Suggest adding `.goal/` to `.gitignore`. It is a local store of short-lived tasks and is not meant to be shared with the project.
+
 ## Phrases
 
 Run the command that matches what they asked. The sections below own flags and command behavior. The title is the rest of their request. When they also give a body, use `--file`.

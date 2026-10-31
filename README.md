@@ -87,6 +87,9 @@ goal note "repro: empty list"
 goal close --yes
 ```
 
+Add `.goal/` to `.gitignore`. It is a local store of short-lived tasks
+and is not meant to be shared with the project.
+
 On a terminal, `goal new` with no title opens your editor. The first line
 is the title; the rest is the body.
 

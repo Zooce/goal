@@ -16,6 +16,8 @@ pub const help_text =
     \\Initializes `goal` in this project.
     \\
     \\Goals live under ~/.goal/. A small `.goal/` folder is also created here.
+    \\Add `.goal/` to `.gitignore`. It is a local store of short-lived tasks
+    \\and is not meant to be shared with the project.
     \\
     \\Usage:
     \\
